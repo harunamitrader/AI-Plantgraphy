@@ -1,5 +1,7 @@
 import json
+import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -42,13 +44,18 @@ def analyze_images(image_paths: list[Path]) -> dict:
         return mock_result()
 
     prompt = build_prompt(image_paths)
+    command_parts = shlex.split(settings.gemini_command)
+    executable = shutil.which(command_parts[0]) or command_parts[0]
     command = [
-        *shlex.split(settings.gemini_command),
+        executable,
+        *command_parts[1:],
         "--output-format",
         "text",
         "-p",
         prompt,
     ]
+    if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
+        command = ["cmd", "/c", *command]
     completed = subprocess.run(
         command,
         cwd=PROJECT_DIR,
