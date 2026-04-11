@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from . import db
 from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, get_settings
 from .services.discord_notify import notify_analysis_finished
-from .services.gemini_cli import analyze_images
+from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
 
 ensure_data_dirs()
@@ -191,7 +191,7 @@ def parse_analysis(raw_json: str | None) -> dict:
         value = json.loads(raw_json)
     except json.JSONDecodeError:
         return {}
-    return value if isinstance(value, dict) else {}
+    return normalize_result(value) if isinstance(value, dict) else {}
 
 
 def profile_text(analysis: dict, kind: str) -> str:
@@ -217,10 +217,9 @@ def profile_text(analysis: dict, kind: str) -> str:
 
 
 def percent_label(value: object) -> str:
-    try:
-        return f"{float(value):.0%}"
-    except (TypeError, ValueError):
+    if value is None:
         return "不明"
+    return f"{normalize_confidence(value):.0%}"
 
 
 def short_date(value: str | None) -> str:
