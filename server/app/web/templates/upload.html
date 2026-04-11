@@ -17,9 +17,14 @@
       </div>
 
       <div>
-        <label for="images">写真3枚</label>
-        <input id="images" name="images" type="file" accept="image/*" multiple required>
-        <p class="field-help">同じ植物を別角度から3枚選んでください。カメラで撮る場合は、先に撮影してから写真を選択してください。</p>
+        <span class="form-label">写真3枚</span>
+        <div class="file-actions">
+          <label class="file-action" for="galleryImages">写真から選ぶ</label>
+          <label class="file-action secondary" for="cameraImages">カメラで撮る</label>
+        </div>
+        <input class="visually-hidden" id="galleryImages" name="galleryImages" type="file" accept="image/*" multiple>
+        <input class="visually-hidden" id="cameraImages" name="cameraImages" type="file" accept="image/*" capture="environment" multiple>
+        <p class="field-help">同じ植物を別角度から3枚選んでください。選択中: <span id="selectedCount">0</span>枚</p>
       </div>
 
       <div class="preview-grid" id="previewGrid"></div>
@@ -42,26 +47,41 @@
   <script>
     const form = document.getElementById('uploadForm');
     const apiKeyInput = document.getElementById('apiKey');
-    const imageInput = document.getElementById('images');
+    const galleryInput = document.getElementById('galleryImages');
+    const cameraInput = document.getElementById('cameraImages');
     const previewGrid = document.getElementById('previewGrid');
+    const selectedCount = document.getElementById('selectedCount');
     const statusText = document.getElementById('uploadStatus');
     const uploadButton = document.getElementById('uploadButton');
+    let selectedFiles = [];
 
     apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
 
-    imageInput.addEventListener('change', () => {
+    galleryInput.addEventListener('change', () => {
+      setSelectedFiles(Array.from(galleryInput.files));
+      cameraInput.value = '';
+    });
+
+    cameraInput.addEventListener('change', () => {
+      setSelectedFiles(Array.from(cameraInput.files));
+      galleryInput.value = '';
+    });
+
+    function setSelectedFiles(files) {
+      selectedFiles = files;
+      selectedCount.textContent = selectedFiles.length;
       previewGrid.innerHTML = '';
-      Array.from(imageInput.files).slice(0, 3).forEach((file, index) => {
+      selectedFiles.slice(0, 3).forEach((file, index) => {
         const img = document.createElement('img');
         img.alt = `選択写真 ${index + 1}`;
         img.src = URL.createObjectURL(file);
         previewGrid.appendChild(img);
       });
-    });
+    }
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const files = Array.from(imageInput.files);
+      const files = selectedFiles;
       const apiKey = apiKeyInput.value.trim();
 
       if (!apiKey) {

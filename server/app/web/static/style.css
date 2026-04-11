@@ -492,6 +492,14 @@ pre {
   font-weight: 800;
 }
 
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .upload-form input,
 .upload-form textarea {
   width: 100%;
@@ -512,6 +520,51 @@ pre {
 .upload-form textarea:focus {
   outline: 3px solid rgba(197, 150, 47, 0.28);
   border-color: var(--gold);
+}
+
+.file-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-form .file-action {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--leaf);
+  border-radius: 8px;
+  background: var(--leaf);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.upload-form .file-action.secondary {
+  border-color: var(--gold);
+  background: #fff8e7;
+  color: #7c5a17;
+}
+
+.upload-form .file-action:active {
+  transform: translateY(1px);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .field-help {
@@ -696,6 +749,10 @@ pre {
   }
 
   .action-form {
+    grid-template-columns: 1fr;
+  }
+
+  .file-actions {
     grid-template-columns: 1fr;
   }
 }
