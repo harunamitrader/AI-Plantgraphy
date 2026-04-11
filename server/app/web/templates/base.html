@@ -3,7 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
     <title>{% block title %}Plant Dex{% endblock %}</title>
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <link rel="icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
@@ -21,5 +25,6 @@
     <main class="page">
       {% block content %}{% endblock %}
     </main>
+    <script src="/static/app.js" defer></script>
   </body>
 </html>
