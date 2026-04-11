@@ -170,7 +170,8 @@ def present_observation(row) -> dict:
         media_url(item.get("image3_path")),
     ]
     item["analysis"] = parse_analysis(item.get("raw_result_json"))
-    item["analysis"]["plant_profile_display"] = plant_profile_text(item["analysis"])
+    item["analysis"]["basic_profile_display"] = profile_text(item["analysis"], "basic")
+    item["analysis"]["visual_appeal_display"] = profile_text(item["analysis"], "visual")
     item["display_name"] = item["analysis"].get("common_name_ja") or item.get("plant_name") or "解析待ち"
     item["confidence_percent"] = percent_label(item.get("confidence") or item["analysis"].get("confidence"))
     item["status_label"] = status_label(item.get("status"))
@@ -188,18 +189,24 @@ def parse_analysis(raw_json: str | None) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def plant_profile_text(analysis: dict) -> str:
-    text = analysis.get("plant_profile_text")
+def profile_text(analysis: dict, kind: str) -> str:
+    if kind == "visual":
+        text = analysis.get("visual_appeal_text")
+        fallback = "見た目の特徴と魅力はまだありません。"
+    else:
+        text = analysis.get("basic_profile_text") or analysis.get("plant_profile_text")
+        fallback = "基本的な特徴はまだありません。"
+
     if isinstance(text, str) and text.strip():
         return text.strip()
 
     legacy_profile = analysis.get("plant_profile")
-    if isinstance(legacy_profile, dict):
+    if kind == "basic" and isinstance(legacy_profile, dict):
         overview = legacy_profile.get("overview")
         if isinstance(overview, str) and overview.strip():
             return overview.strip()
 
-    return "基本特徴はまだありません。"
+    return fallback
 
 
 def percent_label(value: object) -> str:
