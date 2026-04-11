@@ -33,6 +33,12 @@ JSONスキーマ:
     }
   ],
   "visible_features": ["見えている特徴"],
+  "plant_profile": {
+    "overview": "この植物の基本的な特徴",
+    "flowering_season": "開花時期またはnull",
+    "growth_habit": "樹形・草姿・生育タイプ",
+    "typical_size": "一般的な大きさまたはnull"
+  },
   "care_notes": "手入れや観察メモ",
   "uncertainty_notes": "不確実な点"
 }
@@ -179,6 +185,12 @@ def mock_result() -> dict:
             }
         ],
         "visible_features": [],
+        "plant_profile": {
+            "overview": "Gemini CLIを有効化すると、解析された植物の基本特徴が入ります。",
+            "flowering_season": None,
+            "growth_habit": None,
+            "typical_size": None,
+        },
         "care_notes": "Gemini CLIを有効化すると実画像の解析結果に置き換えられます。",
         "uncertainty_notes": "これは動作確認用の仮データです。",
     }

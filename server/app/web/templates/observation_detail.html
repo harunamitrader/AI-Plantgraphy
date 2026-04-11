@@ -72,6 +72,17 @@
 
     <section class="insight-grid">
       <div class="panel">
+        <p class="eyebrow">Profile</p>
+        <h2>基本的な特徴</h2>
+        {% set profile = observation.analysis.plant_profile or {} %}
+        <p>{{ profile.overview or "基本特徴はまだありません。" }}</p>
+        <div class="mini-facts">
+          <div><span>開花時期</span><strong>{{ profile.flowering_season or "不明" }}</strong></div>
+          <div><span>生育タイプ</span><strong>{{ profile.growth_habit or "不明" }}</strong></div>
+          <div><span>大きさ</span><strong>{{ profile.typical_size or "不明" }}</strong></div>
+        </div>
+      </div>
+      <div class="panel">
         <p class="eyebrow">Features</p>
         <h2>見えている特徴</h2>
         <ul class="tag-list">

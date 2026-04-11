@@ -378,8 +378,32 @@ h3 {
 
 .insight-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
+}
+
+.mini-facts {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mini-facts div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.mini-facts span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mini-facts strong {
+  font-size: 14px;
 }
 
 .tag-list {
