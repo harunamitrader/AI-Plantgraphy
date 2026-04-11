@@ -20,12 +20,14 @@
 
 - 仕様書: `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\docs\SPECIFICATION.md`
 - 実装計画書: `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\docs\IMPLEMENTATION_PLAN.md`
+- Tailscale実装計画: `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\docs\TAILSCALE_IMPLEMENTATION_PLAN.md`
+- Tailscaleセットアップ手順: `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\docs\TAILSCALE_SETUP.md`
 
 ## 初期方針
 
-- Androidアプリは OPPO Reno11 A / ColorOS 15 / Android 15 を初期対象にする
+- スマホWeb/PWAは OPPO Reno11 A / ColorOS 15 / Android 15 を初期確認対象にする
 - PC側は Windows 11 Pro で FastAPI + SQLite + Gemini CLI を動かす
-- 外出先からの送信は Cloudflare Tunnel 経由を想定する
+- 外出先からの送信は Tailscale 経由を標準とする
 - Discordは主処理ではなく、解析完了通知として使う
 
 ## PCサーバーの起動
@@ -74,6 +76,13 @@ http://<PCのローカルIP>:8000/upload
 ```
 
 アップロード画面では、既存写真を選ぶ場合は `写真から選ぶ`、その場で撮る場合は `カメラで撮る` を使います。
+
+外出先で使う場合は、PCとスマホの両方でTailscaleにログインし、Plant Dexの接続ページに表示されるTailscale URLまたはQRコードを使います。
+
+```text
+http://<PCのTailscale IP>:8000/
+http://<PCのTailscale IP>:8000/upload
+```
 
 ## バックアップ
 

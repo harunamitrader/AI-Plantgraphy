@@ -2,9 +2,9 @@
 
 ## 1. 方針
 
-Plant Dex は、最初からスマホアプリ・PCサーバー・AI解析・図鑑UIをすべて完成させるのではなく、PC側MVPを先に作り、動作確認後にAndroidアプリを追加する。
+Plant Dex は、最初からネイティブアプリ・PCサーバー・AI解析・図鑑UIをすべて完成させるのではなく、PC側Web/PWA MVPを先に作り、外出先接続はTailscaleに一本化する。
 
-理由は、植物解析と保存・統合ロジックが中核であり、ここが安定すればスマホアプリは「写真3枚を送るUI」としてシンプルに作れるためである。
+理由は、植物解析と保存・統合ロジックが中核であり、Web/PWAならAndroid/iPhoneの両方から利用でき、非エンジニアにも配布しやすいためである。
 
 ## 2. 開発順序
 
@@ -14,8 +14,8 @@ flowchart TD
   B --> C["Phase 2<br/>Gemini CLI解析"]
   C --> D["Phase 3<br/>DB保存と植物統合"]
   D --> E["Phase 4<br/>Web図鑑"]
-  E --> F["Phase 5<br/>Cloudflare Tunnel"]
-  F --> G["Phase 6<br/>Androidアプリ"]
+  E --> F["Phase 5<br/>Tailscale接続ガイド"]
+  F --> G["Phase 6<br/>PWA化"]
   G --> H["Phase 7<br/>Discord通知と運用改善"]
 ```
 
@@ -32,7 +32,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 - 仮想環境を作成する
 - FastAPI関連パッケージを入れる
 - Gemini CLIがWindows上で利用できることを確認する
-- Cloudflare Tunnelの導入方針を確認する
+- Tailscaleの導入方針を確認する
 
 ### 成果物
 
@@ -180,61 +180,61 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 - 画像が崩れず表示される
 - 植物詳細から観察履歴を追える
 
-## 8. Phase 5: Cloudflare Tunnel
+## 8. Phase 5: Tailscale接続ガイド
 
 ### 目的
 
-外出先のスマホから自宅PCのAPIとWeb図鑑にアクセスできるようにする。
+外出先のスマホからTailscale経由で自宅PCのAPIとWeb図鑑にアクセスできるようにする。
 
 ### 作業
 
-- Cloudflare TunnelをWindowsに導入する
-- FastAPIのローカルポートをTunnelで公開する
-- 公開URLを決める
-- APIキー認証が有効であることを確認する
-- 必要に応じてCloudflare Accessを設定する
+- Tailscale IPを検出するサービスを作る
+- ローカルWi-Fi URLとTailscale URLを生成する
+- `/connect` に接続ガイドを作る
+- `/api/connectivity` に診断情報を返す
+- アップロード画面と図鑑トップのQRコードを表示する
+- 起動ショートカットから `/connect` を開く
+- APIキー初期値の場合に警告する
 
 ### 成果物
 
-- Cloudflare Tunnel設定
-- スマホからアクセスできるHTTPS URL
+- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\connectivity.py`
+- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\qr_code.py`
+- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\templates\connect.html`
+- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\docs\TAILSCALE_SETUP.md`
 
 ### 確認項目
 
-- モバイル回線からWeb図鑑が開ける
-- モバイル回線から画像3枚をPOSTできる
+- PC画面でTailscale用QRコードが表示される
+- モバイル回線 + Tailscale ONのスマホからWeb図鑑が開ける
+- モバイル回線 + Tailscale ONのスマホから画像3枚をPOSTできる
 - APIキーなしのPOSTが拒否される
 - 自宅PC再起動後の復旧手順が分かる
 
-## 9. Phase 6: Androidアプリ
+## 9. Phase 6: PWA化
 
 ### 目的
 
-OPPO Reno11 A で写真3枚を撮影し、PCサーバーへ送信できる専用アプリを作る。
+スマホのホーム画面からアプリのようにPlant Dexを起動できるようにする。
 
 ### 作業
 
-- Flutterプロジェクトを作る
-- Android 15向けの権限設定を行う
-- カメラ撮影UIを作る
-- 3枚のプレビューと撮り直しを実装する
-- メモ入力を実装する
-- 画像アップロードを実装する
-- APIキーと送信先URLを設定できるようにする
-- 送信成功後にWeb図鑑を開けるようにする
+- Web App Manifestを追加する
+- アイコンを追加する
+- スマホ向け表示名を決める
+- ホーム画面追加の案内を `/connect` に表示する
+- 必要に応じてService Workerを追加する
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\mobile\plant_dex_app`
+- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\static\manifest.webmanifest`
+- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\static\icons\`
 
 ### 確認項目
 
-- OPPO Reno11 A にデバッグインストールできる
-- 写真3枚を撮影できる
-- 撮り直しできる
-- 自宅Wi-Fiで送信できる
-- モバイル回線で送信できる
-- 送信後にWeb図鑑を開ける
+- OPPO Reno11 A のホーム画面に追加できる
+- ホーム画面から起動できる
+- Tailscale ONのモバイル回線でアップロードできる
 
 ## 10. Phase 7: Discord通知と運用改善
 
@@ -294,10 +294,10 @@ OPPO Reno11 A で写真3枚を撮影し、PCサーバーへ送信できる専用
 | --- | --- | --- |
 | Gemini CLIの出力が揺れる | JSON以外の文章が混ざる | プロンプト固定、JSON抽出、失敗時保存 |
 | 植物名の揺れ | アジサイ、紫陽花、Hydrangea など | 学名優先、手動修正を用意 |
-| 自宅PC停止 | 外出先から送れない | スマホ側に再送機能を用意 |
-| Tunnel URL変更 | アプリ送信先が無効になる | 設定画面でURL変更可能にする |
+| 自宅PC停止 | 外出先から送れない | 接続ページにPC起動・スリープ設定の注意を表示 |
+| Tailscale未接続 | 外出先から送れない | `/connect` にTailscale状態と手順を表示 |
 | 画像サイズ過大 | 通信や解析が遅い | スマホ側で圧縮、PC側で上限設定 |
-| Web図鑑の外部閲覧 | 自宅情報が見える可能性 | APIキー、Cloudflare Access、位置情報非表示 |
+| Web図鑑の外部閲覧 | 自宅情報が見える可能性 | Tailscale経由を標準にし、一般公開しない |
 
 ## 13. 初期MVPのタスク一覧
 
@@ -316,16 +316,17 @@ OPPO Reno11 A で写真3枚を撮影し、PCサーバーへ送信できる専用
 
 - 解析失敗時の再解析
 - Discord通知
-- Androidアプリからの撮影・送信
-- Cloudflare Tunnel公開
+- Tailscale接続ガイド
+- QRコード表示
+- PWA化
 
 ### Could
 
 - 位置情報
-- アプリ内図鑑
+- ネイティブアプリ
 - 手動統合UI
 - 成長記録タイムライン
-- GitHub PagesやCloudflare Pagesへの静的出力
+- 静的エクスポート
 
 ## 14. 推奨マイルストーン
 
@@ -344,16 +345,17 @@ OPPO Reno11 A で写真3枚を撮影し、PCサーバーへ送信できる専用
 
 - Web図鑑をスマホ向けに調整
 - 同一LAN内でOPPO Reno11 Aから閲覧
-- Cloudflare Tunnelで外部閲覧
+- Tailscaleで外部閲覧
 
-### Milestone 3: Android撮影アプリ
+### Milestone 3: Tailscale/PWA対応
 
 期間目安: 2日から4日
 
-- Flutterで撮影UI
-- 3枚アップロード
-- 送信状態表示
-- 図鑑を開く導線
+- `/connect` の接続ガイド
+- Tailscale URL検出
+- QRコード表示
+- Web App Manifest
+- ホーム画面追加案内
 
 ### Milestone 4: 運用改善
 
@@ -389,6 +391,6 @@ GET  /observations/{id}
 7. SQLite保存をつなぐ
 8. Web図鑑を作る
 9. OPPO Reno11 A のブラウザで確認する
-10. Flutterアプリ作成へ進む
+10. Tailscale接続ガイドとPWA化へ進む
 
 
