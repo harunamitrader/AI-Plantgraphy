@@ -143,6 +143,20 @@ def get_observation(observation_id: str) -> sqlite3.Row | None:
         ).fetchone()
 
 
+def delete_observation(observation_id: str) -> sqlite3.Row | None:
+    observation = get_observation(observation_id)
+    if observation is None:
+        return None
+
+    plant_id = observation["plant_id"]
+    with connect() as conn:
+        conn.execute("DELETE FROM observations WHERE id = ?", (observation_id,))
+
+    if plant_id:
+        refresh_plant_summary(plant_id)
+    return observation
+
+
 def find_or_create_plant(
     result: dict,
     representative_image_path: str,

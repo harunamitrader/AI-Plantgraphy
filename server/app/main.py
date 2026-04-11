@@ -12,6 +12,7 @@ from .services.discord_notify import notify_analysis_finished
 from .services.export_store import create_export_zip
 from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
+from .services.observation_cleanup import remove_observation_images
 
 ensure_data_dirs()
 
@@ -179,6 +180,15 @@ def correct_observation(
     except ValueError:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。") from None
     return {"status": "corrected", "observation_id": observation_id, "plant_id": plant_id}
+
+
+@app.delete("/api/observations/{observation_id}", dependencies=[Depends(require_api_key)])
+def delete_observation(observation_id: str) -> dict:
+    observation = db.delete_observation(observation_id)
+    if observation is None:
+        raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
+    remove_observation_images(observation["image1_path"])
+    return {"status": "deleted", "observation_id": observation_id}
 
 
 @app.get("/review", response_class=HTMLResponse)
