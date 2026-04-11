@@ -44,7 +44,7 @@ def analyze_images(image_paths: list[Path]) -> dict:
         return mock_result()
 
     prompt = build_prompt(image_paths)
-    command_parts = shlex.split(settings.gemini_command)
+    command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
     executable = shutil.which(command_parts[0]) or command_parts[0]
     command = [
         executable,
