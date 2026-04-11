@@ -55,47 +55,65 @@ def analyze_images(image_paths: list[Path]) -> dict:
     with tempfile.TemporaryDirectory(prefix="plant-dex-gemini-") as temp_dir:
         readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
         prompt = build_prompt(readable_paths)
-        command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
-        executable = shutil.which(command_parts[0]) or command_parts[0]
-        
-        # Add image attachments using the '@' prefix
         image_args = [f"@{path.absolute()}" for path in readable_paths]
-        
-        command = [
-            executable,
-            *command_parts[1:],
-            "--include-directories",
-            str(Path(temp_dir)),
-            "--output-format",
-            "text",
-            "-p",
+        output = run_gemini_prompt(
             prompt,
-            *image_args,
-        ]
-        if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
-            command = ["cmd", "/c", *command]
-        completed = subprocess.run(
-            command,
-            cwd=PROJECT_DIR,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=settings.gemini_timeout_seconds,
-            check=False,
+            extra_args=[
+                "--include-directories",
+                str(Path(temp_dir)),
+            ],
+            trailing_args=image_args,
         )
+
+    try:
+        result = normalize_result(parse_json_output(output))
+    except JSONDecodeError as exc:
+        preview = output[:1200] if output else "Gemini CLI returned empty output."
+        raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
+
+    return ensure_profile_texts(result)
+
+
+def run_gemini_prompt(
+    prompt: str,
+    extra_args: list[str] | None = None,
+    trailing_args: list[str] | None = None,
+    use_yolo: bool = True,
+) -> str:
+    settings = get_settings()
+    command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
+    if not use_yolo:
+        command_parts = [part for part in command_parts if part not in {"--yolo", "-y"}]
+    executable = shutil.which(command_parts[0]) or command_parts[0]
+    command = [
+        executable,
+        *command_parts[1:],
+        *(extra_args or []),
+        "--output-format",
+        "text",
+        "-p",
+        prompt,
+        *(trailing_args or []),
+    ]
+    if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
+        command = ["cmd", "/c", *command]
+
+    completed = subprocess.run(
+        command,
+        cwd=PROJECT_DIR,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=settings.gemini_timeout_seconds,
+        check=False,
+    )
     if completed.returncode != 0:
         stdout = (completed.stdout or "").strip()
         stderr = (completed.stderr or "").strip()
         detail = stderr or stdout or "Gemini CLIの実行に失敗しました。"
         raise RuntimeError(f"Gemini CLI failed with code {completed.returncode}: {detail}")
-
-    try:
-        return normalize_result(parse_json_output(completed.stdout or ""))
-    except JSONDecodeError as exc:
-        output = (completed.stdout or completed.stderr or "").strip()
-        preview = output[:1200] if output else "Gemini CLI returned empty output."
-        raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
+    return completed.stdout or ""
 
 
 def build_prompt(image_paths: list[Path]) -> str:
@@ -103,6 +121,31 @@ def build_prompt(image_paths: list[Path]) -> str:
 
 上記添付された3枚の画像ファイルを読み取り、同一植物の観察として解析してください。
 """
+
+
+def ensure_profile_texts(result: dict) -> dict:
+    if result.get("basic_profile_text") and result.get("visual_appeal_text"):
+        return result
+
+    name = result.get("common_name_ja") or "不明な植物"
+    scientific_name = result.get("scientific_name") or "不明"
+    prompt = (
+        f"{name}（{scientific_name}）について、JSONのみで返答してください: "
+        '{"basic_profile_text":"120字以内の図鑑的特徴",'
+        '"visual_appeal_text":"120字以内の見た目の魅力"}'
+    )
+    try:
+        profile = normalize_result(parse_json_output(run_gemini_prompt(prompt, use_yolo=False)))
+    except Exception:
+        return result
+
+    if not profile.get("basic_profile_text") and profile.get("description"):
+        profile["basic_profile_text"] = truncate_text(str(profile["description"]), 120)
+    if not result.get("basic_profile_text") and profile.get("basic_profile_text"):
+        result["basic_profile_text"] = profile["basic_profile_text"]
+    if not result.get("visual_appeal_text") and profile.get("visual_appeal_text"):
+        result["visual_appeal_text"] = profile["visual_appeal_text"]
+    return result
 
 
 
