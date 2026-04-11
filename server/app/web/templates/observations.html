@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}観察記録 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="dashboard upload-hero">
+    <div>
+      <p class="eyebrow">Observation log</p>
+      <h1>観察記録</h1>
+      <p>撮影した写真を時系列で見返します。名前、学名、場所、メモで探せます。</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Records</p>
+        <h2>すべての観察</h2>
+      </div>
+      <span id="recordCount">{{ observations | length }} 件</span>
+    </div>
+
+    {% if observations %}
+      <div class="inventory-tools">
+        <label for="recordSearch">観察記録を探す</label>
+        <input id="recordSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、場所、メモで検索">
+      </div>
+
+      <div class="record-list" id="recordList">
+        {% for observation in observations %}
+          <a
+            class="record-card"
+            href="/observations/{{ observation.id }}"
+            data-search-text="{{ (observation.display_name ~ ' ' ~ (observation.analysis.scientific_name or '') ~ ' ' ~ (observation.note or '') ~ ' ' ~ (observation.location_label or '') ~ ' ' ~ observation.status_label) | lower }}"
+          >
+            {% if observation.image_urls[0] %}
+              <img src="{{ observation.image_urls[0] }}" alt="{{ observation.display_name }}">
+            {% endif %}
+            <div>
+              <span class="status-pill">{{ observation.status_label }}</span>
+              <h3>{{ observation.display_name }}</h3>
+              <p>{{ observation.analysis.scientific_name or "学名未確定" }}</p>
+              <small>{{ observation.observed_label }} / 信頼度 {{ observation.confidence_percent }}</small>
+              {% if observation.location_label or observation.note %}
+                <small>{{ observation.location_label or "場所未入力" }} / {{ observation.note or "メモなし" }}</small>
+              {% endif %}
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+      <p class="empty filter-empty" id="recordEmpty" hidden>一致する観察記録はありません。</p>
+    {% else %}
+      <p class="empty">観察記録はまだありません。</p>
+    {% endif %}
+  </section>
+
+  {% if observations %}
+    <script>
+      const recordSearch = document.getElementById('recordSearch');
+      const recordCards = Array.from(document.querySelectorAll('.record-card'));
+      const recordCount = document.getElementById('recordCount');
+      const recordEmpty = document.getElementById('recordEmpty');
+      const totalRecords = recordCards.length;
+
+      recordSearch.addEventListener('input', () => {
+        const terms = recordSearch.value
+          .trim()
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(Boolean);
+        let visibleCount = 0;
+
+        recordCards.forEach((card) => {
+          const text = card.dataset.searchText || '';
+          const isVisible = terms.every((term) => text.includes(term));
+          card.hidden = !isVisible;
+          if (isVisible) {
+            visibleCount += 1;
+          }
+        });
+
+        recordCount.textContent = terms.length ? `${visibleCount} / ${totalRecords} 件` : `${totalRecords} 件`;
+        recordEmpty.hidden = visibleCount !== 0;
+      });
+    </script>
+  {% endif %}
+{% endblock %}

@@ -143,7 +143,14 @@ def get_observation(observation_id: str) -> sqlite3.Row | None:
         ).fetchone()
 
 
-def find_or_create_plant(result: dict, representative_image_path: str, observed_at: str | None) -> str:
+def find_or_create_plant(
+    result: dict,
+    representative_image_path: str,
+    observed_at: str | None,
+    *,
+    increment_count: bool = True,
+    user_corrected: bool = False,
+) -> str:
     common_name = clean_text(result.get("common_name_ja"))
     scientific_name = clean_text(result.get("scientific_name"))
     display_name = common_name or scientific_name or "未確定の植物"
@@ -165,18 +172,36 @@ def find_or_create_plant(result: dict, representative_image_path: str, observed_
 
         if row is not None:
             plant_id = row["id"]
+            count_delta = 1 if increment_count else 0
+            corrected_value = 1 if user_corrected else row["user_corrected"]
             conn.execute(
                 """
                 UPDATE plants
-                SET display_name = COALESCE(NULLIF(display_name, '未確定の植物'), ?),
-                    common_name_ja = COALESCE(common_name_ja, ?),
-                    scientific_name = COALESCE(scientific_name, ?),
+                SET display_name = CASE WHEN ? = 1 THEN ? ELSE COALESCE(NULLIF(display_name, '未確定の植物'), ?) END,
+                    common_name_ja = CASE WHEN ? = 1 THEN ? ELSE COALESCE(common_name_ja, ?) END,
+                    scientific_name = CASE WHEN ? = 1 THEN ? ELSE COALESCE(scientific_name, ?) END,
                     last_observed_at = ?,
-                    observation_count = observation_count + 1,
+                    observation_count = observation_count + ?,
+                    user_corrected = ?,
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (display_name, common_name, scientific_name, observed, timestamp, plant_id),
+                (
+                    1 if user_corrected else 0,
+                    display_name,
+                    display_name,
+                    1 if user_corrected else 0,
+                    common_name,
+                    common_name,
+                    1 if user_corrected else 0,
+                    scientific_name,
+                    scientific_name,
+                    observed,
+                    count_delta,
+                    corrected_value,
+                    timestamp,
+                    plant_id,
+                ),
             )
             return plant_id
 
@@ -186,8 +211,8 @@ def find_or_create_plant(result: dict, representative_image_path: str, observed_
             INSERT INTO plants (
                 id, display_name, common_name_ja, scientific_name, aliases_json,
                 description, representative_image_path, first_observed_at,
-                last_observed_at, observation_count, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                last_observed_at, observation_count, user_corrected, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 plant_id,
@@ -199,6 +224,8 @@ def find_or_create_plant(result: dict, representative_image_path: str, observed_
                 representative_image_path,
                 observed,
                 observed,
+                1 if increment_count else 0,
+                1 if user_corrected else 0,
                 timestamp,
                 timestamp,
             ),
@@ -257,6 +284,141 @@ def save_analysis_result(observation_id: str, result: dict) -> str:
     return plant_id
 
 
+def apply_manual_correction(
+    *,
+    observation_id: str,
+    common_name_ja: str,
+    scientific_name: str | None,
+    note: str | None,
+    location_label: str | None,
+) -> str:
+    observation = get_observation(observation_id)
+    if observation is None:
+        raise ValueError(f"Observation not found: {observation_id}")
+
+    old_plant_id = observation["plant_id"]
+    raw_result = {}
+    if observation["raw_result_json"]:
+        try:
+            parsed = json.loads(observation["raw_result_json"])
+            if isinstance(parsed, dict):
+                raw_result = parsed
+        except json.JSONDecodeError:
+            raw_result = {}
+
+    raw_result["common_name_ja"] = clean_text(common_name_ja)
+    raw_result["scientific_name"] = clean_text(scientific_name)
+    raw_result["confidence"] = 1.0
+    raw_result["user_corrected"] = True
+
+    corrected_name = raw_result["common_name_ja"] or raw_result["scientific_name"] or "手動修正した植物"
+    raw_result["candidates"] = [
+        {
+            "common_name_ja": corrected_name,
+            "scientific_name": raw_result["scientific_name"],
+            "confidence": 1.0,
+            "reason": "手動修正で確定しました。",
+        }
+    ]
+
+    new_plant_id = find_or_create_plant(
+        raw_result,
+        observation["image1_path"],
+        observation["captured_at"] or observation["received_at"],
+        increment_count=False,
+        user_corrected=True,
+    )
+
+    timestamp = now_iso()
+    with connect() as conn:
+        conn.execute("DELETE FROM candidate_names WHERE observation_id = ?", (observation_id,))
+        conn.execute(
+            """
+            INSERT INTO candidate_names (
+                id, observation_id, name, scientific_name, confidence, reason
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"{observation_id}-candidate-manual",
+                observation_id,
+                corrected_name,
+                raw_result["scientific_name"],
+                1.0,
+                "手動修正で確定しました。",
+            ),
+        )
+        conn.execute(
+            """
+            UPDATE observations
+            SET plant_id = ?, status = 'analyzed', confidence = 1.0,
+                raw_result_json = ?, note = ?, location_label = ?,
+                error_message = NULL, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                new_plant_id,
+                json.dumps(raw_result, ensure_ascii=False),
+                clean_text(note),
+                clean_text(location_label),
+                timestamp,
+                observation_id,
+            ),
+        )
+
+    refresh_plant_summary(new_plant_id)
+    if old_plant_id and old_plant_id != new_plant_id:
+        refresh_plant_summary(old_plant_id)
+    return new_plant_id
+
+
+def refresh_plant_summary(plant_id: str) -> None:
+    with connect() as conn:
+        summary = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS observation_count,
+                MIN(COALESCE(captured_at, received_at)) AS first_observed_at,
+                MAX(COALESCE(captured_at, received_at)) AS last_observed_at
+            FROM observations
+            WHERE plant_id = ?
+            """,
+            (plant_id,),
+        ).fetchone()
+        if summary is None or summary["observation_count"] == 0:
+            conn.execute("DELETE FROM plants WHERE id = ?", (plant_id,))
+            return
+
+        representative = conn.execute(
+            """
+            SELECT image1_path
+            FROM observations
+            WHERE plant_id = ?
+            ORDER BY COALESCE(captured_at, received_at) DESC
+            LIMIT 1
+            """,
+            (plant_id,),
+        ).fetchone()
+        conn.execute(
+            """
+            UPDATE plants
+            SET observation_count = ?,
+                first_observed_at = ?,
+                last_observed_at = ?,
+                representative_image_path = COALESCE(?, representative_image_path),
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                summary["observation_count"],
+                summary["first_observed_at"],
+                summary["last_observed_at"],
+                representative["image1_path"] if representative else None,
+                now_iso(),
+                plant_id,
+            ),
+        )
+
+
 def list_plants() -> list[sqlite3.Row]:
     with connect() as conn:
         return conn.execute(
@@ -309,6 +471,18 @@ def list_recent_observations(limit: int = 20) -> list[sqlite3.Row]:
         ).fetchall()
 
 
+def list_observations() -> list[sqlite3.Row]:
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT observations.*, plants.display_name AS plant_name
+            FROM observations
+            LEFT JOIN plants ON observations.plant_id = plants.id
+            ORDER BY COALESCE(observations.captured_at, observations.received_at) DESC
+            """
+        ).fetchall()
+
+
 def clean_text(value: object) -> str | None:
     if value is None:
         return None
@@ -323,4 +497,3 @@ def parse_float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
-

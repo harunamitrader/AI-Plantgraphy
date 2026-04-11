@@ -104,6 +104,17 @@ def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
     )
 
 
+@app.get("/observations", response_class=HTMLResponse)
+def observations(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "observations.html",
+        {
+            "request": request,
+            "observations": [present_observation(row) for row in db.list_observations()],
+        },
+    )
+
+
 @app.get("/observations/{observation_id}", response_class=HTMLResponse)
 def observation_detail(request: Request, observation_id: str) -> HTMLResponse:
     observation = db.get_observation(observation_id)
@@ -129,6 +140,29 @@ def reanalyze(observation_id: str, background_tasks: BackgroundTasks) -> dict:
     db.set_observation_status(observation_id, "queued")
     background_tasks.add_task(run_analysis, observation_id, image_paths)
     return {"status": "queued", "observation_id": observation_id}
+
+
+@app.post("/api/observations/{observation_id}/correction", dependencies=[Depends(require_api_key)])
+def correct_observation(
+    observation_id: str,
+    common_name_ja: str = Form(default=""),
+    scientific_name: str | None = Form(default=None),
+    note: str | None = Form(default=None),
+    location_label: str | None = Form(default=None),
+) -> dict:
+    if not common_name_ja.strip() and not (scientific_name or "").strip():
+        raise HTTPException(status_code=400, detail="植物名または学名を入力してください。")
+    try:
+        plant_id = db.apply_manual_correction(
+            observation_id=observation_id,
+            common_name_ja=common_name_ja,
+            scientific_name=scientific_name,
+            note=note,
+            location_label=location_label,
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="観察記録が見つかりません。") from None
+    return {"status": "corrected", "observation_id": observation_id, "plant_id": plant_id}
 
 
 @app.get("/review", response_class=HTMLResponse)

@@ -290,6 +290,11 @@ h3 {
   gap: 10px;
 }
 
+.record-list {
+  display: grid;
+  gap: 12px;
+}
+
 .activity-row {
   display: grid;
   grid-template-columns: 68px 1fr;
@@ -300,6 +305,42 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+}
+
+.record-card {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 14px;
+  align-items: stretch;
+  min-height: 128px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.record-card[hidden] {
+  display: none;
+}
+
+.record-card img {
+  width: 112px;
+  height: 112px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f7fbf8;
+}
+
+.record-card div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.record-card p,
+.record-card small {
+  margin: 0;
+  color: var(--muted);
 }
 
 .activity-row img {
@@ -512,6 +553,14 @@ pre {
   align-items: end;
 }
 
+.edit-form {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
 .upload-form {
   display: grid;
   gap: 16px;
@@ -627,7 +676,15 @@ pre {
   font-weight: 800;
 }
 
-.action-form input {
+.edit-form label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.action-form input,
+.edit-form input,
+.edit-form textarea {
   min-height: 42px;
   width: 100%;
   padding: 9px 11px;
@@ -638,7 +695,13 @@ pre {
   font: inherit;
 }
 
-.action-form input:focus {
+.edit-form textarea {
+  resize: vertical;
+}
+
+.action-form input:focus,
+.edit-form input:focus,
+.edit-form textarea:focus {
   outline: 3px solid rgba(197, 150, 47, 0.28);
   border-color: var(--gold);
 }
@@ -779,6 +842,16 @@ pre {
 
   .activity-row img {
     height: 56px;
+  }
+
+  .record-card {
+    grid-template-columns: 84px 1fr;
+    min-height: 104px;
+  }
+
+  .record-card img {
+    width: 84px;
+    height: 84px;
   }
 
   .action-form {
