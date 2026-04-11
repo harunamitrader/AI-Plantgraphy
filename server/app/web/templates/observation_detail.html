@@ -16,7 +16,9 @@
   <section class="photo-strip panel">
     {% for url in observation.image_urls %}
       {% if url %}
-        <img src="{{ url }}" alt="観察写真 {{ loop.index }}">
+        <button class="photo-button" type="button" data-full-image="{{ url }}" data-alt="観察写真 {{ loop.index }}">
+          <img src="{{ url }}" alt="観察写真 {{ loop.index }}">
+        </button>
       {% endif %}
     {% endfor %}
   </section>
@@ -154,4 +156,44 @@
       });
     </script>
   {% endif %}
+
+  <div class="image-modal" id="imageModal" aria-hidden="true">
+    <div class="image-modal-backdrop" data-close-modal></div>
+    <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-label="観察写真の拡大表示">
+      <button class="image-modal-close" type="button" data-close-modal>閉じる</button>
+      <img id="modalImage" src="" alt="">
+    </div>
+  </div>
+
+  <script>
+    const imageModal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+
+    document.querySelectorAll('[data-full-image]').forEach((button) => {
+      button.addEventListener('click', () => {
+        modalImage.src = button.dataset.fullImage;
+        modalImage.alt = button.dataset.alt || '観察写真';
+        imageModal.classList.add('is-open');
+        imageModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+      });
+    });
+
+    function closeImageModal() {
+      imageModal.classList.remove('is-open');
+      imageModal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      modalImage.src = '';
+    }
+
+    document.querySelectorAll('[data-close-modal]').forEach((button) => {
+      button.addEventListener('click', closeImageModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && imageModal.classList.contains('is-open')) {
+        closeImageModal();
+      }
+    });
+  </script>
 {% endblock %}
