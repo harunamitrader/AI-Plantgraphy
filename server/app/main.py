@@ -121,6 +121,7 @@ def reanalyze(observation_id: str, background_tasks: BackgroundTasks) -> dict:
         Path(observation["image2_path"]),
         Path(observation["image3_path"]),
     ]
+    db.set_observation_status(observation_id, "queued")
     background_tasks.add_task(run_analysis, observation_id, image_paths)
     return {"status": "queued", "observation_id": observation_id}
 
@@ -169,6 +170,7 @@ def present_observation(row) -> dict:
         media_url(item.get("image3_path")),
     ]
     item["analysis"] = parse_analysis(item.get("raw_result_json"))
+    item["analysis"]["plant_profile_display"] = plant_profile_text(item["analysis"])
     item["display_name"] = item["analysis"].get("common_name_ja") or item.get("plant_name") or "解析待ち"
     item["confidence_percent"] = percent_label(item.get("confidence") or item["analysis"].get("confidence"))
     item["status_label"] = status_label(item.get("status"))
@@ -184,6 +186,20 @@ def parse_analysis(raw_json: str | None) -> dict:
     except json.JSONDecodeError:
         return {}
     return value if isinstance(value, dict) else {}
+
+
+def plant_profile_text(analysis: dict) -> str:
+    text = analysis.get("plant_profile_text")
+    if isinstance(text, str) and text.strip():
+        return text.strip()
+
+    legacy_profile = analysis.get("plant_profile")
+    if isinstance(legacy_profile, dict):
+        overview = legacy_profile.get("overview")
+        if isinstance(overview, str) and overview.strip():
+            return overview.strip()
+
+    return "基本特徴はまだありません。"
 
 
 def percent_label(value: object) -> str:

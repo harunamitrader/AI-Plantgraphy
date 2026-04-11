@@ -74,13 +74,7 @@
       <div class="panel">
         <p class="eyebrow">Profile</p>
         <h2>基本的な特徴</h2>
-        {% set profile = observation.analysis.plant_profile or {} %}
-        <p>{{ profile.overview or "基本特徴はまだありません。" }}</p>
-        <div class="mini-facts">
-          <div><span>開花時期</span><strong>{{ profile.flowering_season or "不明" }}</strong></div>
-          <div><span>生育タイプ</span><strong>{{ profile.growth_habit or "不明" }}</strong></div>
-          <div><span>大きさ</span><strong>{{ profile.typical_size or "不明" }}</strong></div>
-        </div>
+        <p>{{ observation.analysis.plant_profile_display }}</p>
       </div>
       <div class="panel">
         <p class="eyebrow">Features</p>
@@ -158,8 +152,9 @@
           });
 
           if (response.ok) {
-            status.textContent = '再解析をリクエストしました。数分後にリロードしてください。';
+            status.textContent = '再解析を開始しました。完了したら自動で更新します。';
             status.className = 'action-status is-success';
+            pollReanalysisStatus();
           } else {
             const detail = await response.json();
             status.textContent = 'エラー: ' + (detail.detail || '失敗しました');
@@ -176,6 +171,33 @@
           btn.disabled = false;
         }
       });
+
+      async function pollReanalysisStatus() {
+        const status = document.getElementById('reanalyzeStatus');
+        const maxAttempts = 72;
+        let attempts = 0;
+
+        const timer = window.setInterval(async () => {
+          attempts += 1;
+          try {
+            const response = await fetch('/api/observations/{{ observation.id }}');
+            const data = await response.json();
+            status.textContent = '現在の状態: ' + data.status;
+            if (data.status !== 'queued' && data.status !== 'analyzing') {
+              window.clearInterval(timer);
+              window.location.reload();
+            }
+            if (attempts >= maxAttempts) {
+              window.clearInterval(timer);
+              status.textContent = 'まだ処理中です。少し待ってからリロードしてください。';
+            }
+          } catch (err) {
+            window.clearInterval(timer);
+            status.textContent = '状態確認に失敗しました: ' + err.message;
+            status.className = 'action-status is-error';
+          }
+        }, 5000);
+      }
     </script>
   {% endif %}
 
