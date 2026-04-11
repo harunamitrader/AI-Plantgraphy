@@ -4,8 +4,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-PROJECT_DIR = ROOT_DIR.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_DIR / "data"
 IMAGE_DIR = DATA_DIR / "images"
 LOG_DIR = DATA_DIR / "logs"
@@ -35,4 +34,3 @@ def get_settings() -> Settings:
 def ensure_data_dirs() -> None:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-
