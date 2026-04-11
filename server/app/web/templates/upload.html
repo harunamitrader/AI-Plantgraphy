@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}植物を追加 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="dashboard upload-hero">
+    <div>
+      <p class="eyebrow">New record</p>
+      <h1>植物を追加</h1>
+      <p>写真を3枚選んで送信します。解析が終わると図鑑に追加されます。</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <form id="uploadForm" class="upload-form">
+      <div>
+        <label for="apiKey">APIキー</label>
+        <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="change-me">
+      </div>
+
+      <div>
+        <label for="images">写真3枚</label>
+        <input id="images" name="images" type="file" accept="image/*" capture="environment" multiple required>
+        <p class="field-help">同じ植物を別角度から3枚選んでください。</p>
+      </div>
+
+      <div class="preview-grid" id="previewGrid"></div>
+
+      <div>
+        <label for="note">メモ</label>
+        <textarea id="note" name="note" rows="3" placeholder="庭の南側、鉢植え、花が咲き始め など"></textarea>
+      </div>
+
+      <div>
+        <label for="locationLabel">場所ラベル</label>
+        <input id="locationLabel" name="locationLabel" type="text" placeholder="庭、玄関前、ベランダ">
+      </div>
+
+      <button class="btn btn-primary" id="uploadButton" type="submit">送信して解析する</button>
+      <p id="uploadStatus" class="action-status"></p>
+    </form>
+  </section>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const apiKeyInput = document.getElementById('apiKey');
+    const imageInput = document.getElementById('images');
+    const previewGrid = document.getElementById('previewGrid');
+    const statusText = document.getElementById('uploadStatus');
+    const uploadButton = document.getElementById('uploadButton');
+
+    apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
+
+    imageInput.addEventListener('change', () => {
+      previewGrid.innerHTML = '';
+      Array.from(imageInput.files).slice(0, 3).forEach((file, index) => {
+        const img = document.createElement('img');
+        img.alt = `選択写真 ${index + 1}`;
+        img.src = URL.createObjectURL(file);
+        previewGrid.appendChild(img);
+      });
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const files = Array.from(imageInput.files);
+      const apiKey = apiKeyInput.value.trim();
+
+      if (!apiKey) {
+        setStatus('APIキーを入力してください。初期値は change-me です。', true);
+        return;
+      }
+      if (files.length !== 3) {
+        setStatus('写真は必ず3枚選んでください。', true);
+        return;
+      }
+
+      localStorage.setItem('plant_dex_api_key', apiKey);
+      uploadButton.disabled = true;
+      setStatus('送信中...', false);
+
+      const formData = new FormData();
+      files.forEach((file) => formData.append('images', file));
+      formData.append('note', document.getElementById('note').value);
+      formData.append('location_label', document.getElementById('locationLabel').value);
+
+      try {
+        const response = await fetch('/api/observations', {
+          method: 'POST',
+          headers: {
+            'X-Plant-Dex-Api-Key': apiKey
+          },
+          body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || '送信に失敗しました。');
+        }
+
+        setStatus('解析を開始しました。完了したら詳細ページへ移動します。', false);
+        pollObservation(data.observation_id);
+      } catch (err) {
+        uploadButton.disabled = false;
+        setStatus(`エラー: ${err.message}`, true);
+      }
+    });
+
+    function setStatus(message, isError) {
+      statusText.textContent = message;
+      statusText.className = isError ? 'action-status is-error' : 'action-status is-success';
+    }
+
+    function pollObservation(observationId) {
+      let attempts = 0;
+      const timer = window.setInterval(async () => {
+        attempts += 1;
+        try {
+          const response = await fetch(`/api/observations/${observationId}`);
+          const data = await response.json();
+          statusText.textContent = `現在の状態: ${data.status}`;
+          if (data.status !== 'queued' && data.status !== 'analyzing') {
+            window.clearInterval(timer);
+            window.location.href = `/observations/${observationId}`;
+          }
+          if (attempts >= 72) {
+            window.clearInterval(timer);
+            window.location.href = `/observations/${observationId}`;
+          }
+        } catch (err) {
+          window.clearInterval(timer);
+          uploadButton.disabled = false;
+          setStatus(`状態確認に失敗しました: ${err.message}`, true);
+        }
+      }, 5000);
+    }
+  </script>
+{% endblock %}

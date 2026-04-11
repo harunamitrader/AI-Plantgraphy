@@ -100,6 +100,10 @@ a {
   box-shadow: var(--shadow);
 }
 
+.upload-hero {
+  grid-template-columns: 1fr;
+}
+
 .observation-hero {
   grid-template-columns: 1fr;
 }
@@ -475,6 +479,61 @@ pre {
   align-items: end;
 }
 
+.upload-form {
+  display: grid;
+  gap: 16px;
+}
+
+.upload-form label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.upload-form input,
+.upload-form textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.upload-form textarea {
+  resize: vertical;
+}
+
+.upload-form input:focus,
+.upload-form textarea:focus {
+  outline: 3px solid rgba(197, 150, 47, 0.28);
+  border-color: var(--gold);
+}
+
+.field-help {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.preview-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f7fbf8;
+}
+
 .action-form label {
   grid-column: 1 / -1;
   color: var(--muted);
@@ -623,7 +682,8 @@ pre {
   }
 
   .dashboard-stats,
-  .photo-strip {
+  .photo-strip,
+  .preview-grid {
     grid-template-columns: 1fr;
   }
 

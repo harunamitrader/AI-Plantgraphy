@@ -84,6 +84,11 @@ def index(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/upload", response_class=HTMLResponse)
+def upload_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("upload.html", {"request": request})
+
+
 @app.get("/plants/{plant_id}", response_class=HTMLResponse)
 def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
     plant = db.get_plant(plant_id)
