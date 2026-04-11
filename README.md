@@ -46,19 +46,16 @@ http://127.0.0.1:8000/api/health
 
 ## 画像3枚のテスト送信
 
-`.env` の `PLANT_DEX_API_KEY` を設定したうえで、PowerShellから以下のように送信できます。
+`.env` の `PLANT_DEX_API_KEY` を設定したうえで、テスト用スクリプトから送信できます。
 
 ```powershell
-$headers = @{ "X-Plant-Dex-Api-Key" = "change-me" }
-$form = @{
-  images = @(
-    Get-Item "C:\path\to\image1.jpg"
-    Get-Item "C:\path\to\image2.jpg"
-    Get-Item "C:\path\to\image3.jpg"
-  )
-  note = "庭の記録"
-}
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/observations" -Method Post -Headers $headers -Form $form
+.\.venv\Scripts\python.exe .\scripts\upload_observation.py `
+  "C:\path\to\image1.jpg" `
+  "C:\path\to\image2.jpg" `
+  "C:\path\to\image3.jpg" `
+  --note "庭の記録"
 ```
 
 初期状態では `PLANT_DEX_GEMINI_ENABLED=false` のため、Gemini CLIは実行せず仮の解析結果を保存します。Gemini CLIの呼び出し確認後、`.env` で `PLANT_DEX_GEMINI_ENABLED=true` に変更します。
+
+Windows PowerShell 5.1 の `Invoke-RestMethod` には `-Form` がないため、multipart送信のテストは上記スクリプトを使うのが安全です。PowerShell 7以降なら `Invoke-RestMethod -Form` でも送信できます。
