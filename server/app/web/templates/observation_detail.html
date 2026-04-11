@@ -62,6 +62,12 @@
                 <small>{{ candidate.scientific_name or "学名未確定" }}</small>
               </div>
               <span>{{ (candidate.confidence * 100) | round | int if candidate.confidence is number else "?" }}%</span>
+              <button
+                class="candidate-fill"
+                type="button"
+                data-candidate-name="{{ candidate.common_name_ja or candidate.name or '' }}"
+                data-candidate-scientific="{{ candidate.scientific_name or '' }}"
+              >修正欄へ入れる</button>
               <p>{{ candidate.reason or "" }}</p>
             </div>
           {% else %}
@@ -83,6 +89,12 @@
                   <small>{{ candidate.scientific_name or "学名未確定" }}</small>
                 </div>
                 <span>{{ (candidate.confidence * 100) | round | int if candidate.confidence is number else "?" }}%</span>
+                <button
+                  class="candidate-fill"
+                  type="button"
+                  data-candidate-name="{{ candidate.common_name_ja or candidate.name or '' }}"
+                  data-candidate-scientific="{{ candidate.scientific_name or '' }}"
+                >修正欄へ入れる</button>
                 <p>{{ candidate.reason or "" }}</p>
               </div>
             {% endfor %}
@@ -175,6 +187,15 @@
       const correctionApiKey = document.getElementById('correctionApiKey');
       apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
       correctionApiKey.value = localStorage.getItem('plant_dex_api_key') || '';
+
+      document.querySelectorAll('.candidate-fill').forEach((button) => {
+        button.addEventListener('click', () => {
+          document.getElementById('correctCommonName').value = button.dataset.candidateName || '';
+          document.getElementById('correctScientificName').value = button.dataset.candidateScientific || '';
+          document.getElementById('correctCommonName').focus();
+          document.querySelector('.actions').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
 
       document.getElementById('correctionBtn').addEventListener('click', async () => {
         const apiKey = correctionApiKey.value.trim();

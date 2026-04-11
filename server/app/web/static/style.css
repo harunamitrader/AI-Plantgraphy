@@ -458,6 +458,26 @@ h3 {
   color: var(--leaf);
 }
 
+.candidate-fill {
+  grid-column: 1 / -1;
+  width: fit-content;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--leaf);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.candidate-fill:hover {
+  border-color: var(--leaf);
+  background: var(--leaf-quiet);
+}
+
 .muted-candidate {
   background: #f7fbf8;
 }

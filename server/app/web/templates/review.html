@@ -1,21 +1,82 @@
 {% extends "base.html" %}
 {% block title %}確認待ち | Plant Dex{% endblock %}
 {% block content %}
-  <section class="intro">
-    <p class="eyebrow">Review</p>
-    <h1>確認待ち</h1>
-    <p>低信頼度、解析失敗、解析中の記録を確認します。</p>
+  <section class="dashboard upload-hero">
+    <div>
+      <p class="eyebrow">Review queue</p>
+      <h1>確認待ち</h1>
+      <p>低信頼度、解析失敗、解析中の記録を確認します。</p>
+    </div>
   </section>
 
-  <section class="list">
-    {% for observation in observations %}
-      <a class="row" href="/observations/{{ observation.id }}">
-        <span>{{ observation.id }}</span>
-        <small>{{ observation.status }} / {{ observation.error_message or "処理中または低信頼度" }}</small>
-      </a>
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Needs review</p>
+        <h2>見直す記録</h2>
+      </div>
+      <span id="reviewCount">{{ observations | length }} 件</span>
+    </div>
+
+    {% if observations %}
+      <div class="inventory-tools">
+        <label for="reviewSearch">確認待ちを探す</label>
+        <input id="reviewSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、状態、エラーで検索">
+      </div>
+      <div class="record-list" id="reviewList">
+        {% for observation in observations %}
+          <a
+            class="record-card"
+            href="/observations/{{ observation.id }}"
+            data-search-text="{{ (observation.display_name ~ ' ' ~ (observation.analysis.scientific_name or '') ~ ' ' ~ observation.status_label ~ ' ' ~ (observation.error_message or '') ~ ' ' ~ (observation.note or '')) | lower }}"
+          >
+            {% if observation.image_urls[0] %}
+              <img src="{{ observation.image_urls[0] }}" alt="{{ observation.display_name }}">
+            {% endif %}
+            <div>
+              <span class="status-pill accent">{{ observation.status_label }}</span>
+              <h3>{{ observation.display_name }}</h3>
+              <p>{{ observation.analysis.scientific_name or "学名未確定" }}</p>
+              <small>{{ observation.observed_label }} / 信頼度 {{ observation.confidence_percent }}</small>
+              <small>{{ observation.error_message or observation.analysis.uncertainty_notes or "候補を確認してください。" }}</small>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+      <p class="empty filter-empty" id="reviewEmpty" hidden>一致する確認待ちはありません。</p>
     {% else %}
       <p class="empty">確認待ちはありません。</p>
-    {% endfor %}
+    {% endif %}
   </section>
-{% endblock %}
 
+  {% if observations %}
+    <script>
+      const reviewSearch = document.getElementById('reviewSearch');
+      const reviewCards = Array.from(document.querySelectorAll('.record-card'));
+      const reviewCount = document.getElementById('reviewCount');
+      const reviewEmpty = document.getElementById('reviewEmpty');
+      const totalReviews = reviewCards.length;
+
+      reviewSearch.addEventListener('input', () => {
+        const terms = reviewSearch.value
+          .trim()
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(Boolean);
+        let visibleCount = 0;
+
+        reviewCards.forEach((card) => {
+          const text = card.dataset.searchText || '';
+          const isVisible = terms.every((term) => text.includes(term));
+          card.hidden = !isVisible;
+          if (isVisible) {
+            visibleCount += 1;
+          }
+        });
+
+        reviewCount.textContent = terms.length ? `${visibleCount} / ${totalReviews} 件` : `${totalReviews} 件`;
+        reviewEmpty.hidden = visibleCount !== 0;
+      });
+    </script>
+  {% endif %}
+{% endblock %}
