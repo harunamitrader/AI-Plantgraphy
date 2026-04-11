@@ -121,23 +121,33 @@
   {% if observation.error_message or observation.status == 'needs_review' or observation.status == 'analyzed' %}
     <section class="actions panel">
       <h2>アクション</h2>
-      <button id="reanalyzeBtn" class="btn btn-primary">Gemini で再解析する</button>
-      <p id="reanalyzeStatus" style="margin-top: 0.5rem;"></p>
+      <div class="action-form">
+        <label for="apiKeyInput">APIキー</label>
+        <input id="apiKeyInput" type="password" autocomplete="off" placeholder="change-me">
+        <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
+      </div>
+      <p id="reanalyzeStatus" class="action-status"></p>
     </section>
 
     <script>
+      const apiKeyInput = document.getElementById('apiKeyInput');
+      apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
+
       document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
-        let apiKey = localStorage.getItem('plant_dex_api_key');
+        const apiKey = apiKeyInput.value.trim();
         if (!apiKey) {
-          apiKey = prompt('APIキーを入力してください');
-          if (!apiKey) return;
-          localStorage.setItem('plant_dex_api_key', apiKey);
+          const status = document.getElementById('reanalyzeStatus');
+          status.textContent = 'APIキーを入力してください。初期値は change-me です。';
+          status.className = 'action-status is-error';
+          return;
         }
+        localStorage.setItem('plant_dex_api_key', apiKey);
 
         const btn = document.getElementById('reanalyzeBtn');
         const status = document.getElementById('reanalyzeStatus');
         btn.disabled = true;
         status.textContent = 'リクエスト送信中...';
+        status.className = 'action-status';
 
         try {
           const response = await fetch('/api/observations/{{ observation.id }}/reanalyze', {
@@ -149,19 +159,20 @@
 
           if (response.ok) {
             status.textContent = '再解析をリクエストしました。数分後にリロードしてください。';
-            status.style.color = 'green';
+            status.className = 'action-status is-success';
           } else {
             const detail = await response.json();
             status.textContent = 'エラー: ' + (detail.detail || '失敗しました');
-            status.style.color = 'red';
+            status.className = 'action-status is-error';
             btn.disabled = false;
             if (response.status === 401) {
               localStorage.removeItem('plant_dex_api_key');
+              apiKeyInput.value = '';
             }
           }
         } catch (err) {
           status.textContent = 'エラー: ' + err.message;
-          status.style.color = 'red';
+          status.className = 'action-status is-error';
           btn.disabled = false;
         }
       });

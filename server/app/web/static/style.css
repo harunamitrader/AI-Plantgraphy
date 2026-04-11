@@ -468,6 +468,52 @@ pre {
   margin-top: 18px;
 }
 
+.action-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.action-form label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.action-form input {
+  min-height: 42px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.action-form input:focus {
+  outline: 3px solid rgba(197, 150, 47, 0.28);
+  border-color: var(--gold);
+}
+
+.action-status {
+  min-height: 24px;
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.action-status.is-success {
+  color: var(--leaf);
+  font-weight: 800;
+}
+
+.action-status.is-error {
+  color: var(--coral);
+  font-weight: 800;
+}
+
 .btn {
   min-height: 42px;
   padding: 10px 14px;
@@ -587,5 +633,9 @@ pre {
 
   .activity-row img {
     height: 56px;
+  }
+
+  .action-form {
+    grid-template-columns: 1fr;
   }
 }
