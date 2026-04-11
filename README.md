@@ -13,6 +13,7 @@
 - スマホブラウザからの写真アップロード画面
 - 観察記録の全件表示と検索
 - 解析結果の再解析と手動修正
+- 植物DBと画像のzipバックアップ
 - Discord Webhook通知の下準備
 
 ## ドキュメント
@@ -62,6 +63,33 @@ http://127.0.0.1:8000/api/health
 初期状態では `PLANT_DEX_GEMINI_ENABLED=false` のため、Gemini CLIは実行せず仮の解析結果を保存します。Gemini CLIの呼び出し確認後、`.env` で `PLANT_DEX_GEMINI_ENABLED=true` に変更します。
 
 Windows PowerShell 5.1 の `Invoke-RestMethod` には `-Form` がないため、multipart送信のテストは上記スクリプトを使うのが安全です。PowerShell 7以降なら `Invoke-RestMethod -Form` でも送信できます。
+
+## スマホから使う画面
+
+PCサーバーを `0.0.0.0` で起動している場合、同じWi-Fiのスマホから以下を開きます。
+
+```text
+http://<PCのローカルIP>:8000/
+http://<PCのローカルIP>:8000/upload
+```
+
+アップロード画面では、既存写真を選ぶ場合は `写真から選ぶ`、その場で撮る場合は `カメラで撮る` を使います。
+
+## バックアップ
+
+Web画面の `保存` からAPIキーを入力し、`zipを作成してダウンロード` を押します。
+
+zipには以下が入ります。
+
+- `plants.sqlite`
+- `images/`
+- `manifest.json`
+
+作成したzipは以下にも残ります。
+
+```text
+C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\data\exports
+```
 
 ## Gemini CLI解析を有効化する
 

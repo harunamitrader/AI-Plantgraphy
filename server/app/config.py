@@ -8,6 +8,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_DIR / "data"
 IMAGE_DIR = DATA_DIR / "images"
 LOG_DIR = DATA_DIR / "logs"
+EXPORT_DIR = DATA_DIR / "exports"
 DB_PATH = DATA_DIR / "plants.sqlite"
 
 
@@ -34,3 +35,4 @@ def get_settings() -> Settings:
 def ensure_data_dirs() -> None:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)

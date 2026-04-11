@@ -2,13 +2,14 @@ import json
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import db
 from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, get_settings
 from .services.discord_notify import notify_analysis_finished
+from .services.export_store import create_export_zip
 from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
 
@@ -87,6 +88,21 @@ def index(request: Request) -> HTMLResponse:
 @app.get("/upload", response_class=HTMLResponse)
 def upload_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("upload.html", {"request": request})
+
+
+@app.get("/export", response_class=HTMLResponse)
+def export_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse("export.html", {"request": request})
+
+
+@app.post("/api/export", dependencies=[Depends(require_api_key)])
+def export_data() -> FileResponse:
+    export_path = create_export_zip()
+    return FileResponse(
+        export_path,
+        media_type="application/zip",
+        filename=export_path.name,
+    )
 
 
 @app.get("/plants/{plant_id}", response_class=HTMLResponse)

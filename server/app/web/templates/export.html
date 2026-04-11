@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}保存 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="dashboard upload-hero">
+    <div>
+      <p class="eyebrow">Backup</p>
+      <h1>データを保存</h1>
+      <p>植物データベースと画像フォルダをzipでまとめて保存します。</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="export-box">
+      <div>
+        <p class="eyebrow">Export</p>
+        <h2>バックアップzip</h2>
+        <p>内容は `plants.sqlite`、`images/`、`manifest.json` です。PCの `data/exports` にも同じzipが残ります。</p>
+      </div>
+      <label for="exportApiKey">APIキー</label>
+      <input id="exportApiKey" type="password" autocomplete="off" placeholder="change-me">
+      <button id="exportBtn" class="btn btn-primary" type="button">zipを作成してダウンロード</button>
+      <p id="exportStatus" class="action-status"></p>
+    </div>
+  </section>
+
+  <script>
+    const exportApiKey = document.getElementById('exportApiKey');
+    const exportBtn = document.getElementById('exportBtn');
+    const exportStatus = document.getElementById('exportStatus');
+    exportApiKey.value = localStorage.getItem('plant_dex_api_key') || '';
+
+    exportBtn.addEventListener('click', async () => {
+      const apiKey = exportApiKey.value.trim();
+      if (!apiKey) {
+        exportStatus.textContent = 'APIキーを入力してください。初期値は change-me です。';
+        exportStatus.className = 'action-status is-error';
+        return;
+      }
+
+      localStorage.setItem('plant_dex_api_key', apiKey);
+      exportBtn.disabled = true;
+      exportStatus.textContent = 'zipを作成中...';
+      exportStatus.className = 'action-status';
+
+      try {
+        const response = await fetch('/api/export', {
+          method: 'POST',
+          headers: {
+            'X-Plant-Dex-Api-Key': apiKey
+          }
+        });
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || '作成に失敗しました。');
+        }
+
+        const blob = await response.blob();
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        const filename = match ? match[1] : 'plant-dex-export.zip';
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        exportStatus.textContent = '保存しました。';
+        exportStatus.className = 'action-status is-success';
+      } catch (err) {
+        exportStatus.textContent = 'エラー: ' + err.message;
+        exportStatus.className = 'action-status is-error';
+      } finally {
+        exportBtn.disabled = false;
+      }
+    });
+  </script>
+{% endblock %}

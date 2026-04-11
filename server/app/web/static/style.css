@@ -593,6 +593,11 @@ pre {
   border-bottom: 1px solid var(--line);
 }
 
+.export-box {
+  display: grid;
+  gap: 12px;
+}
+
 .upload-form {
   display: grid;
   gap: 16px;
@@ -715,6 +720,7 @@ pre {
 }
 
 .action-form input,
+.export-box input,
 .edit-form input,
 .edit-form textarea {
   min-height: 42px;
@@ -732,6 +738,7 @@ pre {
 }
 
 .action-form input:focus,
+.export-box input:focus,
 .edit-form input:focus,
 .edit-form textarea:focus {
   outline: 3px solid rgba(197, 150, 47, 0.28);
