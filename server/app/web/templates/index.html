@@ -1,28 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Plant Dex | 図鑑{% endblock %}
 {% block content %}
-  <section class="intro">
-    <p class="eyebrow">Garden archive</p>
-    <h1>庭の記録</h1>
-    <p>撮った植物を、種類ごとに少しずつ集めます。</p>
+  <section class="dashboard">
+    <div>
+      <p class="eyebrow">Garden workspace</p>
+      <h1>庭の植物台帳</h1>
+      <p>撮影した植物を種類ごとにまとめ、解析結果と観察履歴を整理します。</p>
+    </div>
+    <div class="dashboard-stats">
+      <div><span>Plants</span><strong>{{ plants | length }}</strong></div>
+      <div><span>Records</span><strong>{{ recent_observations | length }}</strong></div>
+      <div><span>Review</span><strong>{{ recent_observations | selectattr("status", "equalto", "needs_review") | list | length }}</strong></div>
+    </div>
   </section>
 
-  <section>
+  <section class="panel">
     <div class="section-title">
-      <h2>植物一覧</h2>
+      <div>
+        <p class="eyebrow">Inventory</p>
+        <h2>植物一覧</h2>
+      </div>
       <span>{{ plants | length }} 種</span>
     </div>
     {% if plants %}
-      <div class="grid">
+      <div class="inventory-grid">
         {% for plant in plants %}
           <a class="plant-card" href="/plants/{{ plant.id }}">
             {% if plant.representative_image_url %}
               <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
             {% endif %}
-            <div>
+            <div class="plant-card-body">
+              <span class="status-pill">記録 {{ plant.observation_count }}</span>
               <h3>{{ plant.display_name }}</h3>
               <p>{{ plant.scientific_name or "学名未確定" }}</p>
-              <small>{{ plant.observation_count }} 回記録</small>
+              <small>最終観察 {{ plant.last_seen_label }}</small>
             </div>
           </a>
         {% endfor %}
@@ -32,16 +43,24 @@
     {% endif %}
   </section>
 
-  <section>
+  <section class="panel">
     <div class="section-title">
-      <h2>最近の観察</h2>
+      <div>
+        <p class="eyebrow">Activity</p>
+        <h2>最近の観察</h2>
+      </div>
       <span>{{ recent_observations | length }} 件</span>
     </div>
-    <div class="list">
+    <div class="activity-list">
       {% for observation in recent_observations %}
-        <a class="row" href="/observations/{{ observation.id }}">
-          <span>{{ observation.plant_name or "解析待ち" }}</span>
-          <small>{{ observation.status }} / {{ observation.received_at }}</small>
+        <a class="activity-row" href="/observations/{{ observation.id }}">
+          {% if observation.image_urls[0] %}
+            <img src="{{ observation.image_urls[0] }}" alt="{{ observation.display_name }}">
+          {% endif %}
+          <div>
+            <span>{{ observation.display_name }}</span>
+            <small>{{ observation.status_label }} / {{ observation.observed_label }} / 信頼度 {{ observation.confidence_percent }}</small>
+          </div>
         </a>
       {% else %}
         <p class="empty">観察記録はまだありません。</p>
@@ -49,4 +68,3 @@
     </div>
   </section>
 {% endblock %}
-

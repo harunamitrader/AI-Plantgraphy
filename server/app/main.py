@@ -157,6 +157,7 @@ def run_analysis(observation_id: str, image_paths: list[Path]) -> None:
 def present_plant(row) -> dict:
     item = dict(row)
     item["representative_image_url"] = media_url(item.get("representative_image_path"))
+    item["last_seen_label"] = short_date(item.get("last_observed_at"))
     return item
 
 
@@ -167,7 +168,46 @@ def present_observation(row) -> dict:
         media_url(item.get("image2_path")),
         media_url(item.get("image3_path")),
     ]
+    item["analysis"] = parse_analysis(item.get("raw_result_json"))
+    item["display_name"] = item["analysis"].get("common_name_ja") or item.get("plant_name") or "解析待ち"
+    item["confidence_percent"] = percent_label(item.get("confidence") or item["analysis"].get("confidence"))
+    item["status_label"] = status_label(item.get("status"))
+    item["observed_label"] = short_date(item.get("captured_at") or item.get("received_at"))
     return item
+
+
+def parse_analysis(raw_json: str | None) -> dict:
+    if not raw_json:
+        return {}
+    try:
+        value = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def percent_label(value: object) -> str:
+    try:
+        return f"{float(value):.0%}"
+    except (TypeError, ValueError):
+        return "不明"
+
+
+def short_date(value: str | None) -> str:
+    if not value:
+        return "未入力"
+    return value[:10]
+
+
+def status_label(value: str | None) -> str:
+    labels = {
+        "queued": "待機中",
+        "analyzing": "解析中",
+        "analyzed": "解析済み",
+        "needs_review": "確認待ち",
+        "analysis_failed": "失敗",
+    }
+    return labels.get(value or "", value or "不明")
 
 
 def media_url(path_value: str | None) -> str:

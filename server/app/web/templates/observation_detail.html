@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 {% block title %}観察記録 | Plant Dex{% endblock %}
 {% block content %}
-  <section class="intro">
-    <p class="eyebrow">Observation</p>
-    <h1>観察記録</h1>
-    <p>{{ observation.id }}</p>
+  <section class="observation-hero">
+    <div>
+      <p class="eyebrow">Observation</p>
+      <h1>{{ observation.display_name }}</h1>
+      <p>{{ observation.analysis.scientific_name or "学名未確定" }}</p>
+      <div class="hero-actions">
+        <span class="status-pill">{{ observation.status_label }}</span>
+        <span class="status-pill accent">信頼度 {{ observation.confidence_percent }}</span>
+      </div>
+    </div>
   </section>
 
-  <section class="photo-strip">
+  <section class="photo-strip panel">
     {% for url in observation.image_urls %}
       {% if url %}
         <img src="{{ url }}" alt="観察写真 {{ loop.index }}">
@@ -16,17 +22,80 @@
   </section>
 
   <section class="facts">
-    <div><span>状態</span><strong>{{ observation.status }}</strong></div>
-    <div><span>信頼度</span><strong>{{ observation.confidence or "不明" }}</strong></div>
-    <div><span>撮影日時</span><strong>{{ observation.captured_at or "未入力" }}</strong></div>
+    <div><span>状態</span><strong>{{ observation.status_label }}</strong></div>
+    <div><span>信頼度</span><strong>{{ observation.confidence_percent }}</strong></div>
+    <div><span>撮影日</span><strong>{{ observation.observed_label }}</strong></div>
     <div><span>メモ</span><strong>{{ observation.note or "なし" }}</strong></div>
   </section>
 
-  {% if observation.raw_result_json %}
-    <section>
-      <h2>解析JSON</h2>
-      <pre>{{ observation.raw_result_json }}</pre>
+  {% if observation.analysis %}
+    <section class="analysis-layout">
+      <div class="panel">
+        <div class="section-title flush">
+          <div>
+            <p class="eyebrow">Identity</p>
+            <h2>解析結果</h2>
+          </div>
+        </div>
+        <div class="result-main">
+          <span class="status-pill accent">{{ observation.confidence_percent }}</span>
+          <h3>{{ observation.analysis.common_name_ja or "名称未確定" }}</h3>
+          <p>{{ observation.analysis.scientific_name or "学名未確定" }}</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title flush">
+          <div>
+            <p class="eyebrow">Candidates</p>
+            <h2>候補</h2>
+          </div>
+        </div>
+        <div class="candidate-list">
+          {% for candidate in observation.analysis.candidates or [] %}
+            <div class="candidate-item">
+              <div>
+                <strong>{{ candidate.common_name_ja or candidate.name or "候補名未確定" }}</strong>
+                <small>{{ candidate.scientific_name or "学名未確定" }}</small>
+              </div>
+              <span>{{ (candidate.confidence * 100) | round | int if candidate.confidence is number else "?" }}%</span>
+              <p>{{ candidate.reason or "" }}</p>
+            </div>
+          {% else %}
+            <p class="empty">候補はありません。</p>
+          {% endfor %}
+        </div>
+      </div>
     </section>
+
+    <section class="insight-grid">
+      <div class="panel">
+        <p class="eyebrow">Features</p>
+        <h2>見えている特徴</h2>
+        <ul class="tag-list">
+          {% for feature in observation.analysis.visible_features or [] %}
+            <li>{{ feature }}</li>
+          {% else %}
+            <li>特徴メモなし</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Care</p>
+        <h2>手入れメモ</h2>
+        <p>{{ observation.analysis.care_notes or "手入れメモはありません。" }}</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Notes</p>
+        <h2>不確実な点</h2>
+        <p>{{ observation.analysis.uncertainty_notes or "不確実な点はありません。" }}</p>
+      </div>
+    </section>
+
+    <details class="raw-json">
+      <summary>解析JSONを表示</summary>
+      <pre>{{ observation.raw_result_json }}</pre>
+    </details>
   {% endif %}
 
   {% if observation.error_message %}
@@ -37,7 +106,7 @@
   {% endif %}
 
   {% if observation.error_message or observation.status == 'needs_review' or observation.status == 'analyzed' %}
-    <section class="actions">
+    <section class="actions panel">
       <h2>アクション</h2>
       <button id="reanalyzeBtn" class="btn btn-primary">Gemini で再解析する</button>
       <p id="reanalyzeStatus" style="margin-top: 0.5rem;"></p>
@@ -86,4 +155,3 @@
     </script>
   {% endif %}
 {% endblock %}
-
