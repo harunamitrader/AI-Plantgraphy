@@ -68,6 +68,26 @@
             <p class="empty">候補はありません。</p>
           {% endfor %}
         </div>
+        {% if observation.analysis.ai_candidates %}
+          <div class="section-title flush sub-section-title">
+            <div>
+              <p class="eyebrow">Before edit</p>
+              <h3>修正前のAI候補</h3>
+            </div>
+          </div>
+          <div class="candidate-list">
+            {% for candidate in observation.analysis.ai_candidates %}
+              <div class="candidate-item muted-candidate">
+                <div>
+                  <strong>{{ candidate.common_name_ja or candidate.name or "候補名未確定" }}</strong>
+                  <small>{{ candidate.scientific_name or "学名未確定" }}</small>
+                </div>
+                <span>{{ (candidate.confidence * 100) | round | int if candidate.confidence is number else "?" }}%</span>
+                <p>{{ candidate.reason or "" }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
     </section>
 

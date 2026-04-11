@@ -312,6 +312,9 @@ def apply_manual_correction(
     raw_result["user_corrected"] = True
 
     corrected_name = raw_result["common_name_ja"] or raw_result["scientific_name"] or "手動修正した植物"
+    previous_candidates = raw_result.get("ai_candidates") or raw_result.get("candidates") or []
+    if isinstance(previous_candidates, list):
+        raw_result["ai_candidates"] = previous_candidates[:3]
     raw_result["candidates"] = [
         {
             "common_name_ja": corrected_name,

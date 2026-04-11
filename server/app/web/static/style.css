@@ -193,6 +193,10 @@ h3 {
   margin-bottom: 8px;
 }
 
+.sub-section-title {
+  margin-top: 16px;
+}
+
 .inventory-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -452,6 +456,14 @@ h3 {
 .candidate-item span {
   font-weight: 800;
   color: var(--leaf);
+}
+
+.muted-candidate {
+  background: #f7fbf8;
+}
+
+.muted-candidate span {
+  color: var(--muted);
 }
 
 .insight-grid {

@@ -252,6 +252,8 @@ def normalize_result(result: dict) -> dict:
     result["visible_features"] = normalize_visible_features(result.get("visible_features"))
     result["confidence"] = normalize_confidence(result.get("confidence"))
     result["candidates"] = normalize_candidates(result.get("candidates"))
+    if "ai_candidates" in result:
+        result["ai_candidates"] = normalize_candidates(result.get("ai_candidates"))
     return result
 
 
