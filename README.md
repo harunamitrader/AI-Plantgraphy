@@ -100,6 +100,16 @@ zipには以下が入ります。
 C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\data\exports
 ```
 
+## 運用ログ
+
+画像受信、解析開始、解析完了、解析失敗、手動修正、削除、バックアップ作成は以下に追記されます。
+
+```text
+C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\data\logs\server.log
+```
+
+`PLANT_DEX_DISCORD_WEBHOOK_URL` を設定すると、解析成功と解析失敗をDiscordへ通知できます。
+
 ## Gemini CLI解析を有効化する
 
 Gemini CLIが以下のように使えることを確認します。

@@ -8,8 +8,9 @@ from fastapi.templating import Jinja2Templates
 
 from . import db
 from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, get_settings
+from .services.activity_log import write_log
 from .services.connectivity import build_connectivity
-from .services.discord_notify import notify_analysis_finished
+from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
 from .services.export_store import create_export_zip
 from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
@@ -56,6 +57,7 @@ async def create_observation(
     longitude: float | None = Form(default=None),
 ) -> dict:
     observation_id, image_paths = await save_observation_images(images)
+    write_log(f"observation_received id={observation_id}")
     db.create_observation(
         observation_id=observation_id,
         image_paths=image_paths,
@@ -124,6 +126,7 @@ def export_page(request: Request) -> HTMLResponse:
 @app.post("/api/export", dependencies=[Depends(require_api_key)])
 def export_data() -> FileResponse:
     export_path = create_export_zip()
+    write_log(f"export_created path={export_path}")
     return FileResponse(
         export_path,
         media_type="application/zip",
@@ -204,6 +207,7 @@ def correct_observation(
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。") from None
+    write_log(f"observation_corrected id={observation_id} plant_id={plant_id}")
     return {"status": "corrected", "observation_id": observation_id, "plant_id": plant_id}
 
 
@@ -213,6 +217,7 @@ def delete_observation(observation_id: str) -> dict:
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
     remove_observation_images(observation["image1_path"])
+    write_log(f"observation_deleted id={observation_id}")
     return {"status": "deleted", "observation_id": observation_id}
 
 
@@ -229,12 +234,14 @@ def review(request: Request) -> HTMLResponse:
 
 def run_analysis(observation_id: str, image_paths: list[Path]) -> None:
     try:
+        write_log(f"analysis_started id={observation_id}")
         db.set_observation_status(observation_id, "analyzing")
         result = analyze_images(image_paths)
         result_path = image_paths[0].parent / "result.json"
         result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         plant_id = db.save_analysis_result(observation_id, result)
         plant = db.get_plant(plant_id)
+        write_log(f"analysis_finished id={observation_id} plant_id={plant_id}")
         if plant:
             notify_analysis_finished(
                 plant["display_name"],
@@ -242,7 +249,14 @@ def run_analysis(observation_id: str, image_paths: list[Path]) -> None:
                 f"{get_settings().base_url}/observations/{observation_id}",
             )
     except Exception as exc:
-        db.set_observation_status(observation_id, "analysis_failed", str(exc))
+        message = str(exc)
+        db.set_observation_status(observation_id, "analysis_failed", message)
+        write_log(f"analysis_failed id={observation_id} error={message[:500]}")
+        notify_analysis_failed(
+            observation_id,
+            message,
+            f"{get_settings().base_url}/observations/{observation_id}",
+        )
 
 
 def present_plant(row) -> dict:
