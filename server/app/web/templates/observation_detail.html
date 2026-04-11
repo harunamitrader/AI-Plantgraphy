@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}観察記録 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="intro">
+    <p class="eyebrow">Observation</p>
+    <h1>観察記録</h1>
+    <p>{{ observation.id }}</p>
+  </section>
+
+  <section class="photo-strip">
+    {% for url in observation.image_urls %}
+      {% if url %}
+        <img src="{{ url }}" alt="観察写真 {{ loop.index }}">
+      {% endif %}
+    {% endfor %}
+  </section>
+
+  <section class="facts">
+    <div><span>状態</span><strong>{{ observation.status }}</strong></div>
+    <div><span>信頼度</span><strong>{{ observation.confidence or "不明" }}</strong></div>
+    <div><span>撮影日時</span><strong>{{ observation.captured_at or "未入力" }}</strong></div>
+    <div><span>メモ</span><strong>{{ observation.note or "なし" }}</strong></div>
+  </section>
+
+  {% if observation.raw_result_json %}
+    <section>
+      <h2>解析JSON</h2>
+      <pre>{{ observation.raw_result_json }}</pre>
+    </section>
+  {% endif %}
+
+  {% if observation.error_message %}
+    <section class="error">
+      <h2>エラー</h2>
+      <p>{{ observation.error_message }}</p>
+    </section>
+  {% endif %}
+{% endblock %}
+

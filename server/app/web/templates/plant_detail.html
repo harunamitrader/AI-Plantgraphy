@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ plant.display_name }} | Plant Dex{% endblock %}
+{% block content %}
+  <section class="detail-head">
+    {% if plant.representative_image_url %}
+      <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
+    {% endif %}
+    <div>
+      <p class="eyebrow">Plant</p>
+      <h1>{{ plant.display_name }}</h1>
+      <p>{{ plant.scientific_name or "学名未確定" }}</p>
+      <p>{{ plant.description or "説明はまだありません。" }}</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <h2>観察履歴</h2>
+      <span>{{ observations | length }} 件</span>
+    </div>
+    <div class="list">
+      {% for observation in observations %}
+        <a class="row" href="/observations/{{ observation.id }}">
+          <span>{{ observation.captured_at or observation.received_at }}</span>
+          <small>{{ observation.status }} / 信頼度 {{ observation.confidence or "不明" }}</small>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

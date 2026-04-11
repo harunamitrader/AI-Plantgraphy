@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}確認待ち | Plant Dex{% endblock %}
+{% block content %}
+  <section class="intro">
+    <p class="eyebrow">Review</p>
+    <h1>確認待ち</h1>
+    <p>低信頼度、解析失敗、解析中の記録を確認します。</p>
+  </section>
+
+  <section class="list">
+    {% for observation in observations %}
+      <a class="row" href="/observations/{{ observation.id }}">
+        <span>{{ observation.id }}</span>
+        <small>{{ observation.status }} / {{ observation.error_message or "処理中または低信頼度" }}</small>
+      </a>
+    {% else %}
+      <p class="empty">確認待ちはありません。</p>
+    {% endfor %}
+  </section>
+{% endblock %}
+
