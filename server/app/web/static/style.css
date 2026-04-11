@@ -220,6 +220,33 @@ pre {
   background: #fff;
 }
 
+.actions {
+  margin-top: 24px;
+}
+
+.btn {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border-color: var(--leaf);
+  background: var(--leaf);
+  color: #fff;
+}
+
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 @media (max-width: 720px) {
   h1 {
     font-size: 28px;
@@ -233,4 +260,3 @@ pre {
     grid-template-columns: 1fr;
   }
 }
-

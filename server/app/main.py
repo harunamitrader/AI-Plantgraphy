@@ -110,6 +110,21 @@ def observation_detail(request: Request, observation_id: str) -> HTMLResponse:
     )
 
 
+@app.post("/api/observations/{observation_id}/reanalyze", dependencies=[Depends(require_api_key)])
+def reanalyze(observation_id: str, background_tasks: BackgroundTasks) -> dict:
+    observation = db.get_observation(observation_id)
+    if observation is None:
+        raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
+
+    image_paths = [
+        Path(observation["image1_path"]),
+        Path(observation["image2_path"]),
+        Path(observation["image3_path"]),
+    ]
+    background_tasks.add_task(run_analysis, observation_id, image_paths)
+    return {"status": "queued", "observation_id": observation_id}
+
+
 @app.get("/review", response_class=HTMLResponse)
 def review(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(

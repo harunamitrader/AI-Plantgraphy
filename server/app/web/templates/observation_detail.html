@@ -35,5 +35,55 @@
       <p>{{ observation.error_message }}</p>
     </section>
   {% endif %}
+
+  {% if observation.error_message or observation.status == 'needs_review' or observation.status == 'analyzed' %}
+    <section class="actions">
+      <h2>アクション</h2>
+      <button id="reanalyzeBtn" class="btn btn-primary">Gemini で再解析する</button>
+      <p id="reanalyzeStatus" style="margin-top: 0.5rem;"></p>
+    </section>
+
+    <script>
+      document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
+        let apiKey = localStorage.getItem('plant_dex_api_key');
+        if (!apiKey) {
+          apiKey = prompt('APIキーを入力してください');
+          if (!apiKey) return;
+          localStorage.setItem('plant_dex_api_key', apiKey);
+        }
+
+        const btn = document.getElementById('reanalyzeBtn');
+        const status = document.getElementById('reanalyzeStatus');
+        btn.disabled = true;
+        status.textContent = 'リクエスト送信中...';
+
+        try {
+          const response = await fetch('/api/observations/{{ observation.id }}/reanalyze', {
+            method: 'POST',
+            headers: {
+              'X-Plant-Dex-Api-Key': apiKey
+            }
+          });
+
+          if (response.ok) {
+            status.textContent = '再解析をリクエストしました。数分後にリロードしてください。';
+            status.style.color = 'green';
+          } else {
+            const detail = await response.json();
+            status.textContent = 'エラー: ' + (detail.detail || '失敗しました');
+            status.style.color = 'red';
+            btn.disabled = false;
+            if (response.status === 401) {
+              localStorage.removeItem('plant_dex_api_key');
+            }
+          }
+        } catch (err) {
+          status.textContent = 'エラー: ' + err.message;
+          status.style.color = 'red';
+          btn.disabled = false;
+        }
+      });
+    </script>
+  {% endif %}
 {% endblock %}
 

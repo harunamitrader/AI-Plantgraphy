@@ -3,20 +3,21 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
+from json import JSONDecodeError
 from pathlib import Path
 
 from ..config import PROJECT_DIR, get_settings
 
 
-PROMPT = """あなたは庭木・草花の観察記録を整理する植物判定アシスタントです。
-添付される3枚の写真は同じ植物を撮影したものです。
-植物の種類を推定し、必ずJSONのみで返してください。
+PROMPT = """以下の3枚のローカル画像ファイルを今すぐ読み取り、同じ植物を撮影した観察記録として植物の種類を推定してください。
+返答は必ずJSONのみです。挨拶、説明、Markdown、コードフェンス、JSON外の文章は禁止です。
 
 制約:
 - 断定できない場合は confidence を低くしてください。
 - common_name_ja と scientific_name が不明な場合は null にしてください。
 - candidates は最大3件にしてください。
-- Markdownや説明文をJSONの外に出さないでください。
+- 画像ファイルを読み取れない場合も、JSONで uncertainty_notes に理由を書いてください。
 
 JSONスキーマ:
 {
@@ -43,58 +44,125 @@ def analyze_images(image_paths: list[Path]) -> dict:
     if not settings.gemini_enabled:
         return mock_result()
 
-    prompt = build_prompt(image_paths)
-    command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
-    executable = shutil.which(command_parts[0]) or command_parts[0]
-    command = [
-        executable,
-        *command_parts[1:],
-        "--output-format",
-        "text",
-        "-p",
-        prompt,
-    ]
-    if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
-        command = ["cmd", "/c", *command]
-    completed = subprocess.run(
-        command,
-        cwd=PROJECT_DIR,
-        capture_output=True,
-        text=True,
-        timeout=settings.gemini_timeout_seconds,
-        check=False,
-    )
+    with tempfile.TemporaryDirectory(prefix="plant-dex-gemini-") as temp_dir:
+        readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
+        prompt = build_prompt(readable_paths)
+        command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
+        executable = shutil.which(command_parts[0]) or command_parts[0]
+        
+        # Add image attachments using the '@' prefix
+        image_args = [f"@{path.absolute()}" for path in readable_paths]
+        
+        command = [
+            executable,
+            *command_parts[1:],
+            "--include-directories",
+            str(Path(temp_dir)),
+            "--output-format",
+            "text",
+            "-p",
+            prompt,
+            *image_args,
+        ]
+        if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
+            command = ["cmd", "/c", *command]
+        completed = subprocess.run(
+            command,
+            cwd=PROJECT_DIR,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=settings.gemini_timeout_seconds,
+            check=False,
+        )
     if completed.returncode != 0:
-        raise RuntimeError(completed.stderr.strip() or "Gemini CLIの実行に失敗しました。")
+        stdout = (completed.stdout or "").strip()
+        stderr = (completed.stderr or "").strip()
+        detail = stderr or stdout or "Gemini CLIの実行に失敗しました。"
+        raise RuntimeError(f"Gemini CLI failed with code {completed.returncode}: {detail}")
 
-    return parse_json_output(completed.stdout)
+    try:
+        return parse_json_output(completed.stdout or "")
+    except JSONDecodeError as exc:
+        output = (completed.stdout or completed.stderr or "").strip()
+        preview = output[:1200] if output else "Gemini CLI returned empty output."
+        raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
 
 
 def build_prompt(image_paths: list[Path]) -> str:
-    image_list = "\n".join(f"- {path}" for path in image_paths)
     return f"""{PROMPT}
 
-解析対象の画像ファイル:
-{image_list}
-
-上記3枚の画像ファイルを読み取り、同一植物の観察として解析してください。
+上記添付された3枚の画像ファイルを読み取り、同一植物の観察として解析してください。
 """
+
+
+
+def copy_images_for_gemini(image_paths: list[Path], temp_dir: Path) -> list[Path]:
+    copied_paths: list[Path] = []
+    for index, source in enumerate(image_paths, start=1):
+        suffix = source.suffix or ".jpg"
+        target = temp_dir / f"plant-image-{index}{suffix}"
+        shutil.copy2(source, target)
+        copied_paths.append(target)
+    return copied_paths
 
 
 def parse_json_output(output: str) -> dict:
     text = output.strip()
-    if text.startswith("```"):
-        lines = [line for line in text.splitlines() if not line.strip().startswith("```")]
-        text = "\n".join(lines).strip()
+    fenced = extract_fenced_json(text)
+    if fenced:
+        return json.loads(fenced)
 
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
+        candidate = extract_first_json_object(text)
+        if candidate is None:
             raise
-        return json.loads(text[start : end + 1])
+        return json.loads(candidate)
+
+
+def extract_fenced_json(text: str) -> str | None:
+    marker = "```json"
+    start = text.find(marker)
+    if start == -1:
+        return None
+    start += len(marker)
+    end = text.find("```", start)
+    if end == -1:
+        return None
+    return text[start:end].strip()
+
+
+def extract_first_json_object(text: str) -> str | None:
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
 
 
 def mock_result() -> dict:

@@ -6,4 +6,4 @@ data/images/
 data/logs/
 data/*.sqlite
 data/*.sqlite-*
-
+temp_workspace/
