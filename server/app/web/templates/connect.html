@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}接続 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="dashboard upload-hero">
+    <div>
+      <p class="eyebrow">Connect</p>
+      <h1>スマホから接続</h1>
+      <p>TailscaleをONにしたスマホでQRコードを読み、外出先からPlant Dexを開きます。</p>
+    </div>
+  </section>
+
+  {% if connectivity.checks.api_key == "default" %}
+    <section class="error">
+      <h2>APIキーが初期値です</h2>
+      <p>公開前に `.env` の `PLANT_DEX_API_KEY` を `change-me` 以外へ変更してください。</p>
+    </section>
+  {% endif %}
+
+  <section class="connect-grid">
+    <div class="panel connect-card primary-connect">
+      <p class="eyebrow">Upload</p>
+      <h2>写真を送る</h2>
+      {% if primary_upload_url %}
+        <img class="qr-image" src="{{ upload_qr }}" alt="アップロード画面のQRコード">
+        <a class="url-box" href="{{ primary_upload_url }}">{{ primary_upload_url }}</a>
+      {% else %}
+        <p class="empty">接続URLを検出できませんでした。TailscaleまたはWi-Fi接続を確認してください。</p>
+      {% endif %}
+    </div>
+
+    <div class="panel connect-card">
+      <p class="eyebrow">Library</p>
+      <h2>図鑑を見る</h2>
+      {% if primary_home_url %}
+        <img class="qr-image" src="{{ home_qr }}" alt="図鑑トップのQRコード">
+        <a class="url-box" href="{{ primary_home_url }}">{{ primary_home_url }}</a>
+      {% else %}
+        <p class="empty">図鑑URLを検出できませんでした。</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Tailscale</p>
+        <h2>外出先で使うURL</h2>
+      </div>
+      <span>{{ connectivity.checks.tailscale_ip }}</span>
+    </div>
+    {% if connectivity.tailscale_urls %}
+      <div class="url-list">
+        {% for url in connectivity.tailscale_urls %}
+          <a href="{{ url }}">{{ url }}</a>
+          <a href="{{ url }}upload">{{ url }}upload</a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">Tailscale IPが見つかりません。PCとスマホのTailscaleに同じアカウントでログインしてください。</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Wi-Fi</p>
+        <h2>同じWi-Fiで試すURL</h2>
+      </div>
+      <span>{{ connectivity.checks.local_ip }}</span>
+    </div>
+    {% if connectivity.local_urls %}
+      <div class="url-list">
+        {% for url in connectivity.local_urls %}
+          <a href="{{ url }}">{{ url }}</a>
+          <a href="{{ url }}upload">{{ url }}upload</a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">ローカルIPが見つかりません。PCのWi-FiまたはLAN接続を確認してください。</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Checks</p>
+        <h2>状態</h2>
+      </div>
+    </div>
+    <div class="check-grid">
+      <div><span>Gemini CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
+      <div><span>APIキー</span><strong>{{ connectivity.checks.api_key }}</strong></div>
+      <div><span>Tailscale IP</span><strong>{{ connectivity.checks.tailscale_ip }}</strong></div>
+      <div><span>ローカルIP</span><strong>{{ connectivity.checks.local_ip }}</strong></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">Steps</p>
+    <h2>外出先で使う準備</h2>
+    <ol class="step-list">
+      <li>PCとスマホにTailscaleを入れます。</li>
+      <li>両方で同じTailscaleアカウントにログインします。</li>
+      <li>PCでPlant Dexを起動したままにします。</li>
+      <li>スマホのTailscaleをONにして、上のQRコードを読みます。</li>
+    </ol>
+    <p>詳しい手順はリポジトリ内の `docs/TAILSCALE_SETUP.md` にあります。</p>
+  </section>
+{% endblock %}

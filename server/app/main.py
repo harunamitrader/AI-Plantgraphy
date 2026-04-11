@@ -8,11 +8,13 @@ from fastapi.templating import Jinja2Templates
 
 from . import db
 from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, get_settings
+from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_finished
 from .services.export_store import create_export_zip
 from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
 from .services.observation_cleanup import remove_observation_images
+from .services.qr_code import qr_data_url
 
 ensure_data_dirs()
 
@@ -36,6 +38,11 @@ def require_api_key(x_plant_dex_api_key: str | None = Header(default=None)) -> N
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/connectivity")
+def connectivity() -> dict:
+    return build_connectivity()
 
 
 @app.post("/api/observations", dependencies=[Depends(require_api_key)])
@@ -89,6 +96,24 @@ def index(request: Request) -> HTMLResponse:
 @app.get("/upload", response_class=HTMLResponse)
 def upload_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("upload.html", {"request": request})
+
+
+@app.get("/connect", response_class=HTMLResponse)
+def connect_page(request: Request) -> HTMLResponse:
+    info = build_connectivity()
+    primary_upload_url = first_url(info["upload_urls"]["tailscale"]) or first_url(info["upload_urls"]["local"])
+    primary_home_url = first_url(info["tailscale_urls"]) or first_url(info["local_urls"])
+    return templates.TemplateResponse(
+        "connect.html",
+        {
+            "request": request,
+            "connectivity": info,
+            "primary_upload_url": primary_upload_url,
+            "primary_home_url": primary_home_url,
+            "upload_qr": qr_data_url(primary_upload_url) if primary_upload_url else "",
+            "home_qr": qr_data_url(primary_home_url) if primary_home_url else "",
+        },
+    )
 
 
 @app.get("/export", response_class=HTMLResponse)
@@ -311,3 +336,7 @@ def media_url(path_value: str | None) -> str:
         except ValueError:
             return ""
     return "/media/" + "/".join(relative.parts)
+
+
+def first_url(values: list[str]) -> str:
+    return values[0] if values else ""

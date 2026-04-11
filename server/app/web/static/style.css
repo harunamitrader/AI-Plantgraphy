@@ -407,6 +407,73 @@ h3 {
   margin: 18px 0;
 }
 
+.connect-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.connect-card {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.primary-connect {
+  border-color: rgba(46, 122, 85, 0.42);
+}
+
+.qr-image {
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.url-box,
+.url-list a {
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.url-list {
+  display: grid;
+  gap: 8px;
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.check-grid div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.check-grid span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.step-list {
+  padding-left: 22px;
+  margin-bottom: 0;
+}
+
 .facts.compact {
   margin: 14px 0;
 }
@@ -859,7 +926,8 @@ pre {
   .dashboard,
   .analysis-layout,
   .detail-head,
-  .insight-grid {
+  .insight-grid,
+  .connect-grid {
     grid-template-columns: 1fr;
   }
 
