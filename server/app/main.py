@@ -198,6 +198,8 @@ def profile_text(analysis: dict, kind: str) -> str:
         fallback = "基本的な特徴はまだありません。"
 
     if isinstance(text, str) and text.strip():
+        if "未生成です" in text:
+            return fallback
         return text.strip()
 
     legacy_profile = analysis.get("plant_profile")

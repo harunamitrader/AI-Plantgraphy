@@ -180,11 +180,15 @@ def normalize_result(result: dict) -> dict:
     if not isinstance(basic_text, str) or not basic_text.strip():
         basic_text = result.get("plant_profile_text")
 
-    if isinstance(basic_text, str) and basic_text.strip():
+    if isinstance(basic_text, str) and basic_text.strip() and not is_placeholder_text(basic_text):
         result["basic_profile_text"] = truncate_text(basic_text.strip(), 120)
+    else:
+        result.pop("basic_profile_text", None)
 
-    if isinstance(visual_text, str) and visual_text.strip():
+    if isinstance(visual_text, str) and visual_text.strip() and not is_placeholder_text(visual_text):
         result["visual_appeal_text"] = truncate_text(visual_text.strip(), 120)
+    else:
+        result.pop("visual_appeal_text", None)
 
     legacy_profile = result.get("plant_profile")
     if isinstance(legacy_profile, dict):
@@ -197,17 +201,8 @@ def normalize_result(result: dict) -> dict:
             result["basic_profile_text"] = truncate_text(overview.strip(), 120)
 
     name = result.get("common_name_ja") or "この植物"
-    if "basic_profile_text" not in result:
-        fallback_basic = f"{name}の基本プロフィールは未生成です。"
-        result["basic_profile_text"] = truncate_text(
-            fallback_basic,
-            120,
-        )
     if "visual_appeal_text" not in result:
-        result["visual_appeal_text"] = truncate_text(
-            f"{name}の姿と魅力は未生成です。",
-            120,
-        )
+        result.pop("visual_appeal_text", None)
     result["care_notes"] = truncate_text(str(result.get("care_notes") or ""), 120)
     result["uncertainty_notes"] = truncate_text(str(result.get("uncertainty_notes") or ""), 120)
     result["visible_features"] = normalize_visible_features(result.get("visible_features"))
@@ -238,6 +233,10 @@ def truncate_text(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip("、。,. ") + "…"
+
+
+def is_placeholder_text(text: str) -> bool:
+    return "未生成です" in text
 
 
 def mock_result() -> dict:
