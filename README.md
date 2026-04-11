@@ -59,3 +59,33 @@ http://127.0.0.1:8000/api/health
 初期状態では `PLANT_DEX_GEMINI_ENABLED=false` のため、Gemini CLIは実行せず仮の解析結果を保存します。Gemini CLIの呼び出し確認後、`.env` で `PLANT_DEX_GEMINI_ENABLED=true` に変更します。
 
 Windows PowerShell 5.1 の `Invoke-RestMethod` には `-Form` がないため、multipart送信のテストは上記スクリプトを使うのが安全です。PowerShell 7以降なら `Invoke-RestMethod -Form` でも送信できます。
+
+## Gemini CLI解析を有効化する
+
+Gemini CLIが以下のように使えることを確認します。
+
+```powershell
+gemini --version
+gemini --help
+```
+
+`.env` を編集して、以下に変更します。
+
+```text
+PLANT_DEX_GEMINI_ENABLED=true
+PLANT_DEX_GEMINI_COMMAND=gemini
+```
+
+サーバーを再起動します。
+
+```powershell
+uvicorn server.app.main:app --reload
+```
+
+その後、もう一度画像3枚を送信します。Gemini CLIには次の形式でプロンプトを渡します。
+
+```text
+gemini --output-format text -p "<画像3枚のパスを含む植物判定プロンプト>"
+```
+
+Geminiの出力がJSONとして解釈できれば、図鑑ページに実際の植物名と解析JSONが保存されます。

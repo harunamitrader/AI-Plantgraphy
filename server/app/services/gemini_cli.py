@@ -1,8 +1,9 @@
 import json
+import shlex
 import subprocess
 from pathlib import Path
 
-from ..config import get_settings
+from ..config import PROJECT_DIR, get_settings
 
 
 PROMPT = """あなたは庭木・草花の観察記録を整理する植物判定アシスタントです。
@@ -40,9 +41,17 @@ def analyze_images(image_paths: list[Path]) -> dict:
     if not settings.gemini_enabled:
         return mock_result()
 
-    command = [settings.gemini_command, PROMPT, *[str(path) for path in image_paths]]
+    prompt = build_prompt(image_paths)
+    command = [
+        *shlex.split(settings.gemini_command),
+        "--output-format",
+        "text",
+        "-p",
+        prompt,
+    ]
     completed = subprocess.run(
         command,
+        cwd=PROJECT_DIR,
         capture_output=True,
         text=True,
         timeout=settings.gemini_timeout_seconds,
@@ -52,6 +61,17 @@ def analyze_images(image_paths: list[Path]) -> dict:
         raise RuntimeError(completed.stderr.strip() or "Gemini CLIの実行に失敗しました。")
 
     return parse_json_output(completed.stdout)
+
+
+def build_prompt(image_paths: list[Path]) -> str:
+    image_list = "\n".join(f"- {path}" for path in image_paths)
+    return f"""{PROMPT}
+
+解析対象の画像ファイル:
+{image_list}
+
+上記3枚の画像ファイルを読み取り、同一植物の観察として解析してください。
+"""
 
 
 def parse_json_output(output: str) -> dict:
@@ -87,4 +107,3 @@ def mock_result() -> dict:
         "care_notes": "Gemini CLIを有効化すると実画像の解析結果に置き換えられます。",
         "uncertainty_notes": "これは動作確認用の仮データです。",
     }
-
