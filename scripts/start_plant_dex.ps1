@@ -3,6 +3,11 @@ $ProjectRoot = "C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex"
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $Url = "http://127.0.0.1:8000/"
 $Port = 8000
+$LanIp = (Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne "WellKnown" } |
+  Sort-Object InterfaceMetric |
+  Select-Object -First 1 -ExpandProperty IPAddress)
+$LanUrl = if ($LanIp) { "http://$($LanIp):$Port/" } else { $Url }
 
 Set-Location $ProjectRoot
 
@@ -20,7 +25,7 @@ Start-Process powershell.exe -ArgumentList @(
   "-NoExit",
   "-ExecutionPolicy", "Bypass",
   "-Command",
-  "cd '$ProjectRoot'; & '$Python' -m uvicorn server.app.main:app --host 127.0.0.1 --port 8000"
+  "cd '$ProjectRoot'; Write-Host 'Plant Dex local: $Url'; Write-Host 'Plant Dex phone: $LanUrl'; & '$Python' -m uvicorn server.app.main:app --host 0.0.0.0 --port 8000"
 )
 
 $deadline = (Get-Date).AddSeconds(20)
