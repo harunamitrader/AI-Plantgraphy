@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$ProjectRoot = "C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex"
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $Url = "http://127.0.0.1:8000/connect"
 $Port = 8000

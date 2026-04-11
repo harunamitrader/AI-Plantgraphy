@@ -27,7 +27,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 作業
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex` をプロジェクトルートにする
+- `plant-dex` をプロジェクトルートにする
 - Python 3.12以上を確認する
 - 仮想環境を作成する
 - FastAPI関連パッケージを入れる
@@ -36,9 +36,9 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\requirements.txt`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\.env.example`
+- `plant-dex\server`
+- `plant-dex\server\requirements.txt`
+- `plant-dex\.env.example`
 
 ### 確認項目
 
@@ -65,9 +65,9 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\main.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\config.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\image_store.py`
+- `plant-dex\server\app\main.py`
+- `plant-dex\server\app\config.py`
+- `plant-dex\server\app\services\image_store.py`
 
 ### 確認項目
 
@@ -93,8 +93,8 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\gemini_cli.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\prompts\plant_identification.md`
+- `plant-dex\server\app\services\gemini_cli.py`
+- `plant-dex\server\app\prompts\plant_identification.md`
 
 ### Geminiプロンプト方針
 
@@ -130,10 +130,10 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\db.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\models.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\plant_matcher.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\data\plants.sqlite`
+- `plant-dex\server\app\db.py`
+- `plant-dex\server\app\models.py`
+- `plant-dex\server\app\services\plant_matcher.py`
+- `plant-dex\data\plants.sqlite`
 
 ### 確認項目
 
@@ -159,11 +159,11 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\templates\index.html`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\templates\plant_detail.html`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\templates\observation_detail.html`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\templates\review.html`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\static\style.css`
+- `plant-dex\server\app\web\templates\index.html`
+- `plant-dex\server\app\web\templates\plant_detail.html`
+- `plant-dex\server\app\web\templates\observation_detail.html`
+- `plant-dex\server\app\web\templates\review.html`
+- `plant-dex\server\app\web\static\style.css`
 
 ### UI方針
 
@@ -198,10 +198,10 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\connectivity.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\qr_code.py`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\templates\connect.html`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\docs\TAILSCALE_SETUP.md`
+- `plant-dex\server\app\services\connectivity.py`
+- `plant-dex\server\app\services\qr_code.py`
+- `plant-dex\server\app\web\templates\connect.html`
+- `plant-dex\docs\TAILSCALE_SETUP.md`
 
 ### 確認項目
 
@@ -227,8 +227,8 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\static\manifest.webmanifest`
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\web\static\icons\`
+- `plant-dex\server\app\web\static\manifest.webmanifest`
+- `plant-dex\server\app\web\static\icons\`
 
 ### 確認項目
 
@@ -253,7 +253,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server\app\services\discord_notify.py`
+- `plant-dex\server\app\services\discord_notify.py`
 - 運用メモ
 
 ### 確認項目
@@ -382,7 +382,7 @@ GET  /observations/{id}
 
 ## 16. 開発開始時の具体的手順
 
-1. `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\server` を作る
+1. `plant-dex\server` を作る
 2. Python仮想環境を作る
 3. FastAPIのHello Worldを作る
 4. `/api/observations` で画像3枚を保存する
@@ -392,5 +392,3 @@ GET  /observations/{id}
 8. Web図鑑を作る
 9. OPPO Reno11 A のブラウザで確認する
 10. Tailscale接続ガイドとPWA化へ進む
-
-

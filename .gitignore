@@ -4,6 +4,7 @@ __pycache__/
 .env
 data/images/
 data/logs/
+data/exports/
 data/*.sqlite
 data/*.sqlite-*
 temp_workspace/

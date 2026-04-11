@@ -86,9 +86,9 @@ def api_observation(observation_id: str) -> dict:
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "plants": [present_plant(row) for row in db.list_plants()],
             "recent_observations": [present_observation(row) for row in db.list_recent_observations()],
         },
@@ -97,7 +97,7 @@ def index(request: Request) -> HTMLResponse:
 
 @app.get("/upload", response_class=HTMLResponse)
 def upload_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("upload.html", {"request": request})
+    return templates.TemplateResponse(request, "upload.html")
 
 
 @app.get("/connect", response_class=HTMLResponse)
@@ -106,9 +106,9 @@ def connect_page(request: Request) -> HTMLResponse:
     primary_upload_url = first_url(info["upload_urls"]["tailscale"]) or first_url(info["upload_urls"]["local"])
     primary_home_url = first_url(info["tailscale_urls"]) or first_url(info["local_urls"])
     return templates.TemplateResponse(
+        request,
         "connect.html",
         {
-            "request": request,
             "connectivity": info,
             "primary_upload_url": primary_upload_url,
             "primary_home_url": primary_home_url,
@@ -120,7 +120,7 @@ def connect_page(request: Request) -> HTMLResponse:
 
 @app.get("/export", response_class=HTMLResponse)
 def export_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("export.html", {"request": request})
+    return templates.TemplateResponse(request, "export.html")
 
 
 @app.post("/api/export", dependencies=[Depends(require_api_key)])
@@ -140,9 +140,9 @@ def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
     if plant is None:
         raise HTTPException(status_code=404, detail="植物が見つかりません。")
     return templates.TemplateResponse(
+        request,
         "plant_detail.html",
         {
-            "request": request,
             "plant": present_plant(plant),
             "observations": [present_observation(row) for row in db.list_observations_for_plant(plant_id)],
         },
@@ -152,9 +152,9 @@ def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
 @app.get("/observations", response_class=HTMLResponse)
 def observations(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "observations.html",
         {
-            "request": request,
             "observations": [present_observation(row) for row in db.list_observations()],
         },
     )
@@ -166,8 +166,9 @@ def observation_detail(request: Request, observation_id: str) -> HTMLResponse:
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
     return templates.TemplateResponse(
+        request,
         "observation_detail.html",
-        {"request": request, "observation": present_observation(observation)},
+        {"observation": present_observation(observation)},
     )
 
 
@@ -224,9 +225,9 @@ def delete_observation(observation_id: str) -> dict:
 @app.get("/review", response_class=HTMLResponse)
 def review(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "review.html",
         {
-            "request": request,
             "observations": [present_observation(row) for row in db.list_review_observations()],
         },
     )

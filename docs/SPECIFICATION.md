@@ -148,7 +148,7 @@ flowchart LR
 - 保存先の例:
 
 ```text
-C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\data\images\20260411-114500-a1b2c3\
+plant-dex\data\images\20260411-114500-a1b2c3\
   1.jpg
   2.jpg
   3.jpg
@@ -503,13 +503,13 @@ PCサーバーは以下をログに残す。
 ログ保存先:
 
 ```text
-C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\data\logs\server.log
+plant-dex\data\logs\server.log
 ```
 
 ## 15. フォルダ構成案
 
 ```text
-C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\
+plant-dex\
   docs\
     SPECIFICATION.md
     IMPLEMENTATION_PLAN.md
@@ -555,5 +555,3 @@ C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\plant-dex\
 - スマホからQRコードでアップロード画面を開ける
 - 観察記録を手動修正、再解析、削除できる
 - DBと画像をzipでバックアップできる
-
-
