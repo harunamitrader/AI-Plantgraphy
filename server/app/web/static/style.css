@@ -199,6 +199,34 @@ h3 {
   gap: 14px;
 }
 
+.inventory-tools {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.inventory-tools label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.search-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.search-input:focus {
+  outline: 3px solid rgba(197, 150, 47, 0.28);
+  border-color: var(--gold);
+}
+
 .plant-card {
   display: grid;
   grid-template-rows: 178px auto;
@@ -219,6 +247,11 @@ h3 {
 
 .plant-card img {
   height: 178px;
+}
+
+.plant-card[hidden],
+.filter-empty[hidden] {
+  display: none;
 }
 
 .plant-card-body {
