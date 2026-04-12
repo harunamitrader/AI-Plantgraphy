@@ -5,7 +5,7 @@
     <div>
       <p class="eyebrow">Connect</p>
       <h1>スマホから接続</h1>
-      <p>TailscaleをONにしたスマホでQRコードを読み、外出先からPlant Dexを開きます。</p>
+      <p>TailscaleをONにしたスマホでHTTPSのQRコードを読み、外出先からPlant Dexを開きます。</p>
     </div>
   </section>
 
@@ -43,11 +43,36 @@
   <section class="panel">
     <div class="section-title">
       <div>
-        <p class="eyebrow">Tailscale</p>
+        <p class="eyebrow">Tailscale HTTPS</p>
         <h2>外出先で使うURL</h2>
+      </div>
+      <span>{{ connectivity.checks.tailscale_serve }}</span>
+    </div>
+    <p>連続カメラを使う場合は、このHTTPS URLを使います。状態が configured ならQRコードの優先先になります。</p>
+    {% if connectivity.tailscale_https_urls %}
+      <div class="url-list">
+        {% for url in connectivity.tailscale_https_urls %}
+          <a href="{{ url }}">{{ url }}</a>
+          <a href="{{ url }}upload">{{ url }}upload</a>
+        {% endfor %}
+      </div>
+      {% if connectivity.checks.tailscale_serve != "configured" %}
+        <p class="empty">HTTPS名は見つかりましたが、Tailscale Serveが未設定です。PCで `scripts\configure_tailscale_https.ps1` を実行してください。失敗する場合はTailscale管理画面でMagicDNSとHTTPS Certificatesを有効にしてください。</p>
+      {% endif %}
+    {% else %}
+      <p class="empty">Tailscale HTTPS URLが見つかりません。TailscaleのMagicDNSとServeを確認してください。</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Tailscale HTTP</p>
+        <h2>予備のURL</h2>
       </div>
       <span>{{ connectivity.checks.tailscale_ip }}</span>
     </div>
+    <p>このHTTP URLでは、ブラウザ内の連続カメラが使えない場合があります。</p>
     {% if connectivity.tailscale_urls %}
       <div class="url-list">
         {% for url in connectivity.tailscale_urls %}
@@ -90,6 +115,9 @@
     <div class="check-grid">
       <div><span>Gemini CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
       <div><span>APIキー</span><strong>{{ connectivity.checks.api_key }}</strong></div>
+      <div><span>Tailscale CLI</span><strong>{{ connectivity.checks.tailscale_cli }}</strong></div>
+      <div><span>Tailscale Serve</span><strong>{{ connectivity.checks.tailscale_serve }}</strong></div>
+      <div><span>Tailscale HTTPS</span><strong>{{ connectivity.checks.tailscale_https }}</strong></div>
       <div><span>Tailscale IP</span><strong>{{ connectivity.checks.tailscale_ip }}</strong></div>
       <div><span>ローカルIP</span><strong>{{ connectivity.checks.local_ip }}</strong></div>
     </div>
@@ -102,7 +130,7 @@
       <li>PCとスマホにTailscaleを入れます。</li>
       <li>両方で同じTailscaleアカウントにログインします。</li>
       <li>PCでPlant Dexを起動したままにします。</li>
-      <li>スマホのTailscaleをONにして、上のQRコードを読みます。</li>
+      <li>スマホのTailscaleをONにして、HTTPSのQRコードを読みます。</li>
     </ol>
     <p>詳しい手順はリポジトリ内の `docs/TAILSCALE_SETUP.md` にあります。</p>
   </section>
@@ -111,6 +139,6 @@
     <p class="eyebrow">Home screen</p>
     <h2>ホーム画面に追加</h2>
     <p>スマホのブラウザメニューから「ホーム画面に追加」を選ぶと、Plant Dexをアプリのように開けます。</p>
-    <p>本格的なPWAインストール表示はHTTPS接続で有効になります。TailscaleのHTTP URLでは、ブラウザのショートカットとして追加される場合があります。</p>
+    <p>本格的なPWAインストール表示と連続カメラはHTTPS接続で有効になります。Tailscale ServeのHTTPS URLを使ってください。</p>
   </section>
 {% endblock %}

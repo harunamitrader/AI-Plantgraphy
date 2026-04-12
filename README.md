@@ -102,6 +102,16 @@ http://<PCのローカルIP>:8000/upload
 
 `連続カメラ` はブラウザのカメラAPIを使うため、HTTPSまたはlocalhostで動きます。TailscaleのHTTP URLで使えない場合は `通常カメラ` を使ってください。
 
+外出先で `連続カメラ` を使う場合は、Tailscale ServeのHTTPS URLを使います。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
+```
+
+成功後は `/connect` のQRコードがHTTPS URLを優先します。
+
+スクリプトがタイムアウトする場合は、Tailscale管理画面でMagicDNSとHTTPS Certificatesを有効にしてから再実行してください。
+
 外出先で使う場合は、PCとスマホの両方でTailscaleにログインし、Plant Dexの接続ページに表示されるTailscale URLまたはQRコードを使います。
 
 ```text

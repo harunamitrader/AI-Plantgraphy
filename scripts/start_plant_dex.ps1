@@ -3,6 +3,7 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $Url = "http://127.0.0.1:8000/connect"
 $Port = 8000
+$Tailscale = Get-Command tailscale -ErrorAction SilentlyContinue
 $LanIp = (Get-NetIPAddress -AddressFamily IPv4 |
   Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne "WellKnown" } |
   Sort-Object InterfaceMetric |
@@ -15,6 +16,19 @@ $TailScaleIp = (Get-NetIPAddress -AddressFamily IPv4 |
   Select-Object -First 1 -ExpandProperty IPAddress)
 $LanUrl = if ($LanIp) { "http://$($LanIp):$Port/" } else { "http://127.0.0.1:$Port/" }
 $TailscaleUrl = if ($TailScaleIp) { "http://$($TailScaleIp):$Port/" } else { "" }
+$TailscaleHttpsUrl = ""
+if ($Tailscale) {
+  try {
+    $TailscaleStatus = (& $Tailscale.Source status --json | ConvertFrom-Json)
+    if ($TailscaleStatus.Self.DNSName) {
+      $TailscaleDnsName = [string]$TailscaleStatus.Self.DNSName
+      $TailscaleDnsName = $TailscaleDnsName.TrimEnd(".")
+      $TailscaleHttpsUrl = "https://$TailscaleDnsName/"
+    }
+  } catch {
+    $TailscaleHttpsUrl = ""
+  }
+}
 
 Set-Location $ProjectRoot
 
@@ -40,6 +54,34 @@ while ((Get-Date) -lt $deadline) {
   try {
     $health = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/health" -Method Get -TimeoutSec 2
     if ($health.status -eq "ok") {
+      if ($Tailscale) {
+        try {
+          $serveStatus = (& $Tailscale.Source serve status --json | ConvertFrom-Json)
+          if (-not $serveStatus -or $serveStatus.PSObject.Properties.Count -eq 0) {
+            $serveJob = Start-Job -ScriptBlock {
+              param($TailscaleExe, $ServePort)
+              & $TailscaleExe serve --bg --yes --https=443 "localhost:$ServePort"
+            } -ArgumentList $Tailscale.Source, $Port
+
+            if (Wait-Job $serveJob -Timeout 12) {
+              Receive-Job $serveJob | Out-Host
+              if ($TailscaleHttpsUrl) {
+                Write-Host "Plant Dex Tailscale HTTPS: $TailscaleHttpsUrl"
+              }
+            } else {
+              Stop-Job $serveJob -ErrorAction SilentlyContinue
+              Write-Host "Tailscale Serve setup timed out. Open /connect and check the Tailscale HTTPS status."
+            }
+            Remove-Job $serveJob -Force -ErrorAction SilentlyContinue
+          } else {
+            if ($TailscaleHttpsUrl) {
+              Write-Host "Plant Dex Tailscale HTTPS: $TailscaleHttpsUrl"
+            }
+          }
+        } catch {
+          Write-Host "Tailscale Serve setup failed: $($_.Exception.Message)"
+        }
+      }
       Start-Process $Url
       exit 0
     }

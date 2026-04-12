@@ -11,7 +11,7 @@ from server.app import config, db
 from server.app.config import get_settings
 from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
-from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip
+from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip, tailscale_https_urls_from_status
 from server.app.services.gemini_cli import needs_gemini_auth, normalize_result
 from server.app.services.image_store import save_observation_images, looks_like_supported_image
 
@@ -78,6 +78,13 @@ class ServiceTests(unittest.TestCase):
         self.assertFalse(is_tailscale_ip("192.168.0.10"))
         self.assertTrue(is_private_lan_ip("192.168.0.10"))
         self.assertFalse(is_private_lan_ip("100.64.0.1"))
+
+    def test_tailscale_https_url_from_status(self):
+        status = {"Self": {"DNSName": "desktop-example.tailnet.ts.net."}}
+        self.assertEqual(
+            tailscale_https_urls_from_status(status),
+            ["https://desktop-example.tailnet.ts.net/"],
+        )
 
     def test_candidate_confidence_sum_is_normalized(self):
         result = normalize_result(

@@ -1,3 +1,4 @@
+import json
 import ipaddress
 import socket
 import subprocess
@@ -12,6 +13,9 @@ def build_connectivity(port: int = DEFAULT_PORT) -> dict:
     local_ips = list_local_ipv4_addresses()
     local_urls = [base_url(ip, port) for ip in local_ips if is_private_lan_ip(ip)]
     tailscale_urls = [base_url(ip, port) for ip in local_ips if is_tailscale_ip(ip)]
+    tailscale_status = get_tailscale_status()
+    tailscale_https_urls = tailscale_https_urls_from_status(tailscale_status)
+    tailscale_serve_status = check_tailscale_serve()
     gemini_status = check_gemini_cli(settings.gemini_command)
     api_key_status = "default" if settings.api_key == "change-me" else "set"
 
@@ -22,17 +26,78 @@ def build_connectivity(port: int = DEFAULT_PORT) -> dict:
         },
         "local_urls": local_urls,
         "tailscale_urls": tailscale_urls,
+        "tailscale_https_urls": tailscale_https_urls,
         "upload_urls": {
             "local": [f"{url}upload" for url in local_urls],
             "tailscale": [f"{url}upload" for url in tailscale_urls],
+            "tailscale_https": [f"{url}upload" for url in tailscale_https_urls],
         },
         "checks": {
             "gemini_cli": gemini_status,
             "api_key": api_key_status,
+            "tailscale_cli": "ok" if tailscale_status else "not_found",
+            "tailscale_serve": tailscale_serve_status,
+            "tailscale_https": "found" if tailscale_https_urls else "not_found",
             "tailscale_ip": "found" if tailscale_urls else "not_found",
             "local_ip": "found" if local_urls else "not_found",
         },
     }
+
+
+def get_tailscale_status() -> dict | None:
+    try:
+        completed = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=8,
+            shell=False,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    try:
+        status = json.loads(completed.stdout or "{}")
+    except json.JSONDecodeError:
+        return None
+    return status if isinstance(status, dict) else None
+
+
+def tailscale_https_urls_from_status(status: dict | None) -> list[str]:
+    if not status:
+        return []
+    self_info = status.get("Self") or {}
+    dns_name = str(self_info.get("DNSName") or "").strip().rstrip(".")
+    if not dns_name:
+        return []
+    return [f"https://{dns_name}/"]
+
+
+def check_tailscale_serve() -> str:
+    try:
+        completed = subprocess.run(
+            ["tailscale", "serve", "status", "--json"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=8,
+            shell=False,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "not_found"
+    if completed.returncode != 0:
+        return "error"
+    try:
+        status = json.loads(completed.stdout or "{}")
+    except json.JSONDecodeError:
+        return "unknown"
+    return "configured" if status else "not_configured"
 
 
 def list_local_ipv4_addresses() -> list[str]:
@@ -81,6 +146,8 @@ def check_gemini_cli(command: str) -> str:
             [executable, "--version"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=8,
             shell=False,
         )

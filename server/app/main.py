@@ -109,8 +109,17 @@ def upload_page(request: Request) -> HTMLResponse:
 @app.get("/connect", response_class=HTMLResponse)
 def connect_page(request: Request) -> HTMLResponse:
     info = build_connectivity()
-    primary_upload_url = first_url(info["upload_urls"]["tailscale"]) or first_url(info["upload_urls"]["local"])
-    primary_home_url = first_url(info["tailscale_urls"]) or first_url(info["local_urls"])
+    tailscale_https_is_ready = info["checks"]["tailscale_serve"] == "configured"
+    primary_upload_url = (
+        (first_url(info["upload_urls"]["tailscale_https"]) if tailscale_https_is_ready else None)
+        or first_url(info["upload_urls"]["tailscale"])
+        or first_url(info["upload_urls"]["local"])
+    )
+    primary_home_url = (
+        (first_url(info["tailscale_https_urls"]) if tailscale_https_is_ready else None)
+        or first_url(info["tailscale_urls"])
+        or first_url(info["local_urls"])
+    )
     return templates.TemplateResponse(
         request,
         "connect.html",

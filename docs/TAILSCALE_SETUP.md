@@ -56,6 +56,34 @@ http://127.0.0.1:8000/connect
 
 ブラウザ内で続けて撮影したい場合は `連続カメラ` を使います。ブラウザの制約により、HTTPSまたはlocalhostでのみ使えます。TailscaleのHTTP URLで使えない場合は `通常カメラ` を使ってください。
 
+## 連続カメラを外出先で使う
+
+外出先で `連続カメラ` を使う場合は、Tailscale IPのHTTP URLではなく、Tailscale ServeのHTTPS URLを使います。
+
+PCでPlant Dexを起動したあと、必要に応じて以下を実行します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
+```
+
+成功すると以下のようなURLが表示されます。
+
+```text
+https://<PC名>.<tailnet>.ts.net/upload
+```
+
+スマホのTailscaleをONにして、このHTTPS URLを開いてください。
+
+`/connect` ページの `Tailscale Serve` が `configured` になっていれば、表示されるQRコードもHTTPS URLを優先します。
+
+スクリプトがタイムアウトする場合は、Tailscaleの管理画面で以下を確認してください。
+
+- MagicDNSが有効
+- HTTPS Certificatesが有効
+- PCとスマホが同じtailnetに参加している
+
+その後、もう一度 `scripts\configure_tailscale_https.ps1` を実行します。
+
 ## 7. 外出先で使う時の注意
 
 外出先で使うには、以下が必要です。
