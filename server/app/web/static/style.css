@@ -766,7 +766,7 @@ pre {
 
 .file-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -784,6 +784,7 @@ pre {
   font-weight: 800;
   text-align: center;
   cursor: pointer;
+  font: inherit;
 }
 
 .upload-form .file-action.secondary {
@@ -792,8 +793,42 @@ pre {
   color: #7c5a17;
 }
 
+.upload-form .file-action.quiet {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
 .upload-form .file-action:active {
   transform: translateY(1px);
+}
+
+.camera-panel {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.camera-panel[hidden] {
+  display: none;
+}
+
+.camera-panel video {
+  width: 100%;
+  max-height: 68vh;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  background: #0b1410;
+  object-fit: cover;
+}
+
+.camera-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 }
 
 .visually-hidden {
@@ -1072,7 +1107,8 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .file-actions {
+  .file-actions,
+  .camera-actions {
     grid-template-columns: 1fr;
   }
 }

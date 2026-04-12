@@ -20,7 +20,8 @@
         <span class="form-label">写真候補</span>
         <div class="file-actions">
           <label class="file-action" for="galleryImages">写真から選ぶ</label>
-          <label class="file-action secondary" for="cameraImages">カメラで撮る</label>
+          <button class="file-action secondary" id="continuousCameraBtn" type="button">連続カメラ</button>
+          <label class="file-action quiet" for="cameraImages">通常カメラ</label>
         </div>
         <input class="visually-hidden" id="galleryImages" name="galleryImages" type="file" accept="image/*" multiple>
         <input class="visually-hidden" id="cameraImages" name="cameraImages" type="file" accept="image/*" capture="environment">
@@ -28,6 +29,16 @@
           候補を追加すると、後から追加した3枚が自動で選ばれます。送信は1〜3枚です。
           候補: <span id="candidateCount">0</span>枚 / 送信: <span id="selectedCount">0</span>枚
         </p>
+      </div>
+
+      <div class="camera-panel" id="cameraPanel" hidden>
+        <video id="cameraPreview" playsinline autoplay muted></video>
+        <canvas id="cameraCanvas" hidden></canvas>
+        <div class="camera-actions">
+          <button class="btn btn-primary" id="captureFrameBtn" type="button">撮影して候補に追加</button>
+          <button class="btn" id="stopCameraBtn" type="button">カメラを閉じる</button>
+        </div>
+        <p class="field-help" id="cameraHelp">撮影するたびに候補へ追加します。送信対象は後から追加された3枚が自動で選ばれます。</p>
       </div>
 
       <div class="preview-grid" id="previewGrid"></div>
@@ -52,12 +63,20 @@
     const apiKeyInput = document.getElementById('apiKey');
     const galleryInput = document.getElementById('galleryImages');
     const cameraInput = document.getElementById('cameraImages');
+    const continuousCameraBtn = document.getElementById('continuousCameraBtn');
+    const cameraPanel = document.getElementById('cameraPanel');
+    const cameraPreview = document.getElementById('cameraPreview');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+    const captureFrameBtn = document.getElementById('captureFrameBtn');
+    const stopCameraBtn = document.getElementById('stopCameraBtn');
+    const cameraHelp = document.getElementById('cameraHelp');
     const previewGrid = document.getElementById('previewGrid');
     const selectedCount = document.getElementById('selectedCount');
     const statusText = document.getElementById('uploadStatus');
     const uploadButton = document.getElementById('uploadButton');
     let candidates = [];
     let nextCandidateId = 1;
+    let cameraStream = null;
 
     apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
 
@@ -70,6 +89,11 @@
       addCandidates(Array.from(cameraInput.files));
       cameraInput.value = '';
     });
+
+    continuousCameraBtn.addEventListener('click', startContinuousCamera);
+    captureFrameBtn.addEventListener('click', captureFrame);
+    stopCameraBtn.addEventListener('click', stopContinuousCamera);
+    window.addEventListener('pagehide', stopContinuousCamera);
 
     function addCandidates(files) {
       files.forEach((file) => {
@@ -157,6 +181,70 @@
         card.appendChild(controls);
         previewGrid.appendChild(card);
       });
+    }
+
+    async function startContinuousCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('このブラウザでは連続カメラを使えません。通常カメラを使ってください。', true);
+        return;
+      }
+      if (!window.isSecureContext) {
+        setStatus('連続カメラはHTTPSまたはlocalhostで使えます。今の接続では通常カメラを使ってください。', true);
+        return;
+      }
+
+      try {
+        stopContinuousCamera();
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1600 },
+            height: { ideal: 1200 }
+          },
+          audio: false
+        });
+        cameraPreview.srcObject = cameraStream;
+        cameraPanel.hidden = false;
+        cameraHelp.textContent = 'カメラを起動しました。撮影ボタンを押すたびに候補へ追加します。';
+        await cameraPreview.play();
+      } catch (err) {
+        cameraPanel.hidden = true;
+        setStatus(`連続カメラを起動できませんでした: ${err.message}`, true);
+      }
+    }
+
+    async function captureFrame() {
+      if (!cameraStream || !cameraPreview.videoWidth || !cameraPreview.videoHeight) {
+        setStatus('カメラ映像の準備中です。少し待ってから撮影してください。', true);
+        return;
+      }
+
+      cameraCanvas.width = cameraPreview.videoWidth;
+      cameraCanvas.height = cameraPreview.videoHeight;
+      const context = cameraCanvas.getContext('2d');
+      context.drawImage(cameraPreview, 0, 0, cameraCanvas.width, cameraCanvas.height);
+
+      const blob = await new Promise((resolve) => {
+        cameraCanvas.toBlob(resolve, 'image/jpeg', 0.9);
+      });
+      if (!blob) {
+        setStatus('写真を作成できませんでした。通常カメラを試してください。', true);
+        return;
+      }
+
+      const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+      addCandidates([file]);
+      setStatus('候補に追加しました。続けて撮影できます。', false);
+    }
+
+    function stopContinuousCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+      }
+      cameraPreview.srcObject = null;
+      cameraPanel.hidden = true;
     }
 
     form.addEventListener('submit', async (event) => {
