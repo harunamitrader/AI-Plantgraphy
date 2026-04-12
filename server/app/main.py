@@ -14,6 +14,7 @@ from .services.discord_notify import notify_analysis_failed, notify_analysis_fin
 from .services.export_store import create_export_zip
 from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
+from .services.diagnostics import build_diagnostics
 from .services.observation_cleanup import remove_observation_images
 from .services.qr_code import qr_data_url
 
@@ -44,6 +45,11 @@ def health() -> dict:
 @app.get("/api/connectivity")
 def connectivity() -> dict:
     return build_connectivity()
+
+
+@app.get("/api/diagnostics")
+def diagnostics() -> dict:
+    return build_diagnostics()
 
 
 @app.post("/api/observations", dependencies=[Depends(require_api_key)])
@@ -115,6 +121,15 @@ def connect_page(request: Request) -> HTMLResponse:
             "upload_qr": qr_data_url(primary_upload_url) if primary_upload_url else "",
             "home_qr": qr_data_url(primary_home_url) if primary_home_url else "",
         },
+    )
+
+
+@app.get("/diagnostics", response_class=HTMLResponse)
+def diagnostics_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "diagnostics.html",
+        {"diagnostics": build_diagnostics()},
     )
 
 

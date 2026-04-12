@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from server.app import config, db
 from server.app.config import get_settings
 from server.app.main import app, parse_analysis
-from server.app.services import activity_log, export_store, observation_cleanup
+from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip
 from server.app.services.gemini_cli import normalize_result
 from server.app.services.image_store import looks_like_supported_image
@@ -28,6 +28,10 @@ class ServiceTests(unittest.TestCase):
             "export_export_dir": export_store.EXPORT_DIR,
             "cleanup_image_dir": observation_cleanup.IMAGE_DIR,
             "activity_log_dir": activity_log.LOG_DIR,
+            "diagnostics_image_dir": diagnostics.IMAGE_DIR,
+            "diagnostics_log_dir": diagnostics.LOG_DIR,
+            "diagnostics_export_dir": diagnostics.EXPORT_DIR,
+            "diagnostics_db_path": diagnostics.DB_PATH,
         }
 
     def tearDown(self):
@@ -42,6 +46,10 @@ class ServiceTests(unittest.TestCase):
         export_store.EXPORT_DIR = self._originals["export_export_dir"]
         observation_cleanup.IMAGE_DIR = self._originals["cleanup_image_dir"]
         activity_log.LOG_DIR = self._originals["activity_log_dir"]
+        diagnostics.IMAGE_DIR = self._originals["diagnostics_image_dir"]
+        diagnostics.LOG_DIR = self._originals["diagnostics_log_dir"]
+        diagnostics.EXPORT_DIR = self._originals["diagnostics_export_dir"]
+        diagnostics.DB_PATH = self._originals["diagnostics_db_path"]
 
     def test_image_signature_detection(self):
         self.assertTrue(looks_like_supported_image(b"\xff\xd8\xffabc", ".jpg"))
@@ -159,9 +167,20 @@ class ServiceTests(unittest.TestCase):
 
     def test_main_pages_render(self):
         client = TestClient(app)
-        for path in ["/", "/connect", "/upload", "/observations", "/review", "/export"]:
+        for path in ["/", "/connect", "/diagnostics", "/upload", "/observations", "/review", "/export"]:
             with self.subTest(path=path):
                 self.assertEqual(client.get(path).status_code, 200)
+
+    def test_diagnostics_api_reports_checks(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            client = TestClient(app)
+            response = client.get("/api/diagnostics")
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIn("checks", payload)
+            self.assertIn("connectivity", payload)
+            self.assertTrue(any(item["key"] == "image_dir" for item in payload["checks"]))
 
     def test_activity_log_writes_file(self):
         with TemporaryDirectory() as tmp:
@@ -182,6 +201,10 @@ class ServiceTests(unittest.TestCase):
         export_store.IMAGE_DIR = config.IMAGE_DIR
         export_store.EXPORT_DIR = config.EXPORT_DIR
         observation_cleanup.IMAGE_DIR = config.IMAGE_DIR
+        diagnostics.IMAGE_DIR = config.IMAGE_DIR
+        diagnostics.LOG_DIR = config.LOG_DIR
+        diagnostics.EXPORT_DIR = config.EXPORT_DIR
+        diagnostics.DB_PATH = config.DB_PATH
         config.ensure_data_dirs()
         db.init_db()
 

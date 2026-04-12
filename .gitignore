@@ -9,3 +9,4 @@ data/*.sqlite
 data/*.sqlite-*
 temp_workspace/
 _tmp/
+dist/

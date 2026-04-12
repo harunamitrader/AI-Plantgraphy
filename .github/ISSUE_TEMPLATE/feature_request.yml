@@ -1,0 +1,28 @@
+name: Feature request
+description: Plant Dexへの機能提案
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 何を便利にしたいですか
+      description: 困っていることや、できるようにしたいことを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: どんな形がよさそうですか
+      description: 画面、操作、保存方法などの希望があれば書いてください。
+  - type: dropdown
+    id: area
+    attributes:
+      label: 関係しそうな場所
+      options:
+        - スマホアップロード
+        - 図鑑画面
+        - Gemini解析
+        - Tailscale接続
+        - バックアップ
+        - その他

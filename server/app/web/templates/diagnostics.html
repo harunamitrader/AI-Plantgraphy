@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}診断 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="dashboard upload-hero">
+    <div>
+      <p class="eyebrow">Diagnostics</p>
+      <h1>起動診断</h1>
+      <p>接続、保存先、Gemini CLI、APIキーの状態を確認します。</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Status</p>
+        <h2>{% if diagnostics.ok %}使える状態です{% else %}確認が必要です{% endif %}</h2>
+      </div>
+      <span>{{ diagnostics.counts.observations or 0 }} records</span>
+    </div>
+    <div class="diagnostic-list">
+      {% for check in diagnostics.checks %}
+        <div class="diagnostic-item is-{{ check.status }}">
+          <strong>{{ check.label }}</strong>
+          <span>{{ check.status }}</span>
+          <p>{{ check.message }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Settings</p>
+        <h2>現在の設定</h2>
+      </div>
+    </div>
+    <div class="check-grid">
+      <div><span>Base URL</span><strong>{{ diagnostics.settings.base_url }}</strong></div>
+      <div><span>Gemini解析</span><strong>{{ diagnostics.settings.gemini_enabled }}</strong></div>
+      <div><span>Gemini待ち時間</span><strong>{{ diagnostics.settings.gemini_timeout_seconds }}秒</strong></div>
+      <div><span>Discord通知</span><strong>{{ diagnostics.settings.discord_enabled }}</strong></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">Next</p>
+    <h2>次に見る場所</h2>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/connect">スマホ接続を見る</a>
+      <a class="btn" href="/upload">写真を追加する</a>
+      <a class="btn" href="/export">バックアップする</a>
+    </div>
+  </section>
+{% endblock %}

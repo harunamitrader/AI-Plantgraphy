@@ -2,6 +2,22 @@
 
 スマホで庭木・草花の写真を3枚撮影し、自宅PC上の Gemini CLI で解析して、植物図鑑として保存・閲覧するための個人用アプリ構想です。
 
+## まず使う
+
+Windowsで試す場合は、こちらから始めます。
+
+- クイックスタート: `docs\QUICK_START_WINDOWS.md`
+- Tailscale手順: `docs\TAILSCALE_SETUP.md`
+
+PowerShellで最短セットアップ:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install_windows.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
+```
+
+その後、デスクトップの `Plant Dex を起動` を開きます。
+
 ## 現在の実装範囲
 
 - Windows 11 Pro上で動かすFastAPIサーバー
@@ -15,6 +31,9 @@
 - 解析結果の再解析と手動修正
 - 植物DBと画像のzipバックアップ
 - Discord Webhook通知の下準備
+- 起動診断ページ
+- Windows用初期セットアップスクリプト
+- GitHub Actionsによる自動テスト
 
 ## ドキュメント
 
@@ -22,6 +41,9 @@
 - 実装計画書: `docs\IMPLEMENTATION_PLAN.md`
 - Tailscale実装計画: `docs\TAILSCALE_IMPLEMENTATION_PLAN.md`
 - Tailscaleセットアップ手順: `docs\TAILSCALE_SETUP.md`
+- Windowsクイックスタート: `docs\QUICK_START_WINDOWS.md`
+- 貢献ガイド: `CONTRIBUTING.md`
+- セキュリティ: `SECURITY.md`
 
 ## 初期方針
 
@@ -48,6 +70,7 @@ uvicorn server.app.main:app --reload
 ```text
 http://127.0.0.1:8000/
 http://127.0.0.1:8000/api/health
+http://127.0.0.1:8000/diagnostics
 ```
 
 ## 画像3枚のテスト送信
@@ -148,8 +171,28 @@ AIで確認できる範囲のサービス層・主要画面の自動テストは
 .\.venv\Scripts\python.exe -m unittest discover -s .\server\tests -p "test_*.py"
 ```
 
+または:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
+```
+
 構文チェックを広めに行う場合は、以下も実行します。
 
 ```powershell
 .\.venv\Scripts\python.exe -m compileall .\server .\scripts
 ```
+
+## 配布zipを作る
+
+`.env`、`.venv`、`data` を除いたzipを作る場合は以下を実行します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package_release.ps1
+```
+
+zipは `dist` に作成されます。
+
+## ライセンス
+
+MIT Licenseです。詳細は `LICENSE` を確認してください。

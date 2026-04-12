@@ -474,6 +474,52 @@ h3 {
   margin-bottom: 0;
 }
 
+.diagnostic-list {
+  display: grid;
+  gap: 10px;
+}
+
+.diagnostic-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.diagnostic-item span {
+  align-self: start;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--leaf-quiet);
+  color: var(--leaf);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diagnostic-item p {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.diagnostic-item.is-error {
+  border-color: #f1c0b6;
+  background: #fff8f6;
+}
+
+.diagnostic-item.is-error span {
+  background: #ffe2dc;
+  color: var(--coral);
+}
+
+.diagnostic-item.is-skipped span {
+  background: #fff1d8;
+  color: #8a6219;
+}
+
 .facts.compact {
   margin: 14px 0;
 }

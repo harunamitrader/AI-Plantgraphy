@@ -1,0 +1,33 @@
+name: Bug report
+description: Plant Dexの不具合報告
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 何が起きましたか
+      description: 期待した動きと実際の動きを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: どの画面で何を押したか、順番に書いてください。
+      placeholder: |
+        1. Plant Dexを起動
+        2. スマホで/uploadを開く
+        3. 写真を送信
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 環境
+      placeholder: Windows 11 / Android 15 / Chrome など
+  - type: textarea
+    id: logs
+    attributes:
+      label: ログ
+      description: APIキー、Webhook URL、個人写真、位置情報は貼らないでください。
