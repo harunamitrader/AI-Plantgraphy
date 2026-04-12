@@ -370,7 +370,7 @@ h3 {
 
 .photo-strip {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
 
@@ -821,12 +821,56 @@ pre {
   gap: 10px;
 }
 
-.preview-grid img {
+.preview-item {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.preview-item.is-selected {
+  border-color: var(--leaf);
+  background: var(--leaf-quiet);
+}
+
+.preview-item img {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 8px;
   object-fit: cover;
   background: #f7fbf8;
+}
+
+.preview-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.preview-check,
+.preview-remove {
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.preview-item.is-selected .preview-check {
+  border-color: var(--leaf);
+  background: var(--leaf);
+  color: #fff;
+}
+
+.preview-remove {
+  color: var(--coral);
 }
 
 .action-form label {

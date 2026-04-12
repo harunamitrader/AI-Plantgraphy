@@ -5,8 +5,8 @@ import requests
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Upload three plant photos to Plant Dex.")
-    parser.add_argument("images", nargs=3, help="Three image file paths.")
+    parser = argparse.ArgumentParser(description="Upload one to three plant photos to Plant Dex.")
+    parser.add_argument("images", nargs="+", help="One to three image file paths.")
     parser.add_argument("--url", default="http://127.0.0.1:8000/api/observations")
     parser.add_argument("--api-key", default="change-me")
     parser.add_argument("--note", default="")
@@ -14,6 +14,8 @@ def main() -> None:
     args = parser.parse_args()
 
     image_paths = [Path(path) for path in args.images]
+    if not 1 <= len(image_paths) <= 3:
+        raise SystemExit("Please provide one to three image file paths.")
     for path in image_paths:
         if not path.exists():
             raise SystemExit(f"Image not found: {path}")
@@ -57,4 +59,3 @@ def content_type(path: Path) -> str:
 
 if __name__ == "__main__":
     main()
-

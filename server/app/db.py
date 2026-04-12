@@ -56,8 +56,8 @@ def init_db() -> None:
                 latitude REAL,
                 longitude REAL,
                 image1_path TEXT NOT NULL,
-                image2_path TEXT NOT NULL,
-                image3_path TEXT NOT NULL,
+                image2_path TEXT,
+                image3_path TEXT,
                 confidence REAL,
                 raw_result_json TEXT,
                 error_message TEXT,
@@ -84,6 +84,63 @@ def init_db() -> None:
                 ON observations(plant_id);
             """
         )
+        migrate_observation_optional_images(conn)
+
+
+def migrate_observation_optional_images(conn: sqlite3.Connection) -> None:
+    columns = conn.execute("PRAGMA table_info(observations)").fetchall()
+    if not columns:
+        return
+
+    notnull_by_name = {column["name"]: column["notnull"] for column in columns}
+    if not notnull_by_name.get("image2_path") and not notnull_by_name.get("image3_path"):
+        return
+
+    conn.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+
+        CREATE TABLE observations_new (
+            id TEXT PRIMARY KEY,
+            plant_id TEXT,
+            status TEXT NOT NULL,
+            captured_at TEXT,
+            received_at TEXT NOT NULL,
+            note TEXT,
+            location_label TEXT,
+            latitude REAL,
+            longitude REAL,
+            image1_path TEXT NOT NULL,
+            image2_path TEXT,
+            image3_path TEXT,
+            confidence REAL,
+            raw_result_json TEXT,
+            error_message TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (plant_id) REFERENCES plants(id)
+        );
+
+        INSERT INTO observations_new (
+            id, plant_id, status, captured_at, received_at, note, location_label,
+            latitude, longitude, image1_path, image2_path, image3_path,
+            confidence, raw_result_json, error_message, created_at, updated_at
+        )
+        SELECT
+            id, plant_id, status, captured_at, received_at, note, location_label,
+            latitude, longitude, image1_path, image2_path, image3_path,
+            confidence, raw_result_json, error_message, created_at, updated_at
+        FROM observations;
+
+        DROP TABLE observations;
+        ALTER TABLE observations_new RENAME TO observations;
+
+        CREATE INDEX IF NOT EXISTS idx_observations_plant_id
+            ON observations(plant_id);
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
 
 
 def create_observation(
@@ -115,8 +172,8 @@ def create_observation(
                 latitude,
                 longitude,
                 str(image_paths[0]),
-                str(image_paths[1]),
-                str(image_paths[2]),
+                str(image_paths[1]) if len(image_paths) > 1 else None,
+                str(image_paths[2]) if len(image_paths) > 2 else None,
                 timestamp,
                 timestamp,
             ),

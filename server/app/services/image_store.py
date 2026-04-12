@@ -10,11 +10,13 @@ from ..config import IMAGE_DIR
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_TOTAL_BYTES = 30 * 1024 * 1024
+MIN_IMAGE_COUNT = 1
+MAX_IMAGE_COUNT = 3
 
 
 async def save_observation_images(files: list[UploadFile]) -> tuple[str, list[Path]]:
-    if len(files) != 3:
-        raise HTTPException(status_code=400, detail="画像は必ず3枚送信してください。")
+    if not (MIN_IMAGE_COUNT <= len(files) <= MAX_IMAGE_COUNT):
+        raise HTTPException(status_code=400, detail="画像は1枚から3枚まで送信できます。")
 
     observation_id = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
     observation_dir = IMAGE_DIR / observation_id

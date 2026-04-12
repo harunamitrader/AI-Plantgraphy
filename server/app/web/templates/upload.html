@@ -5,7 +5,7 @@
     <div>
       <p class="eyebrow">New record</p>
       <h1>植物を追加</h1>
-      <p>写真を3枚選んで送信します。解析が終わると図鑑に追加されます。</p>
+      <p>候補写真から1〜3枚を選んで送信します。解析が終わると図鑑に追加されます。</p>
     </div>
   </section>
 
@@ -17,14 +17,17 @@
       </div>
 
       <div>
-        <span class="form-label">写真3枚</span>
+        <span class="form-label">写真候補</span>
         <div class="file-actions">
           <label class="file-action" for="galleryImages">写真から選ぶ</label>
           <label class="file-action secondary" for="cameraImages">カメラで撮る</label>
         </div>
         <input class="visually-hidden" id="galleryImages" name="galleryImages" type="file" accept="image/*" multiple>
-        <input class="visually-hidden" id="cameraImages" name="cameraImages" type="file" accept="image/*" capture="environment" multiple>
-        <p class="field-help">同じ植物を別角度から3枚選んでください。選択中: <span id="selectedCount">0</span>枚</p>
+        <input class="visually-hidden" id="cameraImages" name="cameraImages" type="file" accept="image/*" capture="environment">
+        <p class="field-help">
+          候補を追加すると、後から追加した3枚が自動で選ばれます。送信は1〜3枚です。
+          候補: <span id="candidateCount">0</span>枚 / 送信: <span id="selectedCount">0</span>枚
+        </p>
       </div>
 
       <div class="preview-grid" id="previewGrid"></div>
@@ -53,43 +56,120 @@
     const selectedCount = document.getElementById('selectedCount');
     const statusText = document.getElementById('uploadStatus');
     const uploadButton = document.getElementById('uploadButton');
-    let selectedFiles = [];
+    let candidates = [];
+    let nextCandidateId = 1;
 
     apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
 
     galleryInput.addEventListener('change', () => {
-      setSelectedFiles(Array.from(galleryInput.files));
-      cameraInput.value = '';
-    });
-
-    cameraInput.addEventListener('change', () => {
-      setSelectedFiles(Array.from(cameraInput.files));
+      addCandidates(Array.from(galleryInput.files));
       galleryInput.value = '';
     });
 
-    function setSelectedFiles(files) {
-      selectedFiles = files;
-      selectedCount.textContent = selectedFiles.length;
+    cameraInput.addEventListener('change', () => {
+      addCandidates(Array.from(cameraInput.files));
+      cameraInput.value = '';
+    });
+
+    function addCandidates(files) {
+      files.forEach((file) => {
+        candidates.push({
+          id: nextCandidateId,
+          file,
+          selected: false,
+          url: URL.createObjectURL(file)
+        });
+        nextCandidateId += 1;
+      });
+      selectLatestCandidates();
+      renderCandidates();
+    }
+
+    function selectLatestCandidates() {
+      const selectedIds = new Set(candidates.slice(-3).map((candidate) => candidate.id));
+      candidates = candidates.map((candidate) => ({
+        ...candidate,
+        selected: selectedIds.has(candidate.id)
+      }));
+    }
+
+    function toggleCandidate(id) {
+      const candidate = candidates.find((item) => item.id === id);
+      if (!candidate) {
+        return;
+      }
+      const selectedTotal = getSelectedCandidates().length;
+      if (!candidate.selected && selectedTotal >= 3) {
+        setStatus('送信できる写真は最大3枚です。別の写真のチェックを外してください。', true);
+        return;
+      }
+      candidate.selected = !candidate.selected;
+      renderCandidates();
+    }
+
+    function removeCandidate(id) {
+      const candidate = candidates.find((item) => item.id === id);
+      if (candidate) {
+        URL.revokeObjectURL(candidate.url);
+      }
+      candidates = candidates.filter((item) => item.id !== id);
+      if (getSelectedCandidates().length === 0 && candidates.length > 0) {
+        selectLatestCandidates();
+      }
+      renderCandidates();
+    }
+
+    function getSelectedCandidates() {
+      return candidates.filter((candidate) => candidate.selected);
+    }
+
+    function renderCandidates() {
+      const selected = getSelectedCandidates();
+      document.getElementById('candidateCount').textContent = candidates.length;
+      selectedCount.textContent = selected.length;
       previewGrid.innerHTML = '';
-      selectedFiles.slice(0, 3).forEach((file, index) => {
+      candidates.forEach((candidate, index) => {
+        const card = document.createElement('div');
+        card.className = candidate.selected ? 'preview-item is-selected' : 'preview-item';
+
         const img = document.createElement('img');
         img.alt = `選択写真 ${index + 1}`;
-        img.src = URL.createObjectURL(file);
-        previewGrid.appendChild(img);
+        img.src = candidate.url;
+
+        const controls = document.createElement('div');
+        controls.className = 'preview-controls';
+
+        const check = document.createElement('button');
+        check.type = 'button';
+        check.className = 'preview-check';
+        check.textContent = candidate.selected ? '✓ 選択中' : '選ぶ';
+        check.addEventListener('click', () => toggleCandidate(candidate.id));
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'preview-remove';
+        remove.textContent = '外す';
+        remove.addEventListener('click', () => removeCandidate(candidate.id));
+
+        controls.appendChild(check);
+        controls.appendChild(remove);
+        card.appendChild(img);
+        card.appendChild(controls);
+        previewGrid.appendChild(card);
       });
     }
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const files = selectedFiles;
+      const files = getSelectedCandidates().map((candidate) => candidate.file);
       const apiKey = apiKeyInput.value.trim();
 
       if (!apiKey) {
         setStatus('APIキーを入力してください。初期値は change-me です。', true);
         return;
       }
-      if (files.length !== 3) {
-        setStatus('写真は必ず3枚選んでください。', true);
+      if (files.length < 1 || files.length > 3) {
+        setStatus('送信する写真を1〜3枚選んでください。', true);
         return;
       }
 

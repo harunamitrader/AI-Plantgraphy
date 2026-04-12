@@ -50,14 +50,14 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 目的
 
-画像3枚を受信して、観察記録フォルダに保存できるようにする。
+画像1〜3枚を受信して、観察記録フォルダに保存できるようにする。
 
 ### 作業
 
 - FastAPIアプリを作成する
 - `/api/health` を作る
 - `/api/observations` を作る
-- `multipart/form-data` で画像3枚を受け取る
+- `multipart/form-data` で画像1〜3枚を受け取る
 - APIキー認証を追加する
 - 画像形式と枚数を検証する
 - 観察記録IDを生成する
@@ -71,16 +71,16 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 確認項目
 
-- PowerShellまたはcurlで画像3枚をPOSTできる
+- PowerShellまたはcurlで画像1〜3枚をPOSTできる
 - 保存フォルダに `1.jpg`, `2.jpg`, `3.jpg` が作成される
-- 画像が3枚でない場合にエラーになる
+- 画像が1〜3枚でない場合にエラーになる
 - APIキーなしで拒否される
 
 ## 5. Phase 2: Gemini CLI解析
 
 ### 目的
 
-保存した画像3枚をGemini CLIに渡し、植物解析結果をJSONとして受け取る。
+保存した画像1〜3枚をGemini CLIに渡し、植物解析結果をJSONとして受け取る。
 
 ### 作業
 
@@ -98,7 +98,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### Geminiプロンプト方針
 
-- 3枚の写真を同一植物の観察として扱う
+- 1〜3枚の写真を同一植物の観察として扱う
 - 可能なら標準和名と学名を返す
 - 不確実な場合は候補を複数返す
 - 必ずJSONのみを返す
@@ -107,7 +107,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 確認項目
 
-- 手元の画像3枚で解析できる
+- 手元の画像1〜3枚で解析できる
 - JSONとしてパースできる
 - `common_name_ja`, `scientific_name`, `confidence`, `candidates` が取得できる
 - Gemini CLI失敗時にサーバー全体が落ちない
@@ -207,7 +207,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 - PC画面でTailscale用QRコードが表示される
 - モバイル回線 + Tailscale ONのスマホからWeb図鑑が開ける
-- モバイル回線 + Tailscale ONのスマホから画像3枚をPOSTできる
+- モバイル回線 + Tailscale ONのスマホから画像1〜3枚をPOSTできる
 - APIキーなしのPOSTが拒否される
 - 自宅PC再起動後の復旧手順が分かる
 
@@ -275,7 +275,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 11.2 結合テスト
 
-- 画像3枚POSTからDB保存まで
+- 画像1〜3枚POSTからDB保存まで
 - Gemini CLI解析からWeb表示まで
 - 同じ植物の2回目登録
 - 信頼度低めの未確定登録
@@ -304,7 +304,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 ### Must
 
 - PCサーバー起動
-- 画像3枚アップロード
+- 画像1〜3枚アップロード
 - 画像保存
 - Gemini CLI解析
 - SQLite保存
@@ -334,7 +334,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 期間目安: 1日から2日
 
-- FastAPIで画像3枚を受信
+- FastAPIで画像1〜3枚を受信
 - Gemini CLIで解析
 - SQLiteに保存
 - PCブラウザで図鑑表示
@@ -385,8 +385,8 @@ GET  /observations/{id}
 1. `plant-dex\server` を作る
 2. Python仮想環境を作る
 3. FastAPIのHello Worldを作る
-4. `/api/observations` で画像3枚を保存する
-5. 手動で用意した植物画像3枚をPOSTする
+4. `/api/observations` で画像1〜3枚を保存する
+5. 手動で用意した植物画像1〜3枚をPOSTする
 6. Gemini CLI呼び出しをつなぐ
 7. SQLite保存をつなぐ
 8. Web図鑑を作る

@@ -1,6 +1,6 @@
 # Plant Dex
 
-スマホで庭木・草花の写真を3枚撮影し、自宅PC上の Gemini CLI で解析して、植物図鑑として保存・閲覧するための個人用アプリ構想です。
+スマホで庭木・草花の写真を基本3枚、必要に応じて1〜2枚でも撮影し、自宅PC上の Gemini CLI で解析して、植物図鑑として保存・閲覧するための個人用アプリ構想です。
 
 ## まず使う
 
@@ -21,7 +21,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
 ## 現在の実装範囲
 
 - Windows 11 Pro上で動かすFastAPIサーバー
-- 写真3枚のアップロードAPI
+- 写真1〜3枚のアップロードAPI
 - SQLiteへの観察記録・植物データ保存
 - Gemini CLI連携用サービス
 - Gemini無効時の仮解析モード
@@ -73,7 +73,7 @@ http://127.0.0.1:8000/api/health
 http://127.0.0.1:8000/diagnostics
 ```
 
-## 画像3枚のテスト送信
+## 画像1〜3枚のテスト送信
 
 `.env` の `PLANT_DEX_API_KEY` を設定したうえで、テスト用スクリプトから送信できます。
 
@@ -155,10 +155,10 @@ PLANT_DEX_GEMINI_COMMAND=gemini
 uvicorn server.app.main:app --reload
 ```
 
-その後、もう一度画像3枚を送信します。Gemini CLIには次の形式でプロンプトを渡します。
+その後、もう一度画像1〜3枚を送信します。Gemini CLIには次の形式でプロンプトを渡します。
 
 ```text
-gemini --output-format text -p "<画像3枚のパスを含む植物判定プロンプト>"
+gemini --output-format text -p "<画像1〜3枚のパスを含む植物判定プロンプト>"
 ```
 
 Geminiの出力がJSONとして解釈できれば、図鑑ページに実際の植物名と解析JSONが保存されます。

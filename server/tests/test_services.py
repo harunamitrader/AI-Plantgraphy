@@ -1,8 +1,10 @@
 import unittest
+from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
+from fastapi import UploadFile
 from fastapi.testclient import TestClient
 
 from server.app import config, db
@@ -11,7 +13,7 @@ from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip
 from server.app.services.gemini_cli import needs_gemini_auth, normalize_result
-from server.app.services.image_store import looks_like_supported_image
+from server.app.services.image_store import save_observation_images, looks_like_supported_image
 
 
 class ServiceTests(unittest.TestCase):
@@ -56,6 +58,19 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(looks_like_supported_image(b"\x89PNG\r\n\x1a\nabc", ".png"))
         self.assertTrue(looks_like_supported_image(b"RIFF1234WEBPabc", ".webp"))
         self.assertFalse(looks_like_supported_image(b"not image", ".jpg"))
+
+    def test_save_observation_accepts_one_to_three_images(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            for count in [1, 2, 3]:
+                files = [
+                    UploadFile(filename=f"{index}.jpg", file=BytesIO(b"\xff\xd8\xfftest"))
+                    for index in range(count)
+                ]
+                observation_id, paths = self._run_async(save_observation_images(files))
+                self.assertTrue(observation_id)
+                self.assertEqual(len(paths), count)
+                self.assertTrue(all(path.exists() for path in paths))
 
     def test_tailscale_ip_detection(self):
         self.assertTrue(is_tailscale_ip("100.64.0.1"))
@@ -227,6 +242,11 @@ class ServiceTests(unittest.TestCase):
         for path in paths:
             path.write_bytes(b"test")
         return paths
+
+    def _run_async(self, coroutine):
+        import asyncio
+
+        return asyncio.run(coroutine)
 
 
 if __name__ == "__main__":

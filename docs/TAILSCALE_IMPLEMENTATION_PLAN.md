@@ -365,7 +365,7 @@ plant-dex\README.md
 
 - `100.x.x.x` のURLが表示される
 - スマホのTailscaleをONにしてQRコードから `/upload` が開く
-- モバイル回線から写真3枚を送信できる
+- モバイル回線から写真1〜3枚を送信できる
 - 解析完了後に詳細ページへ移動できる
 
 ### 13.3 セキュリティ
@@ -379,5 +379,5 @@ plant-dex\README.md
 - `/connect` にTailscale用URLとQRコードが表示される
 - Tailscale未設定時にも次に何をすればよいか分かる
 - スマホからQRコードでアップロード画面を開ける
-- 外出先のモバイル回線から画像3枚を送信できる
+- 外出先のモバイル回線から画像1〜3枚を送信できる
 - READMEからCloudflare Tunnel前提の説明が消え、Tailscale推奨に変わっている

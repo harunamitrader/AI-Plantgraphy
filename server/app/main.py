@@ -194,9 +194,13 @@ def reanalyze(observation_id: str, background_tasks: BackgroundTasks) -> dict:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
 
     image_paths = [
-        Path(observation["image1_path"]),
-        Path(observation["image2_path"]),
-        Path(observation["image3_path"]),
+        Path(path)
+        for path in [
+            observation["image1_path"],
+            observation["image2_path"],
+            observation["image3_path"],
+        ]
+        if path
     ]
     db.set_observation_status(observation_id, "queued")
     background_tasks.add_task(run_analysis, observation_id, image_paths)
@@ -294,9 +298,13 @@ def present_plant(row) -> dict:
 def present_observation(row) -> dict:
     item = dict(row)
     item["image_urls"] = [
-        media_url(item.get("image1_path")),
-        media_url(item.get("image2_path")),
-        media_url(item.get("image3_path")),
+        media_url(path)
+        for path in [
+            item.get("image1_path"),
+            item.get("image2_path"),
+            item.get("image3_path"),
+        ]
+        if path
     ]
     item["analysis"] = parse_analysis(item.get("raw_result_json"))
     item["analysis"]["basic_profile_display"] = profile_text(item["analysis"], "basic")

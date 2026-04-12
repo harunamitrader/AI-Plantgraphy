@@ -10,7 +10,7 @@ from pathlib import Path
 from ..config import PROJECT_DIR, get_settings
 
 
-PROMPT = """以下の3枚のローカル画像ファイルを今すぐ読み取り、同じ植物を撮影した観察記録として植物の種類を推定してください。
+PROMPT = """添付されたローカル画像ファイルを今すぐ読み取り、同じ植物を撮影した観察記録として植物の種類を推定してください。
 返答は必ずJSONのみです。挨拶、説明、Markdown、コードフェンス、JSON外の文章は禁止です。
 
 制約:
@@ -162,7 +162,7 @@ def needs_gemini_auth(stdout: str | None, stderr: str | None) -> bool:
 def build_prompt(image_paths: list[Path]) -> str:
     return f"""{PROMPT}
 
-上記添付された3枚の画像ファイルを読み取り、同一植物の観察として解析してください。
+上記添付された{len(image_paths)}枚の画像ファイルを読み取り、同一植物の観察として解析してください。
 """
 
 
