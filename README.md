@@ -111,6 +111,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
 成功後は `/connect` のQRコードがHTTPS URLを優先します。
 
 スクリプトがタイムアウトする場合は、Tailscale管理画面でMagicDNSとHTTPS Certificatesを有効にしてから再実行してください。
+HTTPS Certificatesを有効にするとPC名とtailnet名が公開証明書ログに記録されるため、必要なら先にTailscaleのMachinesページでPC名を変更してください。
 
 外出先で使う場合は、PCとスマホの両方でTailscaleにログインし、Plant Dexの接続ページに表示されるTailscale URLまたはQRコードを使います。
 

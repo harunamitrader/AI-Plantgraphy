@@ -19,9 +19,10 @@ $TailscaleUrl = if ($TailScaleIp) { "http://$($TailScaleIp):$Port/" } else { "" 
 $TailscaleHttpsUrl = ""
 if ($Tailscale) {
   try {
-    $TailscaleStatus = (& $Tailscale.Source status --json | ConvertFrom-Json)
-    if ($TailscaleStatus.Self.DNSName) {
-      $TailscaleDnsName = [string]$TailscaleStatus.Self.DNSName
+    $TailscaleStatusText = & $Tailscale.Source status --json
+    $TailscaleDnsMatch = [regex]::Match($TailscaleStatusText, '"DNSName"\s*:\s*"([^"]+)"')
+    if ($TailscaleDnsMatch.Success) {
+      $TailscaleDnsName = [string]$TailscaleDnsMatch.Groups[1].Value
       $TailscaleDnsName = $TailscaleDnsName.TrimEnd(".")
       $TailscaleHttpsUrl = "https://$TailscaleDnsName/"
     }
@@ -56,8 +57,8 @@ while ((Get-Date) -lt $deadline) {
     if ($health.status -eq "ok") {
       if ($Tailscale) {
         try {
-          $serveStatus = (& $Tailscale.Source serve status --json | ConvertFrom-Json)
-          if (-not $serveStatus -or $serveStatus.PSObject.Properties.Count -eq 0) {
+          $serveStatusText = & $Tailscale.Source serve status --json
+          if ($serveStatusText.Trim() -eq "{}") {
             $serveJob = Start-Job -ScriptBlock {
               param($TailscaleExe, $ServePort)
               & $TailscaleExe serve --bg --yes --https=443 "localhost:$ServePort"

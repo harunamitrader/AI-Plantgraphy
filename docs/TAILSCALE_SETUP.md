@@ -82,6 +82,8 @@ https://<PC名>.<tailnet>.ts.net/upload
 - HTTPS Certificatesが有効
 - PCとスマホが同じtailnetに参加している
 
+管理画面では `DNS` ページを開き、`MagicDNS` と `HTTPS Certificates` を有効にします。HTTPS Certificatesを有効にすると、PC名とtailnet名が公開証明書ログに記録されます。PC名に個人情報が入っている場合は、先にTailscaleのMachinesページでPC名を変更してください。
+
 その後、もう一度 `scripts\configure_tailscale_https.ps1` を実行します。
 
 ## 7. 外出先で使う時の注意

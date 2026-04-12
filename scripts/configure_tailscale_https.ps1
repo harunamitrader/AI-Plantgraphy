@@ -10,12 +10,13 @@ if (-not $Tailscale) {
 
 Set-Location $ProjectRoot
 
-$status = & $Tailscale.Source status --json | ConvertFrom-Json
-if (-not $status.Self.DNSName) {
+$statusText = & $Tailscale.Source status --json
+$dnsMatch = [regex]::Match($statusText, '"DNSName"\s*:\s*"([^"]+)"')
+if (-not $dnsMatch.Success) {
   throw "Tailscale MagicDNS name was not found. Enable MagicDNS in Tailscale and try again."
 }
 
-$dnsName = ([string]$status.Self.DNSName).TrimEnd(".")
+$dnsName = ([string]$dnsMatch.Groups[1].Value).TrimEnd(".")
 $httpsUrl = "https://$dnsName/"
 
 Write-Host "Configuring Tailscale Serve for Plant Dex..."
