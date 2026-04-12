@@ -265,7 +265,7 @@ def run_analysis(observation_id: str, image_paths: list[Path]) -> None:
                 f"{get_settings().base_url}/observations/{observation_id}",
             )
     except Exception as exc:
-        message = str(exc)
+        message = format_analysis_error(exc)
         db.set_observation_status(observation_id, "analysis_failed", message)
         write_log(f"analysis_failed id={observation_id} error={message[:500]}")
         notify_analysis_failed(
@@ -273,6 +273,15 @@ def run_analysis(observation_id: str, image_paths: list[Path]) -> None:
             message,
             f"{get_settings().base_url}/observations/{observation_id}",
         )
+
+
+def format_analysis_error(exc: Exception) -> str:
+    message = str(exc)
+    if "timed out after" in message:
+        return "Gemini CLIがタイムアウトしました。Gemini CLIのログイン状態、APIキー、通信状態を確認してから再解析してください。"
+    if len(message) > 600:
+        return message[:597].rstrip() + "..."
+    return message
 
 
 def present_plant(row) -> dict:

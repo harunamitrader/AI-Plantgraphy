@@ -7,10 +7,10 @@ from fastapi.testclient import TestClient
 
 from server.app import config, db
 from server.app.config import get_settings
-from server.app.main import app, parse_analysis
+from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip
-from server.app.services.gemini_cli import normalize_result
+from server.app.services.gemini_cli import needs_gemini_auth, normalize_result
 from server.app.services.image_store import looks_like_supported_image
 
 
@@ -181,6 +181,18 @@ class ServiceTests(unittest.TestCase):
             self.assertIn("checks", payload)
             self.assertIn("connectivity", payload)
             self.assertTrue(any(item["key"] == "image_dir" for item in payload["checks"]))
+
+    def test_timeout_error_is_user_friendly(self):
+        message = format_analysis_error(RuntimeError("Command '['gemini']' timed out after 300 seconds"))
+        self.assertEqual(
+            message,
+            "Gemini CLIがタイムアウトしました。Gemini CLIのログイン状態、APIキー、通信状態を確認してから再解析してください。",
+        )
+
+    def test_gemini_auth_prompt_is_detected(self):
+        self.assertTrue(needs_gemini_auth("Opening authentication page in your browser.", ""))
+        self.assertTrue(needs_gemini_auth("Do you want to continue? [Y/n]:", ""))
+        self.assertFalse(needs_gemini_auth('{"ok": true}', ""))
 
     def test_activity_log_writes_file(self):
         with TemporaryDirectory() as tmp:

@@ -99,22 +99,64 @@ def run_gemini_prompt(
     if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
         command = ["cmd", "/c", *command]
 
-    completed = subprocess.run(
+    process = subprocess.Popen(
         command,
         cwd=PROJECT_DIR,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=settings.gemini_timeout_seconds,
-        check=False,
     )
-    if completed.returncode != 0:
-        stdout = (completed.stdout or "").strip()
-        stderr = (completed.stderr or "").strip()
+    try:
+        stdout, stderr = process.communicate(timeout=settings.gemini_timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        terminate_process_tree(process.pid)
+        try:
+            stdout, stderr = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            stdout, stderr = "", ""
+        raise RuntimeError(
+            f"Gemini CLI timed out after {settings.gemini_timeout_seconds} seconds."
+        ) from exc
+
+    if process.returncode != 0:
+        stdout = (stdout or "").strip()
+        stderr = (stderr or "").strip()
         detail = stderr or stdout or "Gemini CLIの実行に失敗しました。"
-        raise RuntimeError(f"Gemini CLI failed with code {completed.returncode}: {detail}")
-    return completed.stdout or ""
+        raise RuntimeError(f"Gemini CLI failed with code {process.returncode}: {detail}")
+    if needs_gemini_auth(stdout, stderr):
+        raise RuntimeError(
+            "Gemini CLIがログイン確認で停止しました。PCのPowerShellで `gemini` を直接実行し、ブラウザ認証を完了してから再解析してください。"
+        )
+    return stdout or ""
+
+
+def terminate_process_tree(pid: int) -> None:
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return
+
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        pass
+
+
+def needs_gemini_auth(stdout: str | None, stderr: str | None) -> bool:
+    text = f"{stdout or ''}\n{stderr or ''}".lower()
+    markers = [
+        "opening authentication page",
+        "do you want to continue",
+        "browser authentication",
+    ]
+    return any(marker in text for marker in markers)
 
 
 def build_prompt(image_paths: list[Path]) -> str:
