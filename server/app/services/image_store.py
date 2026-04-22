@@ -1,17 +1,21 @@
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from shutil import rmtree
 from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from ..config import IMAGE_DIR
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-MAX_FILE_BYTES = 10 * 1024 * 1024
-MAX_TOTAL_BYTES = 30 * 1024 * 1024
+MAX_FILE_BYTES = 25 * 1024 * 1024
+MAX_TOTAL_BYTES = 75 * 1024 * 1024
 MIN_IMAGE_COUNT = 1
 MAX_IMAGE_COUNT = 3
+MAX_IMAGE_EDGE = 1600
+JPEG_QUALITY = 82
 
 
 async def save_observation_images(files: list[UploadFile]) -> tuple[str, list[Path]]:
@@ -41,14 +45,41 @@ async def save_observation_images(files: list[UploadFile]) -> tuple[str, list[Pa
             if not looks_like_supported_image(content, extension):
                 raise HTTPException(status_code=400, detail=f"画像ファイルとして読み取れません: {file.filename or index}")
 
-            output_path = observation_dir / f"{index}{extension}"
-            output_path.write_bytes(content)
+            try:
+                optimized_content = optimize_image(content)
+            except (OSError, UnidentifiedImageError) as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"画像ファイルとして読み取れません: {file.filename or index}",
+                ) from exc
+
+            output_path = observation_dir / f"{index}.jpg"
+            output_path.write_bytes(optimized_content)
             saved_paths.append(output_path)
     except Exception:
         rmtree(observation_dir, ignore_errors=True)
         raise
 
     return observation_id, saved_paths
+
+
+def optimize_image(content: bytes) -> bytes:
+    with Image.open(BytesIO(content)) as image:
+        image = ImageOps.exif_transpose(image)
+        image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS)
+
+        if image.mode in {"RGBA", "LA", "P"}:
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            if image.mode == "P":
+                image = image.convert("RGBA")
+            background.paste(image, mask=image.getchannel("A") if "A" in image.getbands() else None)
+            image = background
+        elif image.mode != "RGB":
+            image = image.convert("RGB")
+
+        output = BytesIO()
+        image.save(output, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
+        return output.getvalue()
 
 
 def looks_like_supported_image(content: bytes, extension: str) -> bool:

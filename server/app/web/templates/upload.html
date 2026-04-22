@@ -77,14 +77,16 @@
     let candidates = [];
     let nextCandidateId = 1;
     let cameraStream = null;
+    const MAX_UPLOAD_EDGE = 1600;
+    const JPEG_QUALITY = 0.82;
 
-    galleryInput.addEventListener('change', () => {
-      addCandidates(Array.from(galleryInput.files));
+    galleryInput.addEventListener('change', async () => {
+      await addCandidates(Array.from(galleryInput.files));
       galleryInput.value = '';
     });
 
-    cameraInput.addEventListener('change', () => {
-      addCandidates(Array.from(cameraInput.files));
+    cameraInput.addEventListener('change', async () => {
+      await addCandidates(Array.from(cameraInput.files));
       cameraInput.value = '';
     });
 
@@ -93,18 +95,55 @@
     stopCameraBtn.addEventListener('click', stopContinuousCamera);
     window.addEventListener('pagehide', stopContinuousCamera);
 
-    function addCandidates(files) {
-      files.forEach((file) => {
+    async function addCandidates(files) {
+      for (const file of files) {
+        const optimizedFile = await optimizeImageForUpload(file);
         candidates.push({
           id: nextCandidateId,
-          file,
+          file: optimizedFile,
           selected: false,
-          url: URL.createObjectURL(file)
+          url: URL.createObjectURL(optimizedFile)
         });
         nextCandidateId += 1;
-      });
+      }
       selectLatestCandidates();
       renderCandidates();
+    }
+
+    async function optimizeImageForUpload(file) {
+      if (!file.type.startsWith('image/')) {
+        return file;
+      }
+
+      try {
+        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const scale = Math.min(1, MAX_UPLOAD_EDGE / Math.max(bitmap.width, bitmap.height));
+        const width = Math.max(1, Math.round(bitmap.width * scale));
+        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, width, height);
+        context.drawImage(bitmap, 0, 0, width, height);
+        bitmap.close();
+
+        const blob = await new Promise((resolve) => {
+          canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY);
+        });
+        if (!blob) {
+          return file;
+        }
+
+        const baseName = (file.name || 'plant-photo').replace(/\.[^.]+$/, '');
+        return new File([blob], `${baseName}.jpg`, {
+          type: 'image/jpeg',
+          lastModified: file.lastModified || Date.now()
+        });
+      } catch (err) {
+        return file;
+      }
     }
 
     function selectLatestCandidates() {
@@ -223,7 +262,7 @@
       context.drawImage(cameraPreview, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
       const blob = await new Promise((resolve) => {
-        cameraCanvas.toBlob(resolve, 'image/jpeg', 0.9);
+        cameraCanvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY);
       });
       if (!blob) {
         setStatus('写真を作成できませんでした。通常カメラを試してください。', true);
@@ -232,7 +271,7 @@
 
       const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
       const file = new File([blob], filename, { type: 'image/jpeg' });
-      addCandidates([file]);
+      await addCandidates([file]);
       setStatus('候補に追加しました。続けて撮影できます。', false);
     }
 
@@ -261,7 +300,8 @@
       }
 
       uploadButton.disabled = true;
-      setStatus('送信中...', false);
+      const totalSizeMb = files.reduce((total, file) => total + file.size, 0) / 1024 / 1024;
+      setStatus(`軽量化済みの写真を送信中... 合計 ${totalSizeMb.toFixed(1)}MB`, false);
 
       const formData = new FormData();
       files.forEach((file) => formData.append('images', file));

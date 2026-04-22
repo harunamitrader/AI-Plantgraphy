@@ -6,6 +6,7 @@ from zipfile import ZipFile
 
 from fastapi import UploadFile
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from server.app import config, db
 from server.app.config import gemini_model_choices, get_settings
@@ -13,7 +14,7 @@ from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip, tailscale_https_urls_from_status
 from server.app.services.gemini_cli import needs_gemini_auth, normalize_result, strip_model_args
-from server.app.services.image_store import save_observation_images, looks_like_supported_image
+from server.app.services.image_store import MAX_IMAGE_EDGE, save_observation_images, looks_like_supported_image
 
 
 class ServiceTests(unittest.TestCase):
@@ -64,13 +65,26 @@ class ServiceTests(unittest.TestCase):
             self._use_temp_data_dir(tmp)
             for count in [1, 2, 3]:
                 files = [
-                    UploadFile(filename=f"{index}.jpg", file=BytesIO(b"\xff\xd8\xfftest"))
+                    UploadFile(filename=f"{index}.jpg", file=BytesIO(self._jpeg_bytes(size=(640, 480))))
                     for index in range(count)
                 ]
                 observation_id, paths = self._run_async(save_observation_images(files))
                 self.assertTrue(observation_id)
                 self.assertEqual(len(paths), count)
                 self.assertTrue(all(path.exists() for path in paths))
+                self.assertTrue(all(path.suffix == ".jpg" for path in paths))
+
+    def test_save_observation_optimizes_large_images(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            files = [
+                UploadFile(filename="large.png", file=BytesIO(self._png_bytes(size=(2400, 1800))))
+            ]
+            _, paths = self._run_async(save_observation_images(files))
+            self.assertEqual(paths[0].suffix, ".jpg")
+            with Image.open(paths[0]) as image:
+                self.assertLessEqual(max(image.size), MAX_IMAGE_EDGE)
+                self.assertEqual(image.format, "JPEG")
 
     def test_tailscale_ip_detection(self):
         self.assertTrue(is_tailscale_ip("100.64.0.1"))
@@ -284,6 +298,16 @@ class ServiceTests(unittest.TestCase):
         for path in paths:
             path.write_bytes(b"test")
         return paths
+
+    def _jpeg_bytes(self, size: tuple[int, int] = (100, 80)) -> bytes:
+        output = BytesIO()
+        Image.new("RGB", size, (80, 140, 90)).save(output, format="JPEG")
+        return output.getvalue()
+
+    def _png_bytes(self, size: tuple[int, int] = (100, 80)) -> bytes:
+        output = BytesIO()
+        Image.new("RGB", size, (80, 140, 90)).save(output, format="PNG")
+        return output.getvalue()
 
     def _run_async(self, coroutine):
         import asyncio
