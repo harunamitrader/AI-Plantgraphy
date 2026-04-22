@@ -54,7 +54,7 @@
         <div><span>Gemini CLI</span><strong>{{ timing.gemini_cli_seconds or timing.server_gemini_total_seconds or "?" }}秒</strong></div>
         <div><span>画像準備</span><strong>{{ timing.copy_images_seconds or 0 }}秒</strong></div>
         <div><span>JSON整形</span><strong>{{ timing.parse_seconds or 0 }}秒</strong></div>
-        <div><span>補完</span><strong>{{ timing.profile_fill_seconds or 0 }}秒</strong></div>
+        <div><span>図鑑解説</span><strong>{{ timing.plant_profile_seconds or timing.profile_fill_seconds or 0 }}秒</strong></div>
         <div><span>DB保存</span><strong>{{ timing.db_save_seconds or 0 }}秒</strong></div>
       </div>
     </section>
@@ -197,16 +197,6 @@
 
     <section class="insight-grid">
       <div class="panel">
-        <p class="eyebrow">Profile</p>
-        <h2>基本的な特徴</h2>
-        <p>{{ observation.analysis.basic_profile_display }}</p>
-      </div>
-      <div class="panel">
-        <p class="eyebrow">Appearance</p>
-        <h2>見た目の特徴と魅力</h2>
-        <p>{{ observation.analysis.visual_appeal_display }}</p>
-      </div>
-      <div class="panel">
         <p class="eyebrow">Features</p>
         <h2>見えている特徴</h2>
         <ul class="tag-list">
@@ -216,11 +206,6 @@
             <li>特徴メモなし</li>
           {% endfor %}
         </ul>
-      </div>
-      <div class="panel">
-        <p class="eyebrow">Care</p>
-        <h2>手入れメモ</h2>
-        <p>{{ observation.analysis.care_notes or "手入れメモはありません。" }}</p>
       </div>
       <div class="panel">
         <p class="eyebrow">Notes</p>

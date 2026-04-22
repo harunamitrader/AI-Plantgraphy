@@ -36,6 +36,9 @@ def init_db() -> None:
                 scientific_name TEXT,
                 aliases_json TEXT NOT NULL DEFAULT '[]',
                 description TEXT,
+                basic_profile_text TEXT,
+                visual_appeal_text TEXT,
+                care_notes TEXT,
                 representative_image_path TEXT,
                 first_observed_at TEXT,
                 last_observed_at TEXT,
@@ -85,7 +88,10 @@ def init_db() -> None:
             """
         )
         migrate_observation_optional_images(conn)
+        migrate_plant_profile_columns(conn)
         migrate_image_paths(conn)
+        backfill_plant_profiles(conn)
+        normalize_plant_profiles(conn)
 
 
 def migrate_observation_optional_images(conn: sqlite3.Connection) -> None:
@@ -169,6 +175,91 @@ def migrate_image_paths(conn: sqlite3.Connection) -> None:
                 f"UPDATE {table} SET {assignments}, updated_at = ? WHERE id = ?",
                 (*[updates[column] for column in columns], now_iso(), row["id"]),
             )
+
+
+def migrate_plant_profile_columns(conn: sqlite3.Connection) -> None:
+    columns = conn.execute("PRAGMA table_info(plants)").fetchall()
+    names = {column["name"] for column in columns}
+    for name in ["basic_profile_text", "visual_appeal_text", "care_notes"]:
+        if name not in names:
+            conn.execute(f"ALTER TABLE plants ADD COLUMN {name} TEXT")
+
+
+def backfill_plant_profiles(conn: sqlite3.Connection) -> None:
+    plants = conn.execute(
+        """
+        SELECT id, basic_profile_text, visual_appeal_text, care_notes
+        FROM plants
+        WHERE basic_profile_text IS NULL OR visual_appeal_text IS NULL OR care_notes IS NULL
+        """
+    ).fetchall()
+    for plant in plants:
+        observation = conn.execute(
+            """
+            SELECT raw_result_json
+            FROM observations
+            WHERE plant_id = ? AND raw_result_json IS NOT NULL
+            ORDER BY COALESCE(captured_at, received_at) DESC
+            LIMIT 1
+            """,
+            (plant["id"],),
+        ).fetchone()
+        if not observation:
+            continue
+        try:
+            result = json.loads(observation["raw_result_json"])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(result, dict):
+            continue
+
+        basic = truncate_text(clean_text(plant["basic_profile_text"]) or clean_text(
+            result.get("basic_profile_text") or result.get("plant_profile_text")
+        ), 120)
+        visual = truncate_text(
+            clean_text(plant["visual_appeal_text"]) or clean_text(result.get("visual_appeal_text")), 120
+        )
+        care = truncate_text(clean_text(plant["care_notes"]) or clean_text(result.get("care_notes")), 120)
+        if not (basic or visual or care):
+            continue
+        conn.execute(
+            """
+            UPDATE plants
+            SET basic_profile_text = COALESCE(?, basic_profile_text),
+                visual_appeal_text = COALESCE(?, visual_appeal_text),
+                care_notes = COALESCE(?, care_notes),
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (basic, visual, care, now_iso(), plant["id"]),
+        )
+
+
+def normalize_plant_profiles(conn: sqlite3.Connection) -> None:
+    rows = conn.execute(
+        "SELECT id, basic_profile_text, visual_appeal_text, care_notes FROM plants"
+    ).fetchall()
+    for row in rows:
+        basic = truncate_text(clean_text(row["basic_profile_text"]), 120)
+        visual = truncate_text(clean_text(row["visual_appeal_text"]), 120)
+        care = truncate_text(clean_text(row["care_notes"]), 120)
+        if (
+            basic == row["basic_profile_text"]
+            and visual == row["visual_appeal_text"]
+            and care == row["care_notes"]
+        ):
+            continue
+        conn.execute(
+            """
+            UPDATE plants
+            SET basic_profile_text = ?,
+                visual_appeal_text = ?,
+                care_notes = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (basic, visual, care, now_iso(), row["id"]),
+        )
 
 
 def create_observation(
@@ -309,9 +400,10 @@ def find_or_create_plant(
             """
             INSERT INTO plants (
                 id, display_name, common_name_ja, scientific_name, aliases_json,
-                description, representative_image_path, first_observed_at,
+                description, basic_profile_text, visual_appeal_text, care_notes,
+                representative_image_path, first_observed_at,
                 last_observed_at, observation_count, user_corrected, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 plant_id,
@@ -319,7 +411,10 @@ def find_or_create_plant(
                 common_name,
                 scientific_name,
                 json.dumps(result.get("aliases", []), ensure_ascii=False),
-                clean_text(result.get("care_notes")) or clean_text(result.get("uncertainty_notes")),
+                None,
+                truncate_text(clean_text(result.get("basic_profile_text")), 120),
+                truncate_text(clean_text(result.get("visual_appeal_text")), 120),
+                truncate_text(clean_text(result.get("care_notes")), 120),
                 representative_image_path,
                 observed,
                 observed,
@@ -381,6 +476,38 @@ def save_analysis_result(observation_id: str, result: dict) -> str:
             ),
         )
     return plant_id
+
+
+def update_plant_profile(plant_id: str, profile: dict) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE plants
+            SET basic_profile_text = COALESCE(?, basic_profile_text),
+                visual_appeal_text = COALESCE(?, visual_appeal_text),
+                care_notes = COALESCE(?, care_notes),
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                truncate_text(clean_text(profile.get("basic_profile_text")), 120),
+                truncate_text(clean_text(profile.get("visual_appeal_text")), 120),
+                truncate_text(clean_text(profile.get("care_notes")), 120),
+                now_iso(),
+                plant_id,
+            ),
+        )
+
+
+def plant_needs_profile(plant_id: str) -> bool:
+    plant = get_plant(plant_id)
+    if plant is None:
+        return False
+    return not (
+        clean_text(plant["basic_profile_text"])
+        and clean_text(plant["visual_appeal_text"])
+        and clean_text(plant["care_notes"])
+    )
 
 
 def update_observation_raw_result(observation_id: str, result: dict) -> None:
@@ -577,6 +704,19 @@ def list_observations_for_plant(plant_id: str) -> list[sqlite3.Row]:
         ).fetchall()
 
 
+def list_recent_image_paths_for_plant(plant_id: str, limit: int = 12) -> list[str]:
+    paths: list[str] = []
+    observations = list_observations_for_plant(plant_id)
+    for observation in observations:
+        for key in ["image1_path", "image2_path", "image3_path"]:
+            path = observation[key]
+            if path:
+                paths.append(path)
+            if len(paths) >= limit:
+                return paths
+    return paths
+
+
 def list_review_observations() -> list[sqlite3.Row]:
     with connect() as conn:
         return conn.execute(
@@ -628,3 +768,11 @@ def parse_float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def truncate_text(text: str | None, limit: int) -> str | None:
+    if text is None:
+        return None
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip("、。,. ") + "…"

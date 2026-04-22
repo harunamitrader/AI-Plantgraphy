@@ -1,19 +1,39 @@
 {% extends "base.html" %}
 {% block title %}{{ plant.display_name }} | AI Plantgraphy{% endblock %}
 {% block content %}
-  <section class="detail-head panel">
-    {% if plant.representative_image_url %}
-      <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
-    {% endif %}
+  <section class="page-hero compact-hero">
     <div>
       <p class="eyebrow">Plant</p>
       <h1>{{ plant.display_name }}</h1>
       <p>{{ plant.scientific_name or "学名未確定" }}</p>
-      <div class="facts compact">
-        <div><span>観察回数</span><strong>{{ plant.observation_count }}</strong></div>
-        <div><span>最終観察</span><strong>{{ plant.last_seen_label }}</strong></div>
-      </div>
-      <p>{{ plant.description or "説明はまだありません。" }}</p>
+    </div>
+  </section>
+
+  <section class="photo-strip panel">
+    {% for url in photo_urls %}
+      {% if url %}
+        <button class="photo-button" type="button" data-full-image="{{ url }}" data-alt="{{ plant.display_name }} 写真 {{ loop.index }}">
+          <img src="{{ url }}" alt="{{ plant.display_name }} 写真 {{ loop.index }}">
+        </button>
+      {% endif %}
+    {% endfor %}
+  </section>
+
+  <section class="insight-grid">
+    <div class="panel">
+      <p class="eyebrow">Profile</p>
+      <h2>基本的な特徴</h2>
+      <p>{{ plant.basic_profile_display }}</p>
+    </div>
+    <div class="panel">
+      <p class="eyebrow">Appearance</p>
+      <h2>見た目の特徴と魅力</h2>
+      <p>{{ plant.visual_appeal_display }}</p>
+    </div>
+    <div class="panel">
+      <p class="eyebrow">Care</p>
+      <h2>手入れメモ</h2>
+      <p>{{ plant.care_notes_display }}</p>
     </div>
   </section>
 
@@ -39,4 +59,44 @@
       {% endfor %}
     </div>
   </section>
+
+  <div class="image-modal" id="imageModal" aria-hidden="true">
+    <div class="image-modal-backdrop" data-close-modal></div>
+    <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-label="植物写真の拡大表示">
+      <button class="image-modal-close" type="button" data-close-modal>閉じる</button>
+      <img id="modalImage" src="" alt="">
+    </div>
+  </div>
+
+  <script>
+    const imageModal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+
+    document.querySelectorAll('[data-full-image]').forEach((button) => {
+      button.addEventListener('click', () => {
+        modalImage.src = button.dataset.fullImage;
+        modalImage.alt = button.dataset.alt || '植物写真';
+        imageModal.classList.add('is-open');
+        imageModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+      });
+    });
+
+    function closeImageModal() {
+      imageModal.classList.remove('is-open');
+      imageModal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      modalImage.src = '';
+    }
+
+    document.querySelectorAll('[data-close-modal]').forEach((button) => {
+      button.addEventListener('click', closeImageModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && imageModal.classList.contains('is-open')) {
+        closeImageModal();
+      }
+    });
+  </script>
 {% endblock %}

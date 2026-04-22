@@ -238,7 +238,8 @@
           video: {
             facingMode: { ideal: 'environment' },
             width: { ideal: 1600 },
-            height: { ideal: 1200 }
+            height: { ideal: 1600 },
+            aspectRatio: { ideal: 1 }
           },
           audio: false
         });
@@ -258,10 +259,13 @@
         return;
       }
 
-      cameraCanvas.width = cameraPreview.videoWidth;
-      cameraCanvas.height = cameraPreview.videoHeight;
+      const side = Math.min(cameraPreview.videoWidth, cameraPreview.videoHeight);
+      const sourceX = Math.floor((cameraPreview.videoWidth - side) / 2);
+      const sourceY = Math.floor((cameraPreview.videoHeight - side) / 2);
+      cameraCanvas.width = side;
+      cameraCanvas.height = side;
       const context = cameraCanvas.getContext('2d');
-      context.drawImage(cameraPreview, 0, 0, cameraCanvas.width, cameraCanvas.height);
+      context.drawImage(cameraPreview, sourceX, sourceY, side, side, 0, 0, side, side);
 
       const blob = await new Promise((resolve) => {
         cameraCanvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY);

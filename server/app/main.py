@@ -15,7 +15,7 @@ from .services.app_settings import add_location_label, get_location_labels, remo
 from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
 from .services.export_store import create_export_zip
-from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
+from .services.gemini_cli import analyze_images, generate_plant_profile, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
 from .services.diagnostics import build_diagnostics
 from .services.observation_cleanup import remove_observation_images
@@ -235,6 +235,7 @@ def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
         {
             "plant": present_plant(plant),
             "observations": [present_observation(row) for row in db.list_observations_for_plant(plant_id)],
+            "photo_urls": [media_url(path) for path in db.list_recent_image_paths_for_plant(plant_id)],
         },
     )
 
@@ -359,8 +360,23 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
         db_started_at = time.perf_counter()
         plant_id = db.save_analysis_result(observation_id, result)
         db_seconds = elapsed_seconds(db_started_at)
+        profile_seconds = 0.0
+        if get_settings().gemini_enabled and db.plant_needs_profile(plant_id):
+            set_analysis_progress(observation_id, "writing_profile", "図鑑解説作成中", 95)
+            profile_started_at = time.perf_counter()
+            try:
+                profile = generate_plant_profile(
+                    result.get("common_name_ja"),
+                    result.get("scientific_name"),
+                    gemini_model=gemini_model,
+                )
+                db.update_plant_profile(plant_id, profile)
+            except Exception as exc:
+                write_log(f"plant_profile_failed id={observation_id} plant_id={plant_id} error={str(exc)[:500]}")
+            profile_seconds = elapsed_seconds(profile_started_at)
         total_seconds = elapsed_seconds(analysis_started_at)
         result["analysis_timing"]["db_save_seconds"] = db_seconds
+        result["analysis_timing"]["plant_profile_seconds"] = profile_seconds
         result["analysis_timing"]["server_total_seconds"] = total_seconds
         db.update_observation_raw_result(observation_id, result)
         result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -396,7 +412,7 @@ def elapsed_seconds(started_at: float) -> float:
 def set_analysis_phase(observation_id: str, phase: str) -> None:
     labels = {
         "identifying": ("identifying", "種類特定中", 35),
-        "writing_profile": ("writing_profile", "解説文作成中", 78),
+        "writing_profile": ("writing_profile", "図鑑解説作成中", 78),
     }
     status, label, percent = labels.get(phase, (phase, phase, 50))
     set_analysis_progress(observation_id, status, label, percent)
@@ -449,6 +465,9 @@ def present_plant(row) -> dict:
     item = dict(row)
     item["representative_image_url"] = media_url(item.get("representative_image_path"))
     item["last_seen_label"] = short_date(item.get("last_observed_at"))
+    item["basic_profile_display"] = clean_display_text(item.get("basic_profile_text"), "基本的な特徴はまだありません。")
+    item["visual_appeal_display"] = clean_display_text(item.get("visual_appeal_text"), "見た目の特徴と魅力はまだありません。")
+    item["care_notes_display"] = clean_display_text(item.get("care_notes"), "手入れメモはまだありません。")
     return item
 
 
@@ -464,8 +483,6 @@ def present_observation(row) -> dict:
         if path
     ]
     item["analysis"] = parse_analysis(item.get("raw_result_json"))
-    item["analysis"]["basic_profile_display"] = profile_text(item["analysis"], "basic")
-    item["analysis"]["visual_appeal_display"] = profile_text(item["analysis"], "visual")
     item["display_name"] = item["analysis"].get("common_name_ja") or item.get("plant_name") or "解析待ち"
     item["confidence_percent"] = percent_label(item.get("confidence") or item["analysis"].get("confidence"))
     item["status_label"] = status_label(item.get("status"))
@@ -483,25 +500,11 @@ def parse_analysis(raw_json: str | None) -> dict:
     return normalize_result(value) if isinstance(value, dict) else {}
 
 
-def profile_text(analysis: dict, kind: str) -> str:
-    if kind == "visual":
-        text = analysis.get("visual_appeal_text")
-        fallback = "見た目の特徴と魅力はまだありません。"
-    else:
-        text = analysis.get("basic_profile_text") or analysis.get("plant_profile_text")
-        fallback = "基本的な特徴はまだありません。"
-
+def clean_display_text(text: object, fallback: str) -> str:
     if isinstance(text, str) and text.strip():
         if "未生成です" in text:
             return fallback
         return text.strip()
-
-    legacy_profile = analysis.get("plant_profile")
-    if kind == "basic" and isinstance(legacy_profile, dict):
-        overview = legacy_profile.get("overview")
-        if isinstance(overview, str) and overview.strip():
-            return overview.strip()
-
     return fallback
 
 

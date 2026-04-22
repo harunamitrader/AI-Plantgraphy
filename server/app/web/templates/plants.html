@@ -5,7 +5,7 @@
     <div>
       <p class="eyebrow">Library</p>
       <h1>図鑑</h1>
-      <p>同じ植物をまとめて、名前・学名・観察回数で見返します。</p>
+      <p>同じ植物をまとめて、名前・学名・写真・解説で見返します。</p>
     </div>
   </section>
 
@@ -20,23 +20,22 @@
     {% if plants %}
       <div class="inventory-tools">
         <label for="plantSearch">植物を探す</label>
-        <input id="plantSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、説明で検索">
+        <input id="plantSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、特徴、手入れで検索">
       </div>
       <div class="inventory-grid" id="plantGrid">
         {% for plant in plants %}
           <a
             class="plant-card"
             href="/plants/{{ plant.id }}"
-            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.description or '')) | lower }}"
+            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.basic_profile_text or '') ~ ' ' ~ (plant.visual_appeal_text or '') ~ ' ' ~ (plant.care_notes or '')) | lower }}"
           >
             {% if plant.representative_image_url %}
               <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
             {% endif %}
             <div class="plant-card-body">
-              <span class="status-pill">記録 {{ plant.observation_count }}</span>
+              <span class="status-pill">図鑑</span>
               <h3>{{ plant.display_name }}</h3>
               <p>{{ plant.scientific_name or "学名未確定" }}</p>
-              <small>最終観察 {{ plant.last_seen_label }}</small>
             </div>
           </a>
         {% endfor %}
