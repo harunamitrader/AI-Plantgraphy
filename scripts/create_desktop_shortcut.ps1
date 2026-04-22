@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $StartScript = Join-Path $ProjectRoot "scripts\start_plant_dex.ps1"
+$IconPath = Join-Path $ProjectRoot "server\app\web\static\icons\app.ico"
 $ShortcutName = "AI Plantgraphy " + [char]0x3092 + [char]0x8D77 + [char]0x52D5 + ".lnk"
 $ShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) $ShortcutName
 
@@ -14,7 +15,11 @@ $shortcut = $shell.CreateShortcut($ShortcutPath)
 $shortcut.TargetPath = "powershell.exe"
 $shortcut.Arguments = "-ExecutionPolicy Bypass -File `"$StartScript`""
 $shortcut.WorkingDirectory = $ProjectRoot
-$shortcut.IconLocation = "shell32.dll,13"
+if (Test-Path $IconPath) {
+  $shortcut.IconLocation = $IconPath
+} else {
+  $shortcut.IconLocation = "shell32.dll,13"
+}
 $shortcut.Save()
 
 Write-Host "Shortcut created: $ShortcutPath"

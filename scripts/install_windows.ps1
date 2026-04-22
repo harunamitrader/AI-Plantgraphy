@@ -57,3 +57,8 @@ if ($envText -match "PLANT_DEX_API_KEY=change-me") {
 Write-Host ""
 Write-Host "Setup completed."
 Write-Host "Start: powershell -ExecutionPolicy Bypass -File `"$ProjectRoot\scripts\start_plant_dex.ps1`""
+
+$ShortcutScript = Join-Path $ProjectRoot "scripts\create_desktop_shortcut.ps1"
+if (Test-Path $ShortcutScript) {
+  powershell -ExecutionPolicy Bypass -File $ShortcutScript
+}
