@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}図鑑 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="page-hero compact-hero">
+    <div>
+      <p class="eyebrow">Library</p>
+      <h1>図鑑</h1>
+      <p>同じ植物をまとめて、名前・学名・観察回数で見返します。</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Inventory</p>
+        <h2>植物一覧</h2>
+      </div>
+      <span id="plantCount">{{ plants | length }} 種</span>
+    </div>
+    {% if plants %}
+      <div class="inventory-tools">
+        <label for="plantSearch">植物を探す</label>
+        <input id="plantSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、説明で検索">
+      </div>
+      <div class="inventory-grid" id="plantGrid">
+        {% for plant in plants %}
+          <a
+            class="plant-card"
+            href="/plants/{{ plant.id }}"
+            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.description or '')) | lower }}"
+          >
+            {% if plant.representative_image_url %}
+              <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
+            {% endif %}
+            <div class="plant-card-body">
+              <span class="status-pill">記録 {{ plant.observation_count }}</span>
+              <h3>{{ plant.display_name }}</h3>
+              <p>{{ plant.scientific_name or "学名未確定" }}</p>
+              <small>最終観察 {{ plant.last_seen_label }}</small>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+      <p class="empty filter-empty" id="plantEmpty" hidden>一致する植物はありません。</p>
+    {% else %}
+      <p class="empty">まだ植物は登録されていません。写真を送るとここに並びます。</p>
+    {% endif %}
+  </section>
+
+  {% if plants %}
+    <script>
+      const plantSearch = document.getElementById('plantSearch');
+      const plantCards = Array.from(document.querySelectorAll('.plant-card'));
+      const plantCount = document.getElementById('plantCount');
+      const plantEmpty = document.getElementById('plantEmpty');
+      const totalPlants = plantCards.length;
+
+      plantSearch.addEventListener('input', () => {
+        const terms = plantSearch.value
+          .trim()
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(Boolean);
+        let visibleCount = 0;
+
+        plantCards.forEach((card) => {
+          const text = card.dataset.searchText || '';
+          const isVisible = terms.every((term) => text.includes(term));
+          card.hidden = !isVisible;
+          if (isVisible) {
+            visibleCount += 1;
+          }
+        });
+
+        plantCount.textContent = terms.length ? `${visibleCount} / ${totalPlants} 種` : `${totalPlants} 種`;
+        plantEmpty.hidden = visibleCount !== 0;
+      });
+    </script>
+  {% endif %}
+{% endblock %}

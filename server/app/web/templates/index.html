@@ -1,67 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Plant Dex | 図鑑{% endblock %}
+{% block title %}ホーム | Plant Dex{% endblock %}
 {% block content %}
-  <section class="dashboard">
+  <section class="page-hero home-hero">
     <div>
-      <p class="eyebrow">Garden workspace</p>
+      <p class="eyebrow">Plant Dex</p>
       <h1>庭の植物台帳</h1>
-      <p>撮影した植物を種類ごとにまとめ、解析結果と観察履歴を整理します。</p>
+      <p>写真を撮って解析し、庭木や草花をあとから見返せる図鑑にします。</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/upload">植物を追加</a>
+        <a class="btn" href="/plants">図鑑を見る</a>
+        <a class="btn" href="/settings">設定を開く</a>
+      </div>
     </div>
     <div class="dashboard-stats">
-      <div><span>Plants</span><strong>{{ plants | length }}</strong></div>
-      <div><span>Records</span><strong>{{ recent_observations | length }}</strong></div>
-      <div><span>Review</span><strong>{{ recent_observations | selectattr("status", "equalto", "needs_review") | list | length }}</strong></div>
+      <div><span>植物</span><strong>{{ plants | length }}</strong></div>
+      <div><span>観察</span><strong>{{ recent_observations | length }}</strong></div>
+      <div><span>確認</span><strong>{{ review_count }}</strong></div>
     </div>
+  </section>
+
+  <section class="home-grid">
+    <a class="panel home-link" href="/upload">
+      <p class="eyebrow">Add</p>
+      <h2>植物を追加</h2>
+      <p>連続カメラ、通常カメラ、写真選択から候補を作ります。</p>
+    </a>
+    <a class="panel home-link" href="/plants">
+      <p class="eyebrow">Library</p>
+      <h2>図鑑</h2>
+      <p>同じ種類をまとめて、観察回数や写真を確認します。</p>
+    </a>
+    <a class="panel home-link" href="/review">
+      <p class="eyebrow">Review</p>
+      <h2>確認待ち</h2>
+      <p>低信頼度や解析失敗の記録を見直します。</p>
+    </a>
+    <a class="panel home-link" href="/settings">
+      <p class="eyebrow">Settings</p>
+      <h2>設定</h2>
+      <p>スマホ接続、診断、バックアップ、場所ラベルをまとめます。</p>
+    </a>
   </section>
 
   <section class="panel">
     <div class="section-title">
       <div>
-        <p class="eyebrow">Inventory</p>
-        <h2>植物一覧</h2>
-      </div>
-      <span id="plantCount">{{ plants | length }} 種</span>
-    </div>
-    {% if plants %}
-      <div class="inventory-tools">
-        <label for="plantSearch">植物を探す</label>
-        <input id="plantSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、説明で検索">
-      </div>
-      <div class="inventory-grid" id="plantGrid">
-        {% for plant in plants %}
-          <a
-            class="plant-card"
-            href="/plants/{{ plant.id }}"
-            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.description or '')) | lower }}"
-          >
-            {% if plant.representative_image_url %}
-              <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
-            {% endif %}
-            <div class="plant-card-body">
-              <span class="status-pill">記録 {{ plant.observation_count }}</span>
-              <h3>{{ plant.display_name }}</h3>
-              <p>{{ plant.scientific_name or "学名未確定" }}</p>
-              <small>最終観察 {{ plant.last_seen_label }}</small>
-            </div>
-          </a>
-        {% endfor %}
-      </div>
-      <p class="empty filter-empty" id="plantEmpty" hidden>一致する植物はありません。</p>
-    {% else %}
-      <p class="empty">まだ植物は登録されていません。写真を送るとここに並びます。</p>
-    {% endif %}
-  </section>
-
-  <section class="panel">
-    <div class="section-title">
-      <div>
-        <p class="eyebrow">Activity</p>
+        <p class="eyebrow">Recent</p>
         <h2>最近の観察</h2>
       </div>
-      <span>{{ recent_observations | length }} 件</span>
+      <a href="/observations">すべて見る</a>
     </div>
     <div class="activity-list">
-      {% for observation in recent_observations %}
+      {% for observation in recent_observations[:6] %}
         <a class="activity-row" href="/observations/{{ observation.id }}">
           {% if observation.image_urls[0] %}
             <img src="{{ observation.image_urls[0] }}" alt="{{ observation.display_name }}">
@@ -76,35 +66,4 @@
       {% endfor %}
     </div>
   </section>
-
-  {% if plants %}
-    <script>
-      const plantSearch = document.getElementById('plantSearch');
-      const plantCards = Array.from(document.querySelectorAll('.plant-card'));
-      const plantCount = document.getElementById('plantCount');
-      const plantEmpty = document.getElementById('plantEmpty');
-      const totalPlants = plantCards.length;
-
-      plantSearch.addEventListener('input', () => {
-        const terms = plantSearch.value
-          .trim()
-          .toLowerCase()
-          .split(/\s+/)
-          .filter(Boolean);
-        let visibleCount = 0;
-
-        plantCards.forEach((card) => {
-          const text = card.dataset.searchText || '';
-          const isVisible = terms.every((term) => text.includes(term));
-          card.hidden = !isVisible;
-          if (isVisible) {
-            visibleCount += 1;
-          }
-        });
-
-        plantCount.textContent = terms.length ? `${visibleCount} / ${totalPlants} 種` : `${totalPlants} 種`;
-        plantEmpty.hidden = visibleCount !== 0;
-      });
-    </script>
-  {% endif %}
 {% endblock %}

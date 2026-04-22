@@ -123,7 +123,7 @@ flowchart LR
 
 #### F-APP-006 接続ガイド
 
-- PC側の `/connect` にスマホ接続用QRコードを表示する。
+- PC側の `/settings` にスマホ接続用QRコードを表示する。
 - Tailscale用URLと同じWi-Fi用URLを表示する。
 - Tailscale未設定時はセットアップ手順を表示する。
 
@@ -187,7 +187,7 @@ plant-dex\data\images\20260411-114500-a1b2c3\
 
 #### F-SRV-009 接続診断
 
-- `/connect` で接続ガイド画面を提供する。
+- `/settings` で接続ガイド、診断、バックアップ、場所ラベル管理を提供する。
 - `/api/connectivity` で接続候補URLと診断情報を返す。
 - Tailscale IP、ローカルIP、Gemini CLI状態、APIキー状態を確認できる。
 - スマホ用アップロードURLのQRコードを表示する。
@@ -217,7 +217,7 @@ plant-dex\data\images\20260411-114500-a1b2c3\
 - APIキーはスマホブラウザのlocalStorageとPCサーバー環境変数に保持する。
 - Discordのユーザートークンは使用しない。
 - Discord連携はWebhookまたはBotトークンのみ使用する。
-- APIキー初期値 `change-me` のままなら接続ページで警告する。
+- APIキー初期値 `change-me` のままなら設定ページで警告する。
 - Cloudflare Tunnelなどで外部公開する構成は標準サポート外とする。
 
 ### 8.2 プライバシー
@@ -557,7 +557,7 @@ plant-dex\
 - 同じ学名または標準和名の植物が自動でまとめられる
 - Web図鑑の一覧・詳細ページで結果を確認できる
 - OPPO Reno11 A のブラウザからWeb図鑑を閲覧できる
-- Tailscale経由のURLを接続ページで確認できる
+- Tailscale経由のURLを設定ページで確認できる
 - スマホからQRコードでアップロード画面を開ける
 - 観察記録を手動修正、再解析、削除できる
 - DBと画像をzipでバックアップできる

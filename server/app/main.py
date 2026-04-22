@@ -2,13 +2,14 @@ import json
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import db
 from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, gemini_model_choices, get_settings
 from .services.activity_log import write_log
+from .services.app_settings import add_location_label, get_location_labels, remove_location_label
 from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
 from .services.export_store import create_export_zip
@@ -92,12 +93,29 @@ def api_observation(observation_id: str) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
+    recent_observations = [present_observation(row) for row in db.list_recent_observations()]
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "plants": [present_plant(row) for row in db.list_plants()],
-            "recent_observations": [present_observation(row) for row in db.list_recent_observations()],
+            "recent_observations": recent_observations,
+            "review_count": sum(
+                1
+                for observation in recent_observations
+                if observation.get("status") in {"needs_review", "analysis_failed", "queued", "analyzing"}
+            ),
+        },
+    )
+
+
+@app.get("/plants", response_class=HTMLResponse)
+def plant_index(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "plants.html",
+        {
+            "plants": [present_plant(row) for row in db.list_plants()],
         },
     )
 
@@ -111,13 +129,20 @@ def upload_page(request: Request) -> HTMLResponse:
         {
             "gemini_model": settings.gemini_model,
             "gemini_model_choices": gemini_model_choices(),
+            "location_labels": get_location_labels(),
         },
     )
 
 
 @app.get("/connect", response_class=HTMLResponse)
-def connect_page(request: Request) -> HTMLResponse:
+def connect_page() -> RedirectResponse:
+    return RedirectResponse("/settings", status_code=307)
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request) -> HTMLResponse:
     info = build_connectivity()
+    diagnostics = build_diagnostics()
     tailscale_https_is_ready = info["checks"]["tailscale_serve"] == "configured"
     primary_upload_url = (
         (first_url(info["upload_urls"]["tailscale_https"]) if tailscale_https_is_ready else None)
@@ -131,29 +156,29 @@ def connect_page(request: Request) -> HTMLResponse:
     )
     return templates.TemplateResponse(
         request,
-        "connect.html",
+        "settings.html",
         {
             "connectivity": info,
+            "diagnostics": diagnostics,
             "primary_upload_url": primary_upload_url,
             "primary_home_url": primary_home_url,
             "upload_qr": qr_data_url(primary_upload_url) if primary_upload_url else "",
             "home_qr": qr_data_url(primary_home_url) if primary_home_url else "",
+            "gemini_model": get_settings().gemini_model,
+            "gemini_model_choices": gemini_model_choices(),
+            "location_labels": get_location_labels(),
         },
     )
 
 
 @app.get("/diagnostics", response_class=HTMLResponse)
-def diagnostics_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request,
-        "diagnostics.html",
-        {"diagnostics": build_diagnostics()},
-    )
+def diagnostics_page() -> RedirectResponse:
+    return RedirectResponse("/settings", status_code=307)
 
 
 @app.get("/export", response_class=HTMLResponse)
-def export_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "export.html")
+def export_page() -> RedirectResponse:
+    return RedirectResponse("/settings", status_code=307)
 
 
 @app.post("/api/export", dependencies=[Depends(require_api_key)])
@@ -165,6 +190,28 @@ def export_data() -> FileResponse:
         media_type="application/zip",
         filename=export_path.name,
     )
+
+
+@app.get("/api/settings/location-labels")
+def api_location_labels() -> dict:
+    return {"location_labels": get_location_labels()}
+
+
+@app.post("/api/settings/location-labels", dependencies=[Depends(require_api_key)])
+def api_add_location_label(label: str = Form(default="")) -> dict:
+    cleaned = label.strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="場所ラベルを入力してください。")
+    labels = add_location_label(cleaned)
+    write_log(f"location_label_added label={cleaned}")
+    return {"location_labels": labels}
+
+
+@app.delete("/api/settings/location-labels/{label}", dependencies=[Depends(require_api_key)])
+def api_remove_location_label(label: str) -> dict:
+    labels = remove_location_label(label)
+    write_log(f"location_label_removed label={label}")
+    return {"location_labels": labels}
 
 
 @app.get("/plants/{plant_id}", response_class=HTMLResponse)

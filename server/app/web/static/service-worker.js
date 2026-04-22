@@ -1,8 +1,9 @@
-const CACHE_NAME = 'plant-dex-v1';
+const CACHE_NAME = 'plant-dex-v2';
 const CORE_ASSETS = [
   '/',
-  '/connect',
+  '/plants',
   '/upload',
+  '/settings',
   '/static/style.css',
   '/static/app.js',
   '/static/manifest.webmanifest',

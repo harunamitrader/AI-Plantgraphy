@@ -189,7 +189,7 @@ class ServiceTests(unittest.TestCase):
 
     def test_main_pages_render(self):
         client = TestClient(app)
-        for path in ["/", "/connect", "/diagnostics", "/upload", "/observations", "/review", "/export"]:
+        for path in ["/", "/plants", "/settings", "/connect", "/diagnostics", "/upload", "/observations", "/review", "/export"]:
             with self.subTest(path=path):
                 self.assertEqual(client.get(path).status_code, 200)
 
@@ -231,6 +231,25 @@ class ServiceTests(unittest.TestCase):
             strip_model_args(["gemini", "--model=gemini-2.5-flash", "-p", "x"]),
             ["gemini", "-p", "x"],
         )
+
+    def test_location_labels_can_be_added_and_removed(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            client = TestClient(app)
+            response = client.post(
+                "/api/settings/location-labels",
+                data={"label": "北庭"},
+                headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("北庭", response.json()["location_labels"])
+
+            response = client.delete(
+                "/api/settings/location-labels/%E5%8C%97%E5%BA%AD",
+                headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn("北庭", response.json()["location_labels"])
 
     def test_activity_log_writes_file(self):
         with TemporaryDirectory() as tmp:

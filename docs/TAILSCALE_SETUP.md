@@ -39,18 +39,18 @@ Plant Dexでは、スマホで撮った植物写真を自宅PCのPlant Dexへ送
 
 PCでPlant Dexを起動します。
 
-起動後、PCブラウザで接続ページを開きます。
+起動後、PCブラウザで設定ページを開きます。
 
 ```text
-http://127.0.0.1:8000/connect
+http://127.0.0.1:8000/settings
 ```
 
-接続ページには、スマホで開くためのQRコードが表示されます。
+設定ページには、スマホで開くためのQRコードが表示されます。
 
 ## 6. スマホから開く
 
 1. スマホのTailscaleをONにする
-2. Plant Dexの接続ページに表示されたQRコードを読む
+2. Plant Dexの設定ページに表示されたQRコードを読む
 3. アップロード画面が開く
 4. 写真を1〜3枚選んで送信する
 
@@ -74,7 +74,7 @@ https://<PC名>.<tailnet>.ts.net/upload
 
 スマホのTailscaleをONにして、このHTTPS URLを開いてください。
 
-`/connect` ページの `Tailscale Serve` が `configured` になっていれば、表示されるQRコードもHTTPS URLを優先します。
+`/settings` ページの `Tailscale Serve` が `configured` になっていれば、表示されるQRコードもHTTPS URLを優先します。
 
 スクリプトがタイムアウトする場合は、Tailscaleの管理画面で以下を確認してください。
 

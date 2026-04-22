@@ -191,10 +191,10 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 - Tailscale IPを検出するサービスを作る
 - ローカルWi-Fi URLとTailscale URLを生成する
-- `/connect` に接続ガイドを作る
+- `/settings` に接続ガイド、診断、バックアップ、場所ラベル管理をまとめる
 - `/api/connectivity` に診断情報を返す
 - アップロード画面と図鑑トップのQRコードを表示する
-- 起動ショートカットから `/connect` を開く
+- 起動ショートカットから `/settings` を開く
 - APIキー初期値の場合に警告する
 
 ### 成果物
@@ -223,7 +223,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 - Web App Manifestを追加する
 - アイコンを追加する
 - スマホ向け表示名を決める
-- ホーム画面追加の案内を `/connect` に表示する
+- ホーム画面追加の案内を `/settings` に表示する
 - 必要に応じてService Workerを追加する
 
 ### 成果物
@@ -296,7 +296,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 | Gemini CLIの出力が揺れる | JSON以外の文章が混ざる | プロンプト固定、JSON抽出、失敗時保存 |
 | 植物名の揺れ | アジサイ、紫陽花、Hydrangea など | 学名優先、手動修正を用意 |
 | 自宅PC停止 | 外出先から送れない | 接続ページにPC起動・スリープ設定の注意を表示 |
-| Tailscale未接続 | 外出先から送れない | `/connect` にTailscale状態と手順を表示 |
+| Tailscale未接続 | 外出先から送れない | `/settings` にTailscale状態と手順を表示 |
 | 画像サイズ過大 | 通信や解析が遅い | スマホ側で圧縮、PC側で上限設定 |
 | Web図鑑の外部閲覧 | 自宅情報が見える可能性 | Tailscale経由を標準にし、一般公開しない |
 
@@ -352,7 +352,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 期間目安: 2日から4日
 
-- `/connect` の接続ガイド
+- `/settings` の接続ガイド
 - Tailscale URL検出
 - QRコード表示
 - Web App Manifest

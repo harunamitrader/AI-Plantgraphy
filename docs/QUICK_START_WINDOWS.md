@@ -46,10 +46,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
 
 デスクトップの `Plant Dex を起動` を開きます。
 
-PCのブラウザで接続ページが開きます。
+PCのブラウザで設定ページが開きます。
 
 ```text
-http://127.0.0.1:8000/connect
+http://127.0.0.1:8000/settings
 ```
 
 ## 6. Tailscaleを準備
@@ -61,7 +61,7 @@ http://127.0.0.1:8000/connect
 
 ## 7. スマホから開く
 
-PCの接続ページに表示されるQRコードをスマホで読みます。
+PCの設定ページに表示されるQRコードをスマホで読みます。
 
 写真を送る場合は `写真を送る` のQRコードを使います。
 
@@ -87,10 +87,10 @@ Plant Dexを再起動します。
 
 ## 9. 困ったとき
 
-診断ページを開きます。
+設定ページを開きます。
 
 ```text
-http://127.0.0.1:8000/diagnostics
+http://127.0.0.1:8000/settings
 ```
 
 接続、保存先、Gemini CLI、APIキーの状態を確認できます。

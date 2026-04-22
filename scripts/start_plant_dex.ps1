@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
-$Url = "http://127.0.0.1:8000/connect"
+$Url = "http://127.0.0.1:8000/settings"
 $Port = 8000
 $Tailscale = Get-Command tailscale -ErrorAction SilentlyContinue
 $LanIp = (Get-NetIPAddress -AddressFamily IPv4 |
@@ -71,7 +71,7 @@ while ((Get-Date) -lt $deadline) {
               }
             } else {
               Stop-Job $serveJob -ErrorAction SilentlyContinue
-              Write-Host "Tailscale Serve setup timed out. Open /connect and check the Tailscale HTTPS status."
+              Write-Host "Tailscale Serve setup timed out. Open /settings and check the Tailscale HTTPS status."
             }
             Remove-Job $serveJob -Force -ErrorAction SilentlyContinue
           } else {

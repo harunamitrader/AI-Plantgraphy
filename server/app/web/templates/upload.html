@@ -1,43 +1,27 @@
 {% extends "base.html" %}
 {% block title %}植物を追加 | Plant Dex{% endblock %}
 {% block content %}
-  <section class="dashboard upload-hero">
+  <section class="page-hero compact-hero">
     <div>
       <p class="eyebrow">New record</p>
       <h1>植物を追加</h1>
-      <p>候補写真から1〜3枚を選んで送信します。解析が終わると図鑑に追加されます。</p>
+      <p>写真候補を作り、1〜3枚を選んで解析します。</p>
     </div>
   </section>
 
   <section class="panel">
     <form id="uploadForm" class="upload-form">
       <div>
-        <label for="apiKey">APIキー</label>
-        <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="change-me">
-      </div>
-
-      <div>
-        <label for="geminiModel">Geminiモデル</label>
-        <select id="geminiModel" name="geminiModel">
-          <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
-          {% for model in gemini_model_choices %}
-            <option value="{{ model.value }}" {% if model.value == gemini_model %}selected{% endif %}>{{ model.label }}</option>
-          {% endfor %}
-        </select>
-        <p class="field-help">空欄なら `.env` の `PLANT_DEX_GEMINI_MODEL`、それも空ならGemini CLIの既定モデルを使います。</p>
-      </div>
-
-      <div>
         <span class="form-label">写真候補</span>
         <div class="file-actions">
-          <label class="file-action" for="galleryImages">写真から選ぶ</label>
-          <button class="file-action secondary" id="continuousCameraBtn" type="button">連続カメラ</button>
-          <label class="file-action quiet" for="cameraImages">通常カメラ</label>
+          <button class="file-action" id="continuousCameraBtn" type="button">連続カメラ</button>
+          <label class="file-action secondary" for="cameraImages">通常カメラ</label>
+          <label class="file-action quiet" for="galleryImages">写真から選ぶ</label>
         </div>
         <input class="visually-hidden" id="galleryImages" name="galleryImages" type="file" accept="image/*" multiple>
         <input class="visually-hidden" id="cameraImages" name="cameraImages" type="file" accept="image/*" capture="environment">
         <p class="field-help">
-          候補を追加すると、後から追加した3枚が自動で選ばれます。送信は1〜3枚です。
+          後から追加した3枚が自動で選ばれます。送信は1〜3枚です。
           候補: <span id="candidateCount">0</span>枚 / 送信: <span id="selectedCount">0</span>枚
         </p>
       </div>
@@ -61,11 +45,32 @@
 
       <div>
         <label for="locationLabel">場所ラベル</label>
-        <input id="locationLabel" name="locationLabel" type="text" placeholder="庭、玄関前、ベランダ">
+        <select id="locationLabel" name="locationLabel">
+          <option value="">未入力</option>
+          {% for label in location_labels %}
+            <option value="{{ label }}">{{ label }}</option>
+          {% endfor %}
+        </select>
       </div>
 
       <button class="btn btn-primary" id="uploadButton" type="submit">送信して解析する</button>
       <p id="uploadStatus" class="action-status"></p>
+
+      <details class="inline-details">
+        <summary>APIキーと解析モデル</summary>
+        <div class="settings-form">
+          <label for="apiKey">APIキー</label>
+          <input id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="change-me">
+          <label for="geminiModel">Geminiモデル</label>
+          <select id="geminiModel" name="geminiModel">
+            <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
+            {% for model in gemini_model_choices %}
+              <option value="{{ model.value }}" {% if model.value == gemini_model %}selected{% endif %}>{{ model.label }}</option>
+            {% endfor %}
+          </select>
+          <p class="field-help">この端末の既定は設定ページで保存できます。</p>
+        </div>
+      </details>
     </form>
   </section>
 
@@ -89,7 +94,12 @@
     let nextCandidateId = 1;
     let cameraStream = null;
 
+    const geminiModelInput = document.getElementById('geminiModel');
     apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
+    geminiModelInput.value = localStorage.getItem('plant_dex_gemini_model') || geminiModelInput.value;
+    geminiModelInput.addEventListener('change', () => {
+      localStorage.setItem('plant_dex_gemini_model', geminiModelInput.value);
+    });
 
     galleryInput.addEventListener('change', () => {
       addCandidates(Array.from(galleryInput.files));
@@ -280,7 +290,7 @@
       files.forEach((file) => formData.append('images', file));
       formData.append('note', document.getElementById('note').value);
       formData.append('location_label', document.getElementById('locationLabel').value);
-      formData.append('gemini_model', document.getElementById('geminiModel').value);
+      formData.append('gemini_model', geminiModelInput.value);
 
       try {
         const response = await fetch('/api/observations', {

@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}設定 | Plant Dex{% endblock %}
+{% block content %}
+  <section class="page-hero compact-hero">
+    <div>
+      <p class="eyebrow">Settings</p>
+      <h1>設定</h1>
+      <p>接続、診断、解析設定、場所ラベル、バックアップをまとめます。</p>
+    </div>
+  </section>
+
+  {% if connectivity.checks.api_key == "default" %}
+    <section class="error">
+      <h2>APIキーが初期値です</h2>
+      <p>公開前に `.env` の `PLANT_DEX_API_KEY` を `change-me` 以外へ変更してください。</p>
+    </section>
+  {% endif %}
+
+  <section class="settings-grid">
+    <div class="panel connect-card primary-connect">
+      <p class="eyebrow">Phone</p>
+      <h2>スマホで開く</h2>
+      {% if primary_home_url %}
+        <img class="qr-image" src="{{ home_qr }}" alt="ホーム画面のQRコード">
+        <a class="url-box" href="{{ primary_home_url }}">{{ primary_home_url }}</a>
+      {% else %}
+        <p class="empty">接続URLを検出できませんでした。</p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <p class="eyebrow">This device</p>
+      <h2>端末設定</h2>
+      <div class="settings-form">
+        <label for="settingsApiKey">APIキー</label>
+        <input id="settingsApiKey" type="password" autocomplete="off" placeholder="change-me">
+        <label for="settingsGeminiModel">Geminiモデル</label>
+        <select id="settingsGeminiModel">
+          <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
+          {% for model in gemini_model_choices %}
+            <option value="{{ model.value }}" {% if model.value == gemini_model %}selected{% endif %}>{{ model.label }}</option>
+          {% endfor %}
+        </select>
+        <button id="saveBrowserSettingsBtn" class="btn btn-primary" type="button">この端末に保存</button>
+        <p id="browserSettingsStatus" class="action-status"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Location</p>
+        <h2>場所ラベル</h2>
+      </div>
+      <span>{{ location_labels | length }} 件</span>
+    </div>
+    <div class="settings-form inline-settings">
+      <label for="locationApiKey">APIキー</label>
+      <input id="locationApiKey" type="password" autocomplete="off" placeholder="change-me">
+      <label for="newLocationLabel">追加する場所</label>
+      <input id="newLocationLabel" type="text" maxlength="40" placeholder="北庭、畑、通勤路 など">
+      <button id="addLocationLabelBtn" class="btn btn-primary" type="button">追加</button>
+    </div>
+    <div class="label-list" id="locationLabelList">
+      {% for label in location_labels %}
+        <button class="label-chip" type="button" data-label="{{ label }}">{{ label }} <span>削除</span></button>
+      {% endfor %}
+    </div>
+    <p id="locationLabelStatus" class="action-status"></p>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Backup</p>
+        <h2>バックアップ</h2>
+      </div>
+    </div>
+    <div class="settings-form inline-settings">
+      <label for="exportApiKey">APIキー</label>
+      <input id="exportApiKey" type="password" autocomplete="off" placeholder="change-me">
+      <button id="exportBtn" class="btn btn-primary" type="button">zipを作成して保存</button>
+    </div>
+    <p class="field-help">内容は `plants.sqlite`、`images/`、`manifest.json` です。PCの `data/exports` にも残ります。</p>
+    <p id="exportStatus" class="action-status"></p>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Diagnostics</p>
+        <h2>{% if diagnostics.ok %}使える状態です{% else %}確認が必要です{% endif %}</h2>
+      </div>
+      <span>{{ diagnostics.counts.observations or 0 }} records</span>
+    </div>
+    <div class="diagnostic-list compact-list">
+      {% for check in diagnostics.checks %}
+        <div class="diagnostic-item is-{{ check.status }}">
+          <strong>{{ check.label }}</strong>
+          <span>{{ check.status }}</span>
+          <p>{{ check.message }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Connection</p>
+        <h2>接続URL</h2>
+      </div>
+    </div>
+    <div class="check-grid">
+      <div><span>Gemini CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
+      <div><span>APIキー</span><strong>{{ connectivity.checks.api_key }}</strong></div>
+      <div><span>Tailscale Serve</span><strong>{{ connectivity.checks.tailscale_serve }}</strong></div>
+      <div><span>Tailscale HTTPS</span><strong>{{ connectivity.checks.tailscale_https }}</strong></div>
+    </div>
+    {% if connectivity.tailscale_https_urls %}
+      <h3>HTTPS</h3>
+      <div class="url-list">
+        {% for url in connectivity.tailscale_https_urls %}
+          <a href="{{ url }}">{{ url }}</a>
+          <a href="{{ url }}upload">{{ url }}upload</a>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% if connectivity.tailscale_urls %}
+      <h3>HTTP予備</h3>
+      <div class="url-list">
+        {% for url in connectivity.tailscale_urls %}
+          <a href="{{ url }}">{{ url }}</a>
+          <a href="{{ url }}upload">{{ url }}upload</a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Current</p>
+        <h2>現在のPC設定</h2>
+      </div>
+    </div>
+    <div class="check-grid">
+      <div><span>Base URL</span><strong>{{ diagnostics.settings.base_url }}</strong></div>
+      <div><span>Gemini解析</span><strong>{{ diagnostics.settings.gemini_enabled }}</strong></div>
+      <div><span>Gemini既定モデル</span><strong>{{ diagnostics.settings.gemini_model }}</strong></div>
+      <div><span>Gemini待ち時間</span><strong>{{ diagnostics.settings.gemini_timeout_seconds }}秒</strong></div>
+      <div><span>Discord通知</span><strong>{{ diagnostics.settings.discord_enabled }}</strong></div>
+    </div>
+  </section>
+
+  <script>
+    const storedApiKey = localStorage.getItem('plant_dex_api_key') || '';
+    const storedModel = localStorage.getItem('plant_dex_gemini_model') || '';
+    const apiInputs = ['settingsApiKey', 'locationApiKey', 'exportApiKey'].map((id) => document.getElementById(id));
+    apiInputs.forEach((input) => {
+      input.value = storedApiKey;
+      input.addEventListener('input', () => {
+        apiInputs.forEach((other) => {
+          if (other !== input) {
+            other.value = input.value;
+          }
+        });
+      });
+    });
+
+    const settingsGeminiModel = document.getElementById('settingsGeminiModel');
+    if (storedModel) {
+      settingsGeminiModel.value = storedModel;
+    }
+
+    document.getElementById('saveBrowserSettingsBtn').addEventListener('click', () => {
+      const status = document.getElementById('browserSettingsStatus');
+      localStorage.setItem('plant_dex_api_key', document.getElementById('settingsApiKey').value.trim());
+      localStorage.setItem('plant_dex_gemini_model', settingsGeminiModel.value);
+      status.textContent = 'この端末に保存しました。';
+      status.className = 'action-status is-success';
+    });
+
+    document.getElementById('addLocationLabelBtn').addEventListener('click', async () => {
+      const apiKey = document.getElementById('locationApiKey').value.trim();
+      const label = document.getElementById('newLocationLabel').value.trim();
+      const status = document.getElementById('locationLabelStatus');
+      if (!apiKey || !label) {
+        status.textContent = 'APIキーと場所ラベルを入力してください。';
+        status.className = 'action-status is-error';
+        return;
+      }
+      localStorage.setItem('plant_dex_api_key', apiKey);
+      const formData = new FormData();
+      formData.append('label', label);
+      try {
+        const response = await fetch('/api/settings/location-labels', {
+          method: 'POST',
+          headers: {'X-Plant-Dex-Api-Key': apiKey},
+          body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || '追加に失敗しました。');
+        }
+        renderLocationLabels(data.location_labels);
+        document.getElementById('newLocationLabel').value = '';
+        status.textContent = '追加しました。';
+        status.className = 'action-status is-success';
+      } catch (err) {
+        status.textContent = 'エラー: ' + err.message;
+        status.className = 'action-status is-error';
+      }
+    });
+
+    document.getElementById('locationLabelList').addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-label]');
+      if (!button) {
+        return;
+      }
+      const apiKey = document.getElementById('locationApiKey').value.trim();
+      const status = document.getElementById('locationLabelStatus');
+      if (!apiKey) {
+        status.textContent = 'APIキーを入力してください。';
+        status.className = 'action-status is-error';
+        return;
+      }
+      const label = button.dataset.label;
+      try {
+        const response = await fetch(`/api/settings/location-labels/${encodeURIComponent(label)}`, {
+          method: 'DELETE',
+          headers: {'X-Plant-Dex-Api-Key': apiKey}
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || '削除に失敗しました。');
+        }
+        renderLocationLabels(data.location_labels);
+        status.textContent = '削除しました。';
+        status.className = 'action-status is-success';
+      } catch (err) {
+        status.textContent = 'エラー: ' + err.message;
+        status.className = 'action-status is-error';
+      }
+    });
+
+    function renderLocationLabels(labels) {
+      const list = document.getElementById('locationLabelList');
+      list.innerHTML = '';
+      labels.forEach((label) => {
+        const button = document.createElement('button');
+        button.className = 'label-chip';
+        button.type = 'button';
+        button.dataset.label = label;
+        button.append(document.createTextNode(`${label} `));
+        const marker = document.createElement('span');
+        marker.textContent = '削除';
+        button.appendChild(marker);
+        list.appendChild(button);
+      });
+    }
+
+    const exportBtn = document.getElementById('exportBtn');
+    const exportStatus = document.getElementById('exportStatus');
+    exportBtn.addEventListener('click', async () => {
+      const apiKey = document.getElementById('exportApiKey').value.trim();
+      if (!apiKey) {
+        exportStatus.textContent = 'APIキーを入力してください。';
+        exportStatus.className = 'action-status is-error';
+        return;
+      }
+
+      localStorage.setItem('plant_dex_api_key', apiKey);
+      exportBtn.disabled = true;
+      exportStatus.textContent = 'zipを作成中...';
+      exportStatus.className = 'action-status';
+
+      try {
+        const response = await fetch('/api/export', {
+          method: 'POST',
+          headers: {'X-Plant-Dex-Api-Key': apiKey}
+        });
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || '作成に失敗しました。');
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        const filename = match ? match[1] : 'plant-dex-export.zip';
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        exportStatus.textContent = '保存しました。';
+        exportStatus.className = 'action-status is-success';
+      } catch (err) {
+        exportStatus.textContent = 'エラー: ' + err.message;
+        exportStatus.className = 'action-status is-error';
+      } finally {
+        exportBtn.disabled = false;
+      }
+    });
+  </script>
+{% endblock %}

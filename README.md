@@ -31,7 +31,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
 - 解析結果の再解析と手動修正
 - 植物DBと画像のzipバックアップ
 - Discord Webhook通知の下準備
-- 起動診断ページ
+- ホーム画面と設定ページ
+- 設定ページでの接続QR、起動診断、バックアップ、場所ラベル管理
 - Windows用初期セットアップスクリプト
 - GitHub Actionsによる自動テスト
 
@@ -70,7 +71,7 @@ uvicorn server.app.main:app --reload
 ```text
 http://127.0.0.1:8000/
 http://127.0.0.1:8000/api/health
-http://127.0.0.1:8000/diagnostics
+http://127.0.0.1:8000/settings
 ```
 
 ## 画像1〜3枚のテスト送信
@@ -108,12 +109,12 @@ http://<PCのローカルIP>:8000/upload
 powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
 ```
 
-成功後は `/connect` のQRコードがHTTPS URLを優先します。
+成功後は `/settings` のQRコードがHTTPS URLを優先します。
 
 スクリプトがタイムアウトする場合は、Tailscale管理画面でMagicDNSとHTTPS Certificatesを有効にしてから再実行してください。
 HTTPS Certificatesを有効にするとPC名とtailnet名が公開証明書ログに記録されるため、必要なら先にTailscaleのMachinesページでPC名を変更してください。
 
-外出先で使う場合は、PCとスマホの両方でTailscaleにログインし、Plant Dexの接続ページに表示されるTailscale URLまたはQRコードを使います。
+外出先で使う場合は、PCとスマホの両方でTailscaleにログインし、Plant Dexの設定ページに表示されるTailscale URLまたはQRコードを使います。
 
 ```text
 http://<PCのTailscale IP>:8000/
@@ -122,7 +123,7 @@ http://<PCのTailscale IP>:8000/upload
 
 ## バックアップ
 
-Web画面の `保存` からAPIキーを入力し、`zipを作成してダウンロード` を押します。
+Web画面の `設定` からAPIキーを入力し、`zipを作成して保存` を押します。
 
 zipには以下が入ります。
 
