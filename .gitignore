@@ -2,12 +2,7 @@
 __pycache__/
 *.py[cod]
 .env
-data/images/
-data/logs/
-data/exports/
-data/settings.json
-data/*.sqlite
-data/*.sqlite-*
+data/
 temp_workspace/
 _tmp/
 dist/
