@@ -11,15 +11,16 @@
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
+    {% set current_path = request.url.path %}
     <header class="site-header">
       <a class="brand" href="/"><span></span>Plant Dex</a>
       <nav class="nav">
-        <a href="/">ホーム</a>
-        <a href="/plants">図鑑</a>
-        <a href="/observations">観察</a>
-        <a href="/upload">追加</a>
-        <a href="/review">確認待ち</a>
-        <a href="/settings">設定</a>
+        <a href="/" class="{% if current_path == '/' %}is-current{% endif %}">ホーム</a>
+        <a href="/plants" class="{% if current_path == '/plants' or current_path.startswith('/plants/') %}is-current{% endif %}">図鑑</a>
+        <a href="/observations" class="{% if current_path == '/observations' or current_path.startswith('/observations/') %}is-current{% endif %}">観察</a>
+        <a href="/upload" class="{% if current_path == '/upload' %}is-current{% endif %}">追加</a>
+        <a href="/review" class="{% if current_path == '/review' %}is-current{% endif %}">確認待ち</a>
+        <a href="/settings" class="{% if current_path == '/settings' %}is-current{% endif %}">設定</a>
       </nav>
     </header>
     <main class="page">

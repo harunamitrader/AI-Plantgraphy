@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plant-dex-v2';
+const CACHE_NAME = 'plant-dex-v3';
 const CORE_ASSETS = [
   '/',
   '/plants',

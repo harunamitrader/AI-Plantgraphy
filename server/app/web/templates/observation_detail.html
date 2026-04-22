@@ -161,8 +161,6 @@
             <h3>名前を修正する</h3>
           </div>
         </div>
-        <label for="correctionApiKey">APIキー</label>
-        <input id="correctionApiKey" type="password" autocomplete="off" placeholder="change-me">
         <label for="correctCommonName">植物名</label>
         <input id="correctCommonName" type="text" value="{{ observation.analysis.common_name_ja or observation.display_name }}">
         <label for="correctScientificName">学名</label>
@@ -176,16 +174,8 @@
       </div>
 
       <div class="action-form">
-        <label for="apiKeyInput">APIキー</label>
-        <input id="apiKeyInput" type="password" autocomplete="off" placeholder="change-me">
-        <label for="reanalyzeGeminiModel">Geminiモデル</label>
-        <select id="reanalyzeGeminiModel">
-          <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
-          {% for model in gemini_model_choices %}
-            <option value="{{ model.value }}" {% if model.value == observation.analysis.gemini_model %}selected{% endif %}>{{ model.label }}</option>
-          {% endfor %}
-        </select>
         <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
+        <p class="field-help">APIキーとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
       </div>
       <p id="reanalyzeStatus" class="action-status"></p>
 
@@ -201,11 +191,6 @@
     </section>
 
     <script>
-      const apiKeyInput = document.getElementById('apiKeyInput');
-      const correctionApiKey = document.getElementById('correctionApiKey');
-      apiKeyInput.value = localStorage.getItem('plant_dex_api_key') || '';
-      correctionApiKey.value = localStorage.getItem('plant_dex_api_key') || '';
-
       document.querySelectorAll('.candidate-fill').forEach((button) => {
         button.addEventListener('click', () => {
           document.getElementById('correctCommonName').value = button.dataset.candidateName || '';
@@ -216,10 +201,10 @@
       });
 
       document.getElementById('correctionBtn').addEventListener('click', async () => {
-        const apiKey = correctionApiKey.value.trim();
+        const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
         const status = document.getElementById('correctionStatus');
         if (!apiKey) {
-          status.textContent = 'APIキーを入力してください。初期値は change-me です。';
+          status.textContent = '設定ページでAPIキーを保存してください。';
           status.className = 'action-status is-error';
           return;
         }
@@ -231,7 +216,6 @@
         formData.append('location_label', document.getElementById('correctLocationLabel').value);
 
         const btn = document.getElementById('correctionBtn');
-        localStorage.setItem('plant_dex_api_key', apiKey);
         btn.disabled = true;
         status.textContent = '保存中...';
         status.className = 'action-status';
@@ -259,14 +243,14 @@
       });
 
       document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
-        const apiKey = apiKeyInput.value.trim();
+        const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
+        const geminiModel = localStorage.getItem('plant_dex_gemini_model') || '';
         if (!apiKey) {
           const status = document.getElementById('reanalyzeStatus');
-          status.textContent = 'APIキーを入力してください。初期値は change-me です。';
+          status.textContent = '設定ページでAPIキーを保存してください。';
           status.className = 'action-status is-error';
           return;
         }
-        localStorage.setItem('plant_dex_api_key', apiKey);
 
         const btn = document.getElementById('reanalyzeBtn');
         const status = document.getElementById('reanalyzeStatus');
@@ -276,7 +260,7 @@
 
         try {
           const formData = new FormData();
-          formData.append('gemini_model', document.getElementById('reanalyzeGeminiModel').value);
+          formData.append('gemini_model', geminiModel);
           const response = await fetch('/api/observations/{{ observation.id }}/reanalyze', {
             method: 'POST',
             headers: {
@@ -296,7 +280,6 @@
             btn.disabled = false;
             if (response.status === 401) {
               localStorage.removeItem('plant_dex_api_key');
-              apiKeyInput.value = '';
             }
           }
         } catch (err) {
@@ -307,10 +290,10 @@
       });
 
       document.getElementById('deleteBtn').addEventListener('click', async () => {
-        const apiKey = apiKeyInput.value.trim() || correctionApiKey.value.trim();
+        const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
         const status = document.getElementById('deleteStatus');
         if (!apiKey) {
-          status.textContent = 'APIキーを入力してください。初期値は change-me です。';
+          status.textContent = '設定ページでAPIキーを保存してください。';
           status.className = 'action-status is-error';
           return;
         }
@@ -319,7 +302,6 @@
           return;
         }
 
-        localStorage.setItem('plant_dex_api_key', apiKey);
         const btn = document.getElementById('deleteBtn');
         btn.disabled = true;
         status.textContent = '削除中...';

@@ -34,6 +34,7 @@
       <div class="settings-form">
         <label for="settingsApiKey">APIキー</label>
         <input id="settingsApiKey" type="password" autocomplete="off" placeholder="change-me">
+        <p class="field-help">場所ラベルの変更、バックアップ、解析送信で使います。この端末にだけ保存されます。</p>
         <label for="settingsGeminiModel">Geminiモデル</label>
         <select id="settingsGeminiModel">
           <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
@@ -56,8 +57,6 @@
       <span>{{ location_labels | length }} 件</span>
     </div>
     <div class="settings-form inline-settings">
-      <label for="locationApiKey">APIキー</label>
-      <input id="locationApiKey" type="password" autocomplete="off" placeholder="change-me">
       <label for="newLocationLabel">追加する場所</label>
       <input id="newLocationLabel" type="text" maxlength="40" placeholder="北庭、畑、通勤路 など">
       <button id="addLocationLabelBtn" class="btn btn-primary" type="button">追加</button>
@@ -78,8 +77,6 @@
       </div>
     </div>
     <div class="settings-form inline-settings">
-      <label for="exportApiKey">APIキー</label>
-      <input id="exportApiKey" type="password" autocomplete="off" placeholder="change-me">
       <button id="exportBtn" class="btn btn-primary" type="button">zipを作成して保存</button>
     </div>
     <p class="field-help">内容は `plants.sqlite`、`images/`、`manifest.json` です。PCの `data/exports` にも残ります。</p>
@@ -157,17 +154,8 @@
   <script>
     const storedApiKey = localStorage.getItem('plant_dex_api_key') || '';
     const storedModel = localStorage.getItem('plant_dex_gemini_model') || '';
-    const apiInputs = ['settingsApiKey', 'locationApiKey', 'exportApiKey'].map((id) => document.getElementById(id));
-    apiInputs.forEach((input) => {
-      input.value = storedApiKey;
-      input.addEventListener('input', () => {
-        apiInputs.forEach((other) => {
-          if (other !== input) {
-            other.value = input.value;
-          }
-        });
-      });
-    });
+    const settingsApiKey = document.getElementById('settingsApiKey');
+    settingsApiKey.value = storedApiKey;
 
     const settingsGeminiModel = document.getElementById('settingsGeminiModel');
     if (storedModel) {
@@ -176,14 +164,14 @@
 
     document.getElementById('saveBrowserSettingsBtn').addEventListener('click', () => {
       const status = document.getElementById('browserSettingsStatus');
-      localStorage.setItem('plant_dex_api_key', document.getElementById('settingsApiKey').value.trim());
+      localStorage.setItem('plant_dex_api_key', settingsApiKey.value.trim());
       localStorage.setItem('plant_dex_gemini_model', settingsGeminiModel.value);
       status.textContent = 'この端末に保存しました。';
       status.className = 'action-status is-success';
     });
 
     document.getElementById('addLocationLabelBtn').addEventListener('click', async () => {
-      const apiKey = document.getElementById('locationApiKey').value.trim();
+      const apiKey = settingsApiKey.value.trim();
       const label = document.getElementById('newLocationLabel').value.trim();
       const status = document.getElementById('locationLabelStatus');
       if (!apiKey || !label) {
@@ -219,7 +207,7 @@
       if (!button) {
         return;
       }
-      const apiKey = document.getElementById('locationApiKey').value.trim();
+      const apiKey = settingsApiKey.value.trim();
       const status = document.getElementById('locationLabelStatus');
       if (!apiKey) {
         status.textContent = 'APIキーを入力してください。';
@@ -264,7 +252,7 @@
     const exportBtn = document.getElementById('exportBtn');
     const exportStatus = document.getElementById('exportStatus');
     exportBtn.addEventListener('click', async () => {
-      const apiKey = document.getElementById('exportApiKey').value.trim();
+      const apiKey = settingsApiKey.value.trim();
       if (!apiKey) {
         exportStatus.textContent = 'APIキーを入力してください。';
         exportStatus.className = 'action-status is-error';
