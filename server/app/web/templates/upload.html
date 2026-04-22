@@ -79,8 +79,8 @@
     let candidates = [];
     let nextCandidateId = 1;
     let cameraStream = null;
-    const MAX_UPLOAD_EDGE = 1600;
-    const JPEG_QUALITY = 0.82;
+    const MAX_UPLOAD_EDGE = 1280;
+    const JPEG_QUALITY = 0.78;
 
     galleryInput.addEventListener('change', async () => {
       await addCandidates(Array.from(galleryInput.files));

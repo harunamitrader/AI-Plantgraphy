@@ -14,8 +14,8 @@ MAX_FILE_BYTES = 25 * 1024 * 1024
 MAX_TOTAL_BYTES = 75 * 1024 * 1024
 MIN_IMAGE_COUNT = 1
 MAX_IMAGE_COUNT = 3
-MAX_IMAGE_EDGE = 1600
-JPEG_QUALITY = 82
+MAX_IMAGE_EDGE = 1280
+JPEG_QUALITY = 78
 
 
 async def save_observation_images(files: list[UploadFile]) -> tuple[str, list[Path]]:

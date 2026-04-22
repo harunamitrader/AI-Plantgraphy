@@ -446,7 +446,7 @@ h3 {
 
 .photo-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -1334,10 +1334,13 @@ pre {
   }
 
   .dashboard-stats,
-  .photo-strip,
   .preview-grid,
   .home-grid {
     grid-template-columns: 1fr;
+  }
+
+  .photo-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .home-hero .dashboard-stats {

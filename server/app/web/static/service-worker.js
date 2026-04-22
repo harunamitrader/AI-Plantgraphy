@@ -1,10 +1,10 @@
-const CACHE_NAME = 'ai-plantgraphy-v4';
+const CACHE_NAME = 'ai-plantgraphy-v5';
 const CORE_ASSETS = [
   '/',
   '/plants',
   '/upload',
   '/settings',
-  '/static/style.css?v=20260423-compact-fonts',
+  '/static/style.css?v=20260423-photo-grid',
   '/static/app.js',
   '/static/manifest.webmanifest',
   '/static/brand/ai-plantgraphy-icon.png',
