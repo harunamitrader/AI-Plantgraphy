@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     gemini_command: str = "gemini"
     gemini_model: str = "gemini-3-flash-preview"
     gemini_model_options: str = ",".join(DEFAULT_GEMINI_MODEL_OPTIONS)
+    gemini_analysis_mode: str = "full"
     gemini_timeout_seconds: int = 180
     discord_webhook_url: str = ""
 

@@ -51,7 +51,9 @@
       <h2>解析時間</h2>
       <div class="timing-grid">
         <div><span>全体</span><strong>{{ timing.server_total_seconds or timing.total_seconds or "?" }}秒</strong></div>
+        <div><span>種類特定まで</span><strong>{{ timing.time_to_identity_seconds or timing.identity_seconds or timing.gemini_cli_seconds or "?" }}秒</strong></div>
         <div><span>Gemini CLI</span><strong>{{ timing.gemini_cli_seconds or timing.server_gemini_total_seconds or "?" }}秒</strong></div>
+        <div><span>解析方式</span><strong>{{ observation.analysis.analysis_mode or timing.analysis_mode or "full" }}</strong></div>
         <div><span>画像準備</span><strong>{{ timing.copy_images_seconds or 0 }}秒</strong></div>
         <div><span>JSON整形</span><strong>{{ timing.parse_seconds or 0 }}秒</strong></div>
         <div><span>補完</span><strong>{{ timing.profile_fill_seconds or 0 }}秒</strong></div>
@@ -315,6 +317,7 @@
       document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
         const geminiModel = localStorage.getItem('plant_dex_gemini_model') || '';
+        const analysisMode = localStorage.getItem('plant_dex_analysis_mode') || '';
         if (!apiKey) {
           const status = document.getElementById('reanalyzeStatus');
           status.textContent = '設定ページでAPIキーを保存してください。';
@@ -332,6 +335,7 @@
         try {
           const formData = new FormData();
           formData.append('gemini_model', geminiModel);
+          formData.append('analysis_mode', analysisMode);
           const response = await fetch('/api/observations/{{ observation.id }}/reanalyze', {
             method: 'POST',
             headers: {

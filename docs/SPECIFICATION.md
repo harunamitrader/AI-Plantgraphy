@@ -163,6 +163,8 @@ plant-dex\data\images\20260411-114500-a1b2c3\
 - 初期の既定モデルは `gemini-3-flash-preview` とする。
 - アップロード時と再解析時に、スマホ画面から使用モデルを選択できる。
 - 選択肢は `PLANT_DEX_GEMINI_MODEL_OPTIONS` で管理し、初期値は `auto-gemini-3`, `auto-gemini-2.5`, `gemini-3.1-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite` とする。
+- 解析方式は `full` と `split` を選択できる。`full` は同定と解説をまとめて生成し、`split` は種類同定後に解説文を生成する。
+- 解析完了後は、全体時間、種類特定までの時間、Gemini CLI時間、DB保存時間などを表示する。
 - GeminiにはJSON形式で出力するよう指示する。
 - 解析処理にはタイムアウトを設定する。
 - 解析失敗時も観察記録は保存し、ステータスを `analysis_failed` とする。
@@ -327,6 +329,7 @@ Content-Type: `multipart/form-data`
 | note | 任意 | メモ |
 | location_label | 任意 | 場所ラベル |
 | gemini_model | 任意 | この解析で使うGemini CLIモデル |
+| analysis_mode | 任意 | `full` または `split` |
 | latitude | 任意 | 緯度 |
 | longitude | 任意 | 経度 |
 
@@ -361,7 +364,7 @@ X-Plant-Dex-Api-Key: <api-key>
 ### 10.5 POST `/api/observations/{id}/reanalyze`
 
 解析失敗または未確定の観察記録を再解析する。
-任意のフォーム項目 `gemini_model` で使用モデルを指定できる。
+任意のフォーム項目 `gemini_model` で使用モデルを指定できる。任意のフォーム項目 `analysis_mode` で解析方式を指定できる。
 
 ### 10.6 POST `/api/observations/{id}/correction`
 

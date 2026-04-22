@@ -49,19 +49,52 @@ JSONスキーマ:
 }
 """
 
+IDENTITY_PROMPT = """添付されたローカル画像ファイルを今すぐ読み取り、同じ植物を撮影した観察記録として植物の種類だけを推定してください。
+返答は必ずJSONのみです。挨拶、説明、Markdown、コードフェンス、JSON外の文章は禁止です。
+
+制約:
+- JSONには必ず common_name_ja, scientific_name, confidence, candidates, visible_features, uncertainty_notes を含めてください。
+- 断定できない場合は confidence を低くしてください。
+- common_name_ja と scientific_name が不明な場合は null にしてください。
+- candidates は最大3件、reason は各120字以内にしてください。
+- candidates の confidence は0.0から1.0の小数で、候補全体の合計が1.0以下になるようにしてください。
+- visible_features は最大5件、各25字以内にしてください。
+- basic_profile_text, visual_appeal_text, care_notes は生成しないでください。
+
+JSONスキーマ:
+{
+  "common_name_ja": "標準和名またはnull",
+  "scientific_name": "学名またはnull",
+  "confidence": 0.0,
+  "candidates": [
+    {
+      "common_name_ja": "候補名",
+      "scientific_name": "候補学名またはnull",
+      "confidence": 0.0,
+      "reason": "候補理由"
+    }
+  ],
+  "visible_features": ["見えている特徴"],
+  "uncertainty_notes": "不確実な点"
+}
+"""
+
 
 def analyze_images(
     image_paths: list[Path],
     gemini_model: str | None = None,
+    analysis_mode: str | None = None,
     progress_callback: Callable[[str], None] | None = None,
 ) -> dict:
     total_started_at = time.perf_counter()
     settings = get_settings()
     model = clean_model_name(gemini_model) or clean_model_name(settings.gemini_model)
+    mode = clean_analysis_mode(analysis_mode or settings.gemini_analysis_mode)
     if not settings.gemini_enabled:
         result = mock_result()
         if model:
             result["gemini_model"] = model
+        result["analysis_mode"] = mode
         result["analysis_timing"] = {
             "total_seconds": elapsed_seconds(total_started_at),
             "gemini_cli_seconds": 0.0,
@@ -73,11 +106,11 @@ def analyze_images(
         copy_started_at = time.perf_counter()
         readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
         copy_seconds = elapsed_seconds(copy_started_at)
-        prompt = build_prompt(readable_paths)
+        prompt = build_prompt(readable_paths, split_identity=mode == "split")
         image_args = [f"@{path.absolute()}" for path in readable_paths]
         if progress_callback:
             progress_callback("identifying")
-        cli_started_at = time.perf_counter()
+        identity_started_at = time.perf_counter()
         output = run_gemini_prompt(
             prompt,
             gemini_model=model,
@@ -87,7 +120,7 @@ def analyze_images(
             ],
             trailing_args=image_args,
         )
-        cli_seconds = elapsed_seconds(cli_started_at)
+        identity_seconds = elapsed_seconds(identity_started_at)
 
     try:
         parse_started_at = time.perf_counter()
@@ -100,18 +133,22 @@ def analyze_images(
     if progress_callback:
         progress_callback("writing_profile")
     profile_started_at = time.perf_counter()
-    result = ensure_profile_texts(result, gemini_model=model)
+    result = ensure_profile_texts(result, gemini_model=model, force=mode == "split")
     profile_seconds = elapsed_seconds(profile_started_at)
     if model:
         result["gemini_model"] = model
+    result["analysis_mode"] = mode
     result["analysis_timing"] = {
         "copy_images_seconds": copy_seconds,
-        "gemini_cli_seconds": cli_seconds,
+        "gemini_cli_seconds": identity_seconds + profile_seconds,
+        "identity_seconds": identity_seconds,
+        "time_to_identity_seconds": identity_seconds,
         "parse_seconds": parse_seconds,
         "profile_fill_seconds": profile_seconds,
         "total_seconds": elapsed_seconds(total_started_at),
         "image_count": len(image_paths),
         "model": model or "default",
+        "analysis_mode": mode,
     }
     return result
 
@@ -189,6 +226,10 @@ def clean_model_name(value: str | None) -> str:
     return value.strip()
 
 
+def clean_analysis_mode(value: str | None) -> str:
+    return "split" if (value or "").strip().lower() == "split" else "full"
+
+
 def strip_model_args(command_parts: list[str]) -> list[str]:
     cleaned: list[str] = []
     skip_next = False
@@ -231,15 +272,16 @@ def needs_gemini_auth(stdout: str | None, stderr: str | None) -> bool:
     return any(marker in text for marker in markers)
 
 
-def build_prompt(image_paths: list[Path]) -> str:
-    return f"""{PROMPT}
+def build_prompt(image_paths: list[Path], *, split_identity: bool = False) -> str:
+    prompt = IDENTITY_PROMPT if split_identity else PROMPT
+    return f"""{prompt}
 
 上記添付された{len(image_paths)}枚の画像ファイルを読み取り、同一植物の観察として解析してください。
 """
 
 
-def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
-    if result.get("basic_profile_text") and result.get("visual_appeal_text"):
+def ensure_profile_texts(result: dict, gemini_model: str | None = None, *, force: bool = False) -> dict:
+    if not force and result.get("basic_profile_text") and result.get("visual_appeal_text"):
         return result
 
     name = result.get("common_name_ja") or "不明な植物"
@@ -247,7 +289,8 @@ def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
     prompt = (
         f"{name}（{scientific_name}）について、JSONのみで返答してください: "
         '{"basic_profile_text":"120字以内の図鑑的特徴",'
-        '"visual_appeal_text":"120字以内の見た目の魅力"}'
+        '"visual_appeal_text":"120字以内の見た目の魅力",'
+        '"care_notes":"120字以内の手入れや観察メモ"}'
     )
     try:
         profile = normalize_result(
@@ -262,6 +305,8 @@ def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
         result["basic_profile_text"] = profile["basic_profile_text"]
     if not result.get("visual_appeal_text") and profile.get("visual_appeal_text"):
         result["visual_appeal_text"] = profile["visual_appeal_text"]
+    if not result.get("care_notes") and profile.get("care_notes"):
+        result["care_notes"] = profile["care_notes"]
     return result
 
 
