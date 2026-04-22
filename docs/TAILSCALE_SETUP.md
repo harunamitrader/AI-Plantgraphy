@@ -1,15 +1,15 @@
-# Plant Dex Tailscale セットアップ手順
+# AI Plantgraphy Tailscale セットアップ手順
 
 ## 1. これは何？
 
 Tailscaleは、外出先のスマホから自宅PCへ安全につなぐためのアプリです。
 
-Plant Dexでは、スマホで撮った植物写真を自宅PCのPlant Dexへ送るために使います。
+AI Plantgraphyでは、スマホで撮った植物写真を自宅PCのAI Plantgraphyへ送るために使います。
 
 ```text
 スマホ
   ↓ Tailscale
-自宅PCのPlant Dex
+自宅PCのAI Plantgraphy
 ```
 
 ## 2. 必要なもの
@@ -19,7 +19,7 @@ Plant Dexでは、スマホで撮った植物写真を自宅PCのPlant Dexへ送
 - Tailscaleアカウント
 - PC版Tailscale
 - スマホ版Tailscale
-- PCで起動しているPlant Dex
+- PCで起動しているAI Plantgraphy
 
 ## 3. PCにTailscaleを入れる
 
@@ -35,9 +35,9 @@ Plant Dexでは、スマホで撮った植物写真を自宅PCのPlant Dexへ送
 3. PCと同じアカウントでログインする
 4. TailscaleをONにする
 
-## 5. Plant Dexを起動する
+## 5. AI Plantgraphyを起動する
 
-PCでPlant Dexを起動します。
+PCでAI Plantgraphyを起動します。
 
 起動後、PCブラウザで設定ページを開きます。
 
@@ -50,7 +50,7 @@ http://127.0.0.1:8000/settings
 ## 6. スマホから開く
 
 1. スマホのTailscaleをONにする
-2. Plant Dexの設定ページに表示されたQRコードを読む
+2. AI Plantgraphyの設定ページに表示されたQRコードを読む
 3. アップロード画面が開く
 4. 写真を1〜3枚選んで送信する
 
@@ -60,7 +60,7 @@ http://127.0.0.1:8000/settings
 
 外出先で `連続カメラ` を使う場合は、Tailscale IPのHTTP URLではなく、Tailscale ServeのHTTPS URLを使います。
 
-PCでPlant Dexを起動したあと、必要に応じて以下を実行します。
+PCでAI Plantgraphyを起動したあと、必要に応じて以下を実行します。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
@@ -92,7 +92,7 @@ https://<PC名>.<tailnet>.ts.net/upload
 
 - 自宅PCの電源が入っている
 - 自宅PCがスリープしていない
-- 自宅PCでPlant Dexが起動している
+- 自宅PCでAI Plantgraphyが起動している
 - 自宅PCでTailscaleが接続済み
 - スマホでTailscaleがON
 
@@ -102,7 +102,7 @@ https://<PC名>.<tailnet>.ts.net/upload
 
 - スマホのTailscaleがONか確認する
 - PCのTailscaleが接続済みか確認する
-- PCのPlant Dexが起動しているか確認する
+- PCのAI Plantgraphyが起動しているか確認する
 - URLが `http://100.x.x.x:8000/` のようになっているか確認する
 
 ### 家では開けるが外で開けない
@@ -119,6 +119,6 @@ https://<PC名>.<tailnet>.ts.net/upload
 
 ## 9. セキュリティ
 
-Plant DexはTailscale経由で使うことを標準にしています。
+AI PlantgraphyはTailscale経由で使うことを標準にしています。
 
-ただし、Tailscaleを使っていてもPlant DexのAPIキーは必要です。APIキーの初期値 `change-me` は公開前に変更してください。
+ただし、Tailscaleを使っていてもAI PlantgraphyのAPIキーは必要です。APIキーの初期値 `change-me` は公開前に変更してください。

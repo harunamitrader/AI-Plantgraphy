@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}設定 | Plant Dex{% endblock %}
+{% block title %}設定 | AI Plantgraphy{% endblock %}
 {% block content %}
   <section class="page-hero compact-hero">
     <div>
@@ -276,7 +276,7 @@
         const blob = await response.blob();
         const disposition = response.headers.get('content-disposition') || '';
         const match = disposition.match(/filename="?([^"]+)"?/);
-        const filename = match ? match[1] : 'plant-dex-export.zip';
+        const filename = match ? match[1] : 'ai-plantgraphy-export.zip';
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

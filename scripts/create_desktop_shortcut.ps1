@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $StartScript = Join-Path $ProjectRoot "scripts\start_plant_dex.ps1"
-$ShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "Plant Dex を起動.lnk"
+$ShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "AI Plantgraphy を起動.lnk"
 
 if (-not (Test-Path $StartScript)) {
   throw "Start script was not found: $StartScript"

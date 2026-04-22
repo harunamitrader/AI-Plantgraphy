@@ -59,12 +59,11 @@ a {
   font-weight: 800;
 }
 
-.brand span {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background: var(--leaf);
-  box-shadow: 7px 7px 0 var(--gold);
+.brand img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .nav {
@@ -190,6 +189,18 @@ a {
 
 .home-hero .dashboard-stats div {
   min-height: 86px;
+}
+
+.hero-brand-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 12px;
+  border-radius: 8px;
+  object-fit: contain;
+  object-position: center;
+  background: #f7fbf8;
 }
 
 .dashboard-stats span,
@@ -1294,6 +1305,11 @@ pre {
 
   .nav a {
     padding: 8px 10px;
+  }
+
+  .hero-brand-image {
+    width: 320px;
+    max-width: 100%;
   }
 
   .page {

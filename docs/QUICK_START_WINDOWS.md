@@ -1,6 +1,6 @@
 # Windowsクイックスタート
 
-Plant DexをWindows PCで動かし、スマホからTailscale経由で使うための最短手順です。
+AI PlantgraphyをWindows PCで動かし、スマホからTailscale経由で使うための最短手順です。
 
 ## 1. 必要なもの
 
@@ -40,11 +40,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install_windows.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
 ```
 
-デスクトップに `Plant Dex を起動` が作成されます。
+デスクトップに `AI Plantgraphy を起動` が作成されます。
 
-## 5. Plant Dexを起動
+## 5. AI Plantgraphyを起動
 
-デスクトップの `Plant Dex を起動` を開きます。
+デスクトップの `AI Plantgraphy を起動` を開きます。
 
 PCのブラウザで設定ページが開きます。
 
@@ -83,7 +83,7 @@ PLANT_DEX_GEMINI_MODEL=gemini-3-flash-preview
 
 `PLANT_DEX_GEMINI_MODEL` を空欄にするとGemini CLIの既定モデルを使います。スマホ画面ではアップロード時と再解析時にモデルを選べます。
 
-Plant Dexを再起動します。
+AI Plantgraphyを再起動します。
 
 ## 9. 困ったとき
 

@@ -19,7 +19,7 @@ if (-not $dnsMatch.Success) {
 $dnsName = ([string]$dnsMatch.Groups[1].Value).TrimEnd(".")
 $httpsUrl = "https://$dnsName/"
 
-Write-Host "Configuring Tailscale Serve for Plant Dex..."
+Write-Host "Configuring Tailscale Serve for AI Plantgraphy..."
 Write-Host "Target: http://127.0.0.1:$Port"
 $serveJob = Start-Job -ScriptBlock {
   param($TailscaleExe, $ServePort)

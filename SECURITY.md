@@ -2,15 +2,26 @@
 
 ## 対象
 
-Plant Dexは、自宅PCで動かす個人向けアプリです。スマホからの接続はTailscaleの利用を前提にしています。
+AI Plantgraphyは、自宅PCで動かす個人向けWebアプリです。
+スマホからの接続はTailscaleの利用を前提にしています。
 
-## 注意点
+## 公開してはいけないもの
 
-- `.env` を公開しないでください。
-- `PLANT_DEX_API_KEY` は初期値の `change-me` から変更してください。
-- Discord Webhook URLを公開しないでください。
-- 写真や位置情報を含む `data/` フォルダを公開しないでください。
+- `.env`
+- `PLANT_DEX_API_KEY`
+- Discord Webhook URL
+- `data/` フォルダ
+- 植物写真、位置情報、個人宅が分かる写真
+
+環境変数名は互換性のため `PLANT_DEX_` のまま残っています。
+アプリ名は AI Plantgraphy です。
+
+## 推奨設定
+
+- `.env` の `PLANT_DEX_API_KEY` は初期値の `change-me` から変更してください。
+- PCとスマホはTailscaleで接続してください。
 - インターネット全体へ直接公開する運用は推奨しません。
+- Gemini CLIやTailscaleのアカウントを共有PCで使う場合は、ログイン状態に注意してください。
 
 ## 報告
 

@@ -4,7 +4,7 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $DistDir = Join-Path $ProjectRoot "dist"
 $StagingDir = Join-Path $DistDir "_package"
 $Version = Get-Date -Format "yyyyMMdd-HHmmss"
-$ZipPath = Join-Path $DistDir "plant-dex-$Version.zip"
+$ZipPath = Join-Path $DistDir "ai-plantgraphy-$Version.zip"
 
 $excludePrefixes = @(
   ".git\",

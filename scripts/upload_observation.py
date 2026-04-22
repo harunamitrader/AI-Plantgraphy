@@ -5,7 +5,7 @@ import requests
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Upload one to three plant photos to Plant Dex.")
+    parser = argparse.ArgumentParser(description="Upload one to three plant photos to AI Plantgraphy.")
     parser.add_argument("images", nargs="+", help="One to three image file paths.")
     parser.add_argument("--url", default="http://127.0.0.1:8000/api/observations")
     parser.add_argument("--api-key", default="change-me")

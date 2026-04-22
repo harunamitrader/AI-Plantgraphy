@@ -23,7 +23,7 @@ from .services.qr_code import qr_data_url
 
 ensure_data_dirs()
 
-app = FastAPI(title="Plant Dex", version="0.1.0")
+app = FastAPI(title="AI Plantgraphy", version="0.1.0")
 templates = Jinja2Templates(directory=Path(__file__).parent / "web" / "templates")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static")
 app.mount("/media", StaticFiles(directory=IMAGE_DIR), name="media")

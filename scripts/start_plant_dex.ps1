@@ -47,7 +47,7 @@ Start-Process powershell.exe -ArgumentList @(
   "-NoExit",
   "-ExecutionPolicy", "Bypass",
   "-Command",
-  "cd '$ProjectRoot'; Write-Host 'Plant Dex connect: $Url'; Write-Host 'Plant Dex Wi-Fi: $LanUrl'; if ('$TailscaleUrl') { Write-Host 'Plant Dex Tailscale: $TailscaleUrl' }; & '$Python' -m uvicorn server.app.main:app --host 0.0.0.0 --port 8000"
+  "cd '$ProjectRoot'; Write-Host 'AI Plantgraphy connect: $Url'; Write-Host 'AI Plantgraphy Wi-Fi: $LanUrl'; if ('$TailscaleUrl') { Write-Host 'AI Plantgraphy Tailscale: $TailscaleUrl' }; & '$Python' -m uvicorn server.app.main:app --host 0.0.0.0 --port 8000"
 )
 
 $deadline = (Get-Date).AddSeconds(20)
@@ -67,7 +67,7 @@ while ((Get-Date) -lt $deadline) {
             if (Wait-Job $serveJob -Timeout 12) {
               Receive-Job $serveJob | Out-Host
               if ($TailscaleHttpsUrl) {
-                Write-Host "Plant Dex Tailscale HTTPS: $TailscaleHttpsUrl"
+                Write-Host "AI Plantgraphy Tailscale HTTPS: $TailscaleHttpsUrl"
               }
             } else {
               Stop-Job $serveJob -ErrorAction SilentlyContinue
@@ -76,7 +76,7 @@ while ((Get-Date) -lt $deadline) {
             Remove-Job $serveJob -Force -ErrorAction SilentlyContinue
           } else {
             if ($TailscaleHttpsUrl) {
-              Write-Host "Plant Dex Tailscale HTTPS: $TailscaleHttpsUrl"
+              Write-Host "AI Plantgraphy Tailscale HTTPS: $TailscaleHttpsUrl"
             }
           }
         } catch {

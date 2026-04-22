@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plant-dex-v6';
+const CACHE_NAME = 'ai-plantgraphy-v1';
 const CORE_ASSETS = [
   '/',
   '/plants',
@@ -7,6 +7,8 @@ const CORE_ASSETS = [
   '/static/style.css',
   '/static/app.js',
   '/static/manifest.webmanifest',
+  '/static/brand/ai-plantgraphy-icon.png',
+  '/static/brand/ai-plantgraphy-header.jpg',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png'
 ];

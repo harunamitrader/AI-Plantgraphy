@@ -9,7 +9,7 @@ from ..config import DB_PATH, EXPORT_DIR, IMAGE_DIR
 def create_export_zip() -> Path:
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     export_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    output_path = EXPORT_DIR / f"plant-dex-export-{export_id}.zip"
+    output_path = EXPORT_DIR / f"ai-plantgraphy-export-{export_id}.zip"
 
     with ZipFile(output_path, "w", compression=ZIP_DEFLATED) as archive:
         if DB_PATH.exists():

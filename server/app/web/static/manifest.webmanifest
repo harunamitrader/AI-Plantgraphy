@@ -1,7 +1,7 @@
 {
-  "name": "Plant Dex",
-  "short_name": "Plant Dex",
-  "description": "植物写真を3枚送信して、自宅PCのGemini CLIで解析する個人用植物図鑑です。",
+  "name": "AI Plantgraphy",
+  "short_name": "Plantgraphy",
+  "description": "植物写真をAIで解析して、自分だけの植物図鑑を作るWebアプリです。",
   "start_url": "/connect",
   "scope": "/",
   "display": "standalone",

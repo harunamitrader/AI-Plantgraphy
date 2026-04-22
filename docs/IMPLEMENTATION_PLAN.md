@@ -1,8 +1,8 @@
-# Plant Dex 実装計画書
+# AI Plantgraphy 実装計画書
 
 ## 1. 方針
 
-Plant Dex は、最初からネイティブアプリ・PCサーバー・AI解析・図鑑UIをすべて完成させるのではなく、PC側Web/PWA MVPを先に作り、外出先接続はTailscaleに一本化する。
+AI Plantgraphy は、最初からネイティブアプリ・PCサーバー・AI解析・図鑑UIをすべて完成させるのではなく、PC側Web/PWA MVPを先に作り、外出先接続はTailscaleに一本化する。
 
 理由は、植物解析と保存・統合ロジックが中核であり、Web/PWAならAndroid/iPhoneの両方から利用でき、非エンジニアにも配布しやすいためである。
 
@@ -216,7 +216,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 目的
 
-スマホのホーム画面からアプリのようにPlant Dexを起動できるようにする。
+スマホのホーム画面からアプリのようにAI Plantgraphyを起動できるようにする。
 
 ### 作業
 
