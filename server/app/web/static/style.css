@@ -22,7 +22,8 @@ body {
   background: var(--page);
   color: var(--ink);
   font-family: "Segoe UI", system-ui, sans-serif;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 body.modal-open {
@@ -41,8 +42,8 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 12px 18px;
+  gap: 10px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
@@ -53,30 +54,32 @@ a {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 0 0 auto;
   white-space: nowrap;
   font-weight: 800;
 }
 
 .brand img {
-  width: 28px;
-  height: 28px;
+  width: 32px !important;
+  height: 32px !important;
+  max-width: 32px;
+  max-height: 32px;
   border-radius: 6px;
   object-fit: cover;
 }
 
 .nav {
   display: flex;
-  gap: 7px;
-  padding: 4px;
+  gap: 5px;
+  padding: 3px;
   border: 1px solid rgba(215, 226, 219, 0.85);
   border-radius: 8px;
   background: rgba(247, 251, 248, 0.86);
   max-width: 100%;
   overflow-x: auto;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   scrollbar-width: none;
   min-width: 0;
@@ -89,7 +92,7 @@ a {
 .nav a {
   flex: 0 0 auto;
   min-width: max-content;
-  padding: 7px 11px;
+  padding: 6px 9px;
   border: 1px solid transparent;
   border-radius: 8px;
   line-height: 1.1;
@@ -113,7 +116,7 @@ a {
   width: min(1120px, 100%);
   max-width: 100%;
   margin: 0 auto;
-  padding: 18px 16px 48px;
+  padding: 12px 14px 36px;
 }
 
 .page-hero > *,
@@ -141,10 +144,10 @@ a {
 .observation-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
-  gap: 18px;
+  gap: 12px;
   align-items: stretch;
-  margin: 6px 0 14px;
-  padding: 20px;
+  margin: 4px 0 10px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -182,13 +185,13 @@ a {
 .dashboard-stats div {
   display: grid;
   align-content: center;
-  min-height: 104px;
-  padding: 14px;
+  min-height: 78px;
+  padding: 10px;
   background: #f7fbf8;
 }
 
 .home-hero .dashboard-stats div {
-  min-height: 86px;
+  min-height: 70px;
 }
 
 .hero-brand-image {
@@ -211,13 +214,13 @@ a {
 }
 
 .dashboard-stats strong {
-  font-size: 34px;
+  font-size: 28px;
   line-height: 1.1;
 }
 
 .panel {
-  margin-top: 14px;
-  padding: 16px;
+  margin-top: 10px;
+  padding: 12px;
   box-shadow: var(--shadow);
 }
 
@@ -238,27 +241,27 @@ p {
 }
 
 h1 {
-  margin-bottom: 8px;
-  font-size: 30px;
+  margin-bottom: 6px;
+  font-size: 26px;
   line-height: 1.2;
 }
 
 h2 {
   margin-bottom: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 h3 {
-  margin-bottom: 6px;
-  font-size: 18px;
+  margin-bottom: 4px;
+  font-size: 16px;
 }
 
 .section-title {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 10px;
   color: var(--muted);
 }
 
@@ -267,19 +270,19 @@ h3 {
 }
 
 .sub-section-title {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .inventory-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
 }
 
 .inventory-tools {
   display: grid;
   gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .inventory-tools label {
@@ -290,8 +293,8 @@ h3 {
 
 .search-input {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 38px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -306,8 +309,8 @@ h3 {
 
 .plant-card {
   display: grid;
-  grid-template-rows: 156px auto;
-  min-height: 286px;
+  grid-template-rows: 128px auto;
+  min-height: 222px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -323,7 +326,7 @@ h3 {
 }
 
 .plant-card img {
-  height: 156px;
+  height: 128px;
 }
 
 .plant-card[hidden],
@@ -334,8 +337,8 @@ h3 {
 .plant-card-body {
   display: grid;
   align-content: start;
-  gap: 6px;
-  padding: 12px;
+  gap: 4px;
+  padding: 9px;
 }
 
 .plant-card p,
@@ -348,8 +351,8 @@ h3 {
   display: inline-flex;
   width: fit-content;
   align-items: center;
-  min-height: 28px;
-  padding: 4px 9px;
+  min-height: 24px;
+  padding: 3px 8px;
   border-radius: 8px;
   background: var(--leaf-quiet);
   color: var(--leaf);
@@ -364,21 +367,21 @@ h3 {
 
 .activity-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .record-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .activity-row {
   display: grid;
-  grid-template-columns: 60px 1fr;
-  gap: 10px;
+  grid-template-columns: 54px 1fr;
+  gap: 8px;
   align-items: center;
-  min-height: 76px;
-  padding: 8px;
+  min-height: 66px;
+  padding: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -386,11 +389,11 @@ h3 {
 
 .record-card {
   display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: 14px;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
   align-items: stretch;
-  min-height: 128px;
-  padding: 10px;
+  min-height: 104px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -401,8 +404,8 @@ h3 {
 }
 
 .record-card img {
-  width: 112px;
-  height: 112px;
+  width: 92px;
+  height: 92px;
   border-radius: 8px;
   object-fit: cover;
   background: #f7fbf8;
@@ -421,7 +424,7 @@ h3 {
 }
 
 .activity-row img {
-  height: 60px;
+  height: 54px;
   border-radius: 8px;
 }
 
@@ -432,7 +435,7 @@ h3 {
 .detail-head {
   display: grid;
   grid-template-columns: minmax(220px, 360px) 1fr;
-  gap: 24px;
+  gap: 14px;
   align-items: center;
 }
 
@@ -443,8 +446,8 @@ h3 {
 
 .photo-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
 }
 
 .photo-button {
@@ -475,22 +478,22 @@ h3 {
 
 .facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-  margin: 18px 0;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
 }
 
 .connect-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .settings-grid,
 .home-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .home-grid {
@@ -500,7 +503,7 @@ h3 {
 .home-link {
   display: block;
   margin-top: 0;
-  min-height: 132px;
+  min-height: 108px;
 }
 
 .home-link p {
@@ -511,7 +514,7 @@ h3 {
 .connect-card {
   display: grid;
   justify-items: start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .primary-connect {
@@ -531,7 +534,7 @@ h3 {
   display: block;
   width: 100%;
   overflow-wrap: anywhere;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7fbf8;
@@ -547,13 +550,13 @@ h3 {
 .check-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .check-grid div {
   display: grid;
   gap: 4px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7fbf8;
@@ -581,8 +584,8 @@ h3 {
 .diagnostic-item {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 4px 12px;
-  padding: 12px;
+  gap: 4px 8px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7fbf8;
@@ -620,13 +623,13 @@ h3 {
 }
 
 .facts.compact {
-  margin: 14px 0;
+  margin: 10px 0;
 }
 
 .facts div {
   display: grid;
   gap: 4px;
-  padding: 14px;
+  padding: 10px;
 }
 
 .timing-panel {
@@ -661,29 +664,29 @@ h3 {
 .analysis-layout {
   display: grid;
   grid-template-columns: minmax(240px, 0.8fr) minmax(280px, 1.2fr);
-  gap: 14px;
+  gap: 10px;
 }
 
 .result-main {
   display: grid;
-  gap: 8px;
-  min-height: 160px;
+  gap: 6px;
+  min-height: 120px;
   align-content: center;
-  padding: 14px;
+  padding: 10px;
   border-radius: 8px;
   background: #f7fbf8;
 }
 
 .candidate-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .candidate-item {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px 12px;
-  padding: 12px;
+  gap: 6px 10px;
+  padding: 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
@@ -730,7 +733,7 @@ h3 {
 .insight-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 10px;
 }
 
 .mini-facts {
@@ -760,14 +763,14 @@ h3 {
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   padding: 0;
-  margin: 12px 0 0;
+  margin: 8px 0 0;
   list-style: none;
 }
 
 .tag-list li {
-  padding: 7px 9px;
+  padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7fbf8;
@@ -778,20 +781,20 @@ h3 {
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 pre {
   overflow-x: auto;
-  padding: 16px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
 }
 
 .raw-json {
-  margin-top: 18px;
-  padding: 14px;
+  margin-top: 10px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -803,26 +806,26 @@ pre {
 }
 
 .empty {
-  padding: 18px;
+  padding: 12px;
   border: 1px dashed var(--line);
   border-radius: 8px;
   color: var(--muted);
 }
 
 .error {
-  padding: 16px;
+  padding: 12px;
   border-left: 4px solid var(--coral);
   background: #fff;
 }
 
 .actions {
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .action-form {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: end;
 }
 
@@ -839,9 +842,9 @@ pre {
 
 .settings-form input,
 .settings-form select {
-  min-height: 42px;
+  min-height: 38px;
   width: 100%;
-  padding: 9px 11px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -871,22 +874,22 @@ pre {
 
 .edit-form {
   display: grid;
-  gap: 10px;
-  margin: 12px 0 18px;
-  padding-bottom: 18px;
+  gap: 8px;
+  margin: 10px 0 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 
 .export-box {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .danger-zone {
   display: grid;
-  gap: 10px;
-  margin-top: 18px;
-  padding: 14px;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
   border: 1px solid #f1c0b6;
   border-radius: 8px;
   background: #fff8f6;
@@ -894,7 +897,7 @@ pre {
 
 .upload-form {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .upload-form label {
@@ -917,8 +920,8 @@ pre {
 .upload-form select,
 .upload-form textarea {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 38px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -948,14 +951,14 @@ pre {
   place-items: center;
   width: 100%;
   min-width: 0;
-  min-height: 46px;
+  min-height: 40px;
   margin: 0;
-  padding: 11px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--leaf);
   border-radius: 8px;
   background: var(--leaf);
   color: #fff;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   text-align: center;
   cursor: pointer;
@@ -980,8 +983,8 @@ pre {
 
 .camera-panel {
   display: grid;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7fbf8;
@@ -1007,13 +1010,13 @@ pre {
 }
 
 .inline-details summary {
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-weight: 800;
   cursor: pointer;
 }
 
 .inline-details .settings-form {
-  padding: 0 12px 12px;
+  padding: 0 10px 10px;
 }
 
 .camera-actions {
@@ -1044,14 +1047,14 @@ pre {
 .preview-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .preview-item {
   position: relative;
   display: grid;
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  padding: 6px;
   border: 2px solid transparent;
   border-radius: 8px;
   background: #fff;
@@ -1078,8 +1081,8 @@ pre {
 
 .preview-check,
 .preview-remove {
-  min-height: 36px;
-  padding: 7px 8px;
+  min-height: 32px;
+  padding: 6px 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -1117,9 +1120,9 @@ pre {
 .export-box input,
 .edit-form input,
 .edit-form textarea {
-  min-height: 42px;
+  min-height: 38px;
   width: 100%;
-  padding: 9px 11px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -1157,8 +1160,8 @@ pre {
 }
 
 .btn {
-  min-height: 42px;
-  padding: 10px 14px;
+  min-height: 36px;
+  padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -1189,13 +1192,13 @@ pre {
 .label-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .label-chip {
-  min-height: 34px;
-  padding: 7px 9px;
+  min-height: 30px;
+  padding: 5px 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -1254,8 +1257,8 @@ pre {
 
 .image-modal-close {
   justify-self: end;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 7px 10px;
   border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
@@ -1285,7 +1288,7 @@ pre {
   }
 
   h1 {
-    font-size: 28px;
+    font-size: 25px;
   }
 }
 
@@ -1293,18 +1296,18 @@ pre {
   .site-header {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 8px;
-    padding: 10px 12px 8px;
+    gap: 6px;
+    padding: 8px 10px 7px;
   }
 
   .nav {
     width: 100%;
-    gap: 6px;
-    font-size: 13px;
+    gap: 4px;
+    font-size: 12px;
   }
 
   .nav a {
-    padding: 8px 10px;
+    padding: 6px 8px;
   }
 
   .hero-brand-image {
@@ -1313,21 +1316,21 @@ pre {
   }
 
   .page {
-    padding: 12px 10px 40px;
+    padding: 10px 8px 32px;
   }
 
   .page-hero,
   .dashboard,
   .panel {
-    padding: 12px;
+    padding: 10px;
   }
 
   h1 {
-    font-size: 26px;
+    font-size: 24px;
   }
 
   h2 {
-    font-size: 19px;
+    font-size: 17px;
   }
 
   .dashboard-stats,
@@ -1342,26 +1345,26 @@ pre {
   }
 
   .home-hero .dashboard-stats div {
-    min-height: 74px;
-    padding: 10px;
+    min-height: 64px;
+    padding: 8px;
   }
 
   .activity-row {
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 52px 1fr;
   }
 
   .activity-row img {
-    height: 56px;
+    height: 52px;
   }
 
   .record-card {
-    grid-template-columns: 84px 1fr;
-    min-height: 104px;
+    grid-template-columns: 78px 1fr;
+    min-height: 94px;
   }
 
   .record-card img {
-    width: 84px;
-    height: 84px;
+    width: 78px;
+    height: 78px;
   }
 
   .action-form {

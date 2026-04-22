@@ -8,12 +8,12 @@
     <link rel="manifest" href="/static/manifest.webmanifest">
     <link rel="icon" href="/static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=20260422-compact2">
   </head>
   <body>
     {% set current_path = request.url.path %}
     <header class="site-header">
-      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="">AI Plantgraphy</a>
+      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
       <nav class="nav">
         <a href="/" class="{% if current_path == '/' %}is-current{% endif %}">ホーム</a>
         <a href="/plants" class="{% if current_path == '/plants' or current_path.startswith('/plants/') %}is-current{% endif %}">図鑑</a>

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
-from .config import DB_PATH, ensure_data_dirs
+from .config import DB_PATH, IMAGE_DIR, ensure_data_dirs
 
 
 def now_iso() -> str:
@@ -85,6 +85,7 @@ def init_db() -> None:
             """
         )
         migrate_observation_optional_images(conn)
+        migrate_image_paths(conn)
 
 
 def migrate_observation_optional_images(conn: sqlite3.Connection) -> None:
@@ -141,6 +142,33 @@ def migrate_observation_optional_images(conn: sqlite3.Connection) -> None:
         PRAGMA foreign_keys = ON;
         """
     )
+
+
+def migrate_image_paths(conn: sqlite3.Connection) -> None:
+    def normalize_path(value: str | None) -> str | None:
+        if not value:
+            return value
+        path = Path(value)
+        parts = path.parts
+        for index in range(len(parts) - 1):
+            if parts[index].lower() == "images" and index > 0 and parts[index - 1].lower() == "data":
+                return str(IMAGE_DIR.joinpath(*parts[index + 1 :]))
+        return value
+
+    for table, columns in {
+        "observations": ["image1_path", "image2_path", "image3_path"],
+        "plants": ["representative_image_path"],
+    }.items():
+        rows = conn.execute(f"SELECT id, {', '.join(columns)} FROM {table}").fetchall()
+        for row in rows:
+            updates = {column: normalize_path(row[column]) for column in columns}
+            if all(updates[column] == row[column] for column in columns):
+                continue
+            assignments = ", ".join(f"{column} = ?" for column in columns)
+            conn.execute(
+                f"UPDATE {table} SET {assignments}, updated_at = ? WHERE id = ?",
+                (*[updates[column] for column in columns], now_iso(), row["id"]),
+            )
 
 
 def create_observation(

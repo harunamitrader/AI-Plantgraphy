@@ -535,10 +535,17 @@ def media_url(path_value: str | None) -> str:
     try:
         relative = path.relative_to(IMAGE_DIR)
     except ValueError:
-        try:
-            relative = path.relative_to(PROJECT_DIR)
-        except ValueError:
-            return ""
+        parts = path.parts
+        relative = None
+        for index in range(len(parts) - 1):
+            if parts[index].lower() == "images" and index > 0 and parts[index - 1].lower() == "data":
+                relative = Path(*parts[index + 1 :])
+                break
+        if relative is None:
+            try:
+                relative = path.relative_to(PROJECT_DIR)
+            except ValueError:
+                return ""
     return "/media/" + "/".join(relative.parts)
 
 
