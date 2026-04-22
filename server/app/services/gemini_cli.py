@@ -48,10 +48,14 @@ JSONスキーマ:
 """
 
 
-def analyze_images(image_paths: list[Path]) -> dict:
+def analyze_images(image_paths: list[Path], gemini_model: str | None = None) -> dict:
     settings = get_settings()
+    model = clean_model_name(gemini_model) or clean_model_name(settings.gemini_model)
     if not settings.gemini_enabled:
-        return mock_result()
+        result = mock_result()
+        if model:
+            result["gemini_model"] = model
+        return result
 
     with tempfile.TemporaryDirectory(prefix="plant-dex-gemini-") as temp_dir:
         readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
@@ -59,6 +63,7 @@ def analyze_images(image_paths: list[Path]) -> dict:
         image_args = [f"@{path.absolute()}" for path in readable_paths]
         output = run_gemini_prompt(
             prompt,
+            gemini_model=model,
             extra_args=[
                 "--include-directories",
                 str(Path(temp_dir)),
@@ -72,11 +77,15 @@ def analyze_images(image_paths: list[Path]) -> dict:
         preview = output[:1200] if output else "Gemini CLI returned empty output."
         raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
 
-    return ensure_profile_texts(result)
+    result = ensure_profile_texts(result, gemini_model=model)
+    if model:
+        result["gemini_model"] = model
+    return result
 
 
 def run_gemini_prompt(
     prompt: str,
+    gemini_model: str | None = None,
     extra_args: list[str] | None = None,
     trailing_args: list[str] | None = None,
     use_yolo: bool = True,
@@ -85,10 +94,14 @@ def run_gemini_prompt(
     command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
     if not use_yolo:
         command_parts = [part for part in command_parts if part not in {"--yolo", "-y"}]
+    model = clean_model_name(gemini_model) or clean_model_name(settings.gemini_model)
+    if model:
+        command_parts = strip_model_args(command_parts)
     executable = shutil.which(command_parts[0]) or command_parts[0]
     command = [
         executable,
         *command_parts[1:],
+        *(["--model", model] if model else []),
         *(extra_args or []),
         "--output-format",
         "text",
@@ -133,6 +146,28 @@ def run_gemini_prompt(
     return stdout or ""
 
 
+def clean_model_name(value: str | None) -> str:
+    if value is None:
+        return ""
+    return value.strip()
+
+
+def strip_model_args(command_parts: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    skip_next = False
+    for part in command_parts:
+        if skip_next:
+            skip_next = False
+            continue
+        if part in {"--model", "-m"}:
+            skip_next = True
+            continue
+        if part.startswith("--model="):
+            continue
+        cleaned.append(part)
+    return cleaned
+
+
 def terminate_process_tree(pid: int) -> None:
     if os.name == "nt":
         subprocess.run(
@@ -166,7 +201,7 @@ def build_prompt(image_paths: list[Path]) -> str:
 """
 
 
-def ensure_profile_texts(result: dict) -> dict:
+def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
     if result.get("basic_profile_text") and result.get("visual_appeal_text"):
         return result
 
@@ -178,7 +213,9 @@ def ensure_profile_texts(result: dict) -> dict:
         '"visual_appeal_text":"120字以内の見た目の魅力"}'
     )
     try:
-        profile = normalize_result(parse_json_output(run_gemini_prompt(prompt, use_yolo=False)))
+        profile = normalize_result(
+            parse_json_output(run_gemini_prompt(prompt, gemini_model=gemini_model, use_yolo=False))
+        )
     except Exception:
         return result
 

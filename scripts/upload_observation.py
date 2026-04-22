@@ -11,6 +11,7 @@ def main() -> None:
     parser.add_argument("--api-key", default="change-me")
     parser.add_argument("--note", default="")
     parser.add_argument("--location-label", default="")
+    parser.add_argument("--gemini-model", default="")
     args = parser.parse_args()
 
     image_paths = [Path(path) for path in args.images]
@@ -35,6 +36,7 @@ def main() -> None:
             data={
                 "note": args.note,
                 "location_label": args.location_label,
+                "gemini_model": args.gemini_model,
             },
             timeout=120,
         )

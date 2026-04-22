@@ -17,6 +17,17 @@
       </div>
 
       <div>
+        <label for="geminiModel">Geminiモデル</label>
+        <select id="geminiModel" name="geminiModel">
+          <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
+          {% for model in gemini_model_choices %}
+            <option value="{{ model.value }}" {% if model.value == gemini_model %}selected{% endif %}>{{ model.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="field-help">空欄なら `.env` の `PLANT_DEX_GEMINI_MODEL`、それも空ならGemini CLIの既定モデルを使います。</p>
+      </div>
+
+      <div>
         <span class="form-label">写真候補</span>
         <div class="file-actions">
           <label class="file-action" for="galleryImages">写真から選ぶ</label>
@@ -269,6 +280,7 @@
       files.forEach((file) => formData.append('images', file));
       formData.append('note', document.getElementById('note').value);
       formData.append('location_label', document.getElementById('locationLabel').value);
+      formData.append('gemini_model', document.getElementById('geminiModel').value);
 
       try {
         const response = await fetch('/api/observations', {

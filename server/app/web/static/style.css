@@ -743,6 +743,7 @@ pre {
 }
 
 .upload-form input,
+.upload-form select,
 .upload-form textarea {
   width: 100%;
   min-height: 44px;
@@ -759,6 +760,7 @@ pre {
 }
 
 .upload-form input:focus,
+.upload-form select:focus,
 .upload-form textarea:focus {
   outline: 3px solid rgba(197, 150, 47, 0.28);
   border-color: var(--gold);
@@ -922,6 +924,7 @@ pre {
 }
 
 .action-form input,
+.action-form select,
 .export-box input,
 .edit-form input,
 .edit-form textarea {
@@ -940,6 +943,7 @@ pre {
 }
 
 .action-form input:focus,
+.action-form select:focus,
 .export-box input:focus,
 .edit-form input:focus,
 .edit-form textarea:focus {

@@ -78,7 +78,10 @@ gemini --version
 ```text
 PLANT_DEX_GEMINI_ENABLED=true
 PLANT_DEX_GEMINI_COMMAND=gemini
+PLANT_DEX_GEMINI_MODEL=gemini-3-flash-preview
 ```
+
+`PLANT_DEX_GEMINI_MODEL` を空欄にするとGemini CLIの既定モデルを使います。スマホ画面ではアップロード時と再解析時にモデルを選べます。
 
 Plant Dexを再起動します。
 

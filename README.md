@@ -160,6 +160,8 @@ gemini --help
 ```text
 PLANT_DEX_GEMINI_ENABLED=true
 PLANT_DEX_GEMINI_COMMAND=gemini
+PLANT_DEX_GEMINI_MODEL=gemini-3-flash-preview
+PLANT_DEX_GEMINI_MODEL_OPTIONS=auto-gemini-3,auto-gemini-2.5,gemini-3.1-pro-preview,gemini-3-flash-preview,gemini-2.5-pro,gemini-2.5-flash,gemini-2.5-flash-lite
 ```
 
 サーバーを再起動します。
@@ -175,6 +177,9 @@ gemini --output-format text -p "<画像1〜3枚のパスを含む植物判定プ
 ```
 
 Geminiの出力がJSONとして解釈できれば、図鑑ページに実際の植物名と解析JSONが保存されます。
+
+`PLANT_DEX_GEMINI_MODEL` はPC側の既定モデルです。初期値は `gemini-3-flash-preview` です。空欄にするとGemini CLI側の既定モデルを使います。
+スマホのアップロード画面と観察記録の再解析画面では、`PLANT_DEX_GEMINI_MODEL_OPTIONS` に並べたモデルからその場で選べます。
 
 ## テスト
 

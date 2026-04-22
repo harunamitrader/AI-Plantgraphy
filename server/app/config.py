@@ -10,6 +10,24 @@ IMAGE_DIR = DATA_DIR / "images"
 LOG_DIR = DATA_DIR / "logs"
 EXPORT_DIR = DATA_DIR / "exports"
 DB_PATH = DATA_DIR / "plants.sqlite"
+DEFAULT_GEMINI_MODEL_OPTIONS = (
+    "auto-gemini-3",
+    "auto-gemini-2.5",
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+)
+GEMINI_MODEL_LABELS = {
+    "auto-gemini-3": "Auto (Gemini 3)",
+    "auto-gemini-2.5": "Auto (Gemini 2.5)",
+    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview": "gemini-3-flash-preview",
+    "gemini-2.5-pro": "gemini-2.5-pro",
+    "gemini-2.5-flash": "gemini-2.5-flash",
+    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
+}
 
 
 class Settings(BaseSettings):
@@ -17,6 +35,8 @@ class Settings(BaseSettings):
     base_url: str = "http://127.0.0.1:8000"
     gemini_enabled: bool = False
     gemini_command: str = "gemini"
+    gemini_model: str = "gemini-3-flash-preview"
+    gemini_model_options: str = ",".join(DEFAULT_GEMINI_MODEL_OPTIONS)
     gemini_timeout_seconds: int = 180
     discord_webhook_url: str = ""
 
@@ -30,6 +50,24 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def gemini_model_options() -> list[str]:
+    settings = get_settings()
+    options = [item.strip() for item in settings.gemini_model_options.split(",") if item.strip()]
+    if settings.gemini_model and settings.gemini_model not in options:
+        options.insert(0, settings.gemini_model)
+    return options
+
+
+def gemini_model_choices() -> list[dict]:
+    return [
+        {
+            "value": option,
+            "label": GEMINI_MODEL_LABELS.get(option, option),
+        }
+        for option in gemini_model_options()
+    ]
 
 
 def ensure_data_dirs() -> None:

@@ -53,6 +53,8 @@ def build_diagnostics() -> dict:
         "settings": {
             "base_url": settings.base_url,
             "gemini_enabled": settings.gemini_enabled,
+            "gemini_model": settings.gemini_model or "CLI既定",
+            "gemini_model_options": settings.gemini_model_options,
             "gemini_timeout_seconds": settings.gemini_timeout_seconds,
             "discord_enabled": bool(settings.discord_webhook_url.strip()),
         },

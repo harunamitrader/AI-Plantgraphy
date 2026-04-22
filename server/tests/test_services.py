@@ -8,11 +8,11 @@ from fastapi import UploadFile
 from fastapi.testclient import TestClient
 
 from server.app import config, db
-from server.app.config import get_settings
+from server.app.config import gemini_model_choices, get_settings
 from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip, tailscale_https_urls_from_status
-from server.app.services.gemini_cli import needs_gemini_auth, normalize_result
+from server.app.services.gemini_cli import needs_gemini_auth, normalize_result, strip_model_args
 from server.app.services.image_store import save_observation_images, looks_like_supported_image
 
 
@@ -215,6 +215,22 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(needs_gemini_auth("Opening authentication page in your browser.", ""))
         self.assertTrue(needs_gemini_auth("Do you want to continue? [Y/n]:", ""))
         self.assertFalse(needs_gemini_auth('{"ok": true}', ""))
+
+    def test_gemini_model_choices_include_cli_models(self):
+        values = [item["value"] for item in gemini_model_choices()]
+        self.assertIn("gemini-3-flash-preview", values)
+        self.assertIn("gemini-3.1-pro-preview", values)
+        self.assertIn("gemini-2.5-flash-lite", values)
+
+    def test_strip_model_args_allows_request_override(self):
+        self.assertEqual(
+            strip_model_args(["gemini", "--model", "gemini-2.5-pro", "--yolo"]),
+            ["gemini", "--yolo"],
+        )
+        self.assertEqual(
+            strip_model_args(["gemini", "--model=gemini-2.5-flash", "-p", "x"]),
+            ["gemini", "-p", "x"],
+        )
 
     def test_activity_log_writes_file(self):
         with TemporaryDirectory() as tmp:

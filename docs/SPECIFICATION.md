@@ -157,7 +157,11 @@ plant-dex\data\images\20260411-114500-a1b2c3\
 
 #### F-SRV-004 Gemini CLI解析
 
-- 保存した3枚の画像をGemini CLIに渡して植物解析を行う。
+- 保存した1〜3枚の画像をGemini CLIに渡して植物解析を行う。
+- PC側の既定モデルは `PLANT_DEX_GEMINI_MODEL` で指定する。
+- 初期の既定モデルは `gemini-3-flash-preview` とする。
+- アップロード時と再解析時に、スマホ画面から使用モデルを選択できる。
+- 選択肢は `PLANT_DEX_GEMINI_MODEL_OPTIONS` で管理し、初期値は `auto-gemini-3`, `auto-gemini-2.5`, `gemini-3.1-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite` とする。
 - GeminiにはJSON形式で出力するよう指示する。
 - 解析処理にはタイムアウトを設定する。
 - 解析失敗時も観察記録は保存し、ステータスを `analysis_failed` とする。
@@ -321,6 +325,7 @@ Content-Type: `multipart/form-data`
 | captured_at | 任意 | 撮影日時 |
 | note | 任意 | メモ |
 | location_label | 任意 | 場所ラベル |
+| gemini_model | 任意 | この解析で使うGemini CLIモデル |
 | latitude | 任意 | 緯度 |
 | longitude | 任意 | 経度 |
 
@@ -355,6 +360,7 @@ X-Plant-Dex-Api-Key: <api-key>
 ### 10.5 POST `/api/observations/{id}/reanalyze`
 
 解析失敗または未確定の観察記録を再解析する。
+任意のフォーム項目 `gemini_model` で使用モデルを指定できる。
 
 ### 10.6 POST `/api/observations/{id}/correction`
 

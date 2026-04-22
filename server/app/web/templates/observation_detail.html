@@ -29,6 +29,7 @@
     <div><span>撮影日</span><strong>{{ observation.observed_label }}</strong></div>
     <div><span>場所</span><strong>{{ observation.location_label or "未入力" }}</strong></div>
     <div><span>メモ</span><strong>{{ observation.note or "なし" }}</strong></div>
+    <div><span>Geminiモデル</span><strong>{{ observation.analysis.gemini_model or "記録なし" }}</strong></div>
   </section>
 
   {% if observation.analysis %}
@@ -177,6 +178,13 @@
       <div class="action-form">
         <label for="apiKeyInput">APIキー</label>
         <input id="apiKeyInput" type="password" autocomplete="off" placeholder="change-me">
+        <label for="reanalyzeGeminiModel">Geminiモデル</label>
+        <select id="reanalyzeGeminiModel">
+          <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
+          {% for model in gemini_model_choices %}
+            <option value="{{ model.value }}" {% if model.value == observation.analysis.gemini_model %}selected{% endif %}>{{ model.label }}</option>
+          {% endfor %}
+        </select>
         <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
       </div>
       <p id="reanalyzeStatus" class="action-status"></p>
@@ -267,11 +275,14 @@
         status.className = 'action-status';
 
         try {
+          const formData = new FormData();
+          formData.append('gemini_model', document.getElementById('reanalyzeGeminiModel').value);
           const response = await fetch('/api/observations/{{ observation.id }}/reanalyze', {
             method: 'POST',
             headers: {
               'X-Plant-Dex-Api-Key': apiKey
-            }
+            },
+            body: formData
           });
 
           if (response.ok) {

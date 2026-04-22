@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import db
-from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, get_settings
+from .config import IMAGE_DIR, PROJECT_DIR, ensure_data_dirs, gemini_model_choices, get_settings
 from .services.activity_log import write_log
 from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
@@ -56,6 +56,7 @@ def diagnostics() -> dict:
 async def create_observation(
     background_tasks: BackgroundTasks,
     images: list[UploadFile] = File(...),
+    gemini_model: str | None = Form(default=None),
     captured_at: str | None = Form(default=None),
     note: str | None = Form(default=None),
     location_label: str | None = Form(default=None),
@@ -73,7 +74,7 @@ async def create_observation(
         latitude=latitude,
         longitude=longitude,
     )
-    background_tasks.add_task(run_analysis, observation_id, image_paths)
+    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model)
     return {
         "observation_id": observation_id,
         "status": "queued",
@@ -103,7 +104,15 @@ def index(request: Request) -> HTMLResponse:
 
 @app.get("/upload", response_class=HTMLResponse)
 def upload_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "upload.html")
+    settings = get_settings()
+    return templates.TemplateResponse(
+        request,
+        "upload.html",
+        {
+            "gemini_model": settings.gemini_model,
+            "gemini_model_choices": gemini_model_choices(),
+        },
+    )
 
 
 @app.get("/connect", response_class=HTMLResponse)
@@ -192,12 +201,20 @@ def observation_detail(request: Request, observation_id: str) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "observation_detail.html",
-        {"observation": present_observation(observation)},
+        {
+            "observation": present_observation(observation),
+            "gemini_model": get_settings().gemini_model,
+            "gemini_model_choices": gemini_model_choices(),
+        },
     )
 
 
 @app.post("/api/observations/{observation_id}/reanalyze", dependencies=[Depends(require_api_key)])
-def reanalyze(observation_id: str, background_tasks: BackgroundTasks) -> dict:
+def reanalyze(
+    observation_id: str,
+    background_tasks: BackgroundTasks,
+    gemini_model: str | None = Form(default=None),
+) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
@@ -212,7 +229,7 @@ def reanalyze(observation_id: str, background_tasks: BackgroundTasks) -> dict:
         if path
     ]
     db.set_observation_status(observation_id, "queued")
-    background_tasks.add_task(run_analysis, observation_id, image_paths)
+    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model)
     return {"status": "queued", "observation_id": observation_id}
 
 
@@ -261,11 +278,12 @@ def review(request: Request) -> HTMLResponse:
     )
 
 
-def run_analysis(observation_id: str, image_paths: list[Path]) -> None:
+def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str | None = None) -> None:
     try:
-        write_log(f"analysis_started id={observation_id}")
+        model_label = gemini_model.strip() if gemini_model else ""
+        write_log(f"analysis_started id={observation_id} model={model_label or 'default'}")
         db.set_observation_status(observation_id, "analyzing")
-        result = analyze_images(image_paths)
+        result = analyze_images(image_paths, gemini_model=gemini_model)
         result_path = image_paths[0].parent / "result.json"
         result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         plant_id = db.save_analysis_result(observation_id, result)
