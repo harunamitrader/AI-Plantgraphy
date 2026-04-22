@@ -291,7 +291,6 @@
       const files = getSelectedCandidates().map((candidate) => candidate.file);
       const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
       const geminiModel = localStorage.getItem('plant_dex_gemini_model') || '';
-      const analysisMode = localStorage.getItem('plant_dex_analysis_mode') || '';
 
       if (!apiKey) {
         setStatus('設定ページでAPIキーを保存してください。', true);
@@ -313,7 +312,6 @@
       formData.append('note', document.getElementById('note').value);
       formData.append('location_label', document.getElementById('locationLabel').value);
       formData.append('gemini_model', geminiModel);
-      formData.append('analysis_mode', analysisMode);
 
       try {
         const response = await fetch('/api/observations', {

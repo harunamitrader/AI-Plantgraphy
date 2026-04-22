@@ -63,7 +63,6 @@ async def create_observation(
     background_tasks: BackgroundTasks,
     images: list[UploadFile] = File(...),
     gemini_model: str | None = Form(default=None),
-    analysis_mode: str | None = Form(default=None),
     captured_at: str | None = Form(default=None),
     note: str | None = Form(default=None),
     location_label: str | None = Form(default=None),
@@ -84,7 +83,7 @@ async def create_observation(
         latitude=latitude,
         longitude=longitude,
     )
-    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model, analysis_mode)
+    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model)
     return {
         "observation_id": observation_id,
         "status": "queued",
@@ -176,7 +175,6 @@ def settings_page(request: Request) -> HTMLResponse:
             "upload_qr": qr_data_url(primary_upload_url) if primary_upload_url else "",
             "home_qr": qr_data_url(primary_home_url) if primary_home_url else "",
             "gemini_model": get_settings().gemini_model,
-            "gemini_analysis_mode": get_settings().gemini_analysis_mode,
             "gemini_model_choices": gemini_model_choices(),
             "location_labels": get_location_labels(),
         },
@@ -273,7 +271,6 @@ def reanalyze(
     observation_id: str,
     background_tasks: BackgroundTasks,
     gemini_model: str | None = Form(default=None),
-    analysis_mode: str | None = Form(default=None),
 ) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
@@ -290,7 +287,7 @@ def reanalyze(
     ]
     db.set_observation_status(observation_id, "queued")
     set_analysis_progress(observation_id, "queued", "解析待ち", 0)
-    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model, analysis_mode)
+    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model)
     return {"status": "queued", "observation_id": observation_id}
 
 
@@ -339,12 +336,7 @@ def review(request: Request) -> HTMLResponse:
     )
 
 
-def run_analysis(
-    observation_id: str,
-    image_paths: list[Path],
-    gemini_model: str | None = None,
-    analysis_mode: str | None = None,
-) -> None:
+def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str | None = None) -> None:
     analysis_started_at = time.perf_counter()
     try:
         model_label = gemini_model.strip() if gemini_model else ""
@@ -355,7 +347,6 @@ def run_analysis(
         result = analyze_images(
             image_paths,
             gemini_model=gemini_model,
-            analysis_mode=analysis_mode,
             progress_callback=lambda phase: set_analysis_phase(observation_id, phase),
         )
         gemini_total_seconds = elapsed_seconds(gemini_started_at)

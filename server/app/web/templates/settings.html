@@ -42,12 +42,6 @@
             <option value="{{ model.value }}" {% if model.value == gemini_model %}selected{% endif %}>{{ model.label }}</option>
           {% endfor %}
         </select>
-        <label for="settingsAnalysisMode">解析方式</label>
-        <select id="settingsAnalysisMode">
-          <option value="">PC側の既定: {{ gemini_analysis_mode }}</option>
-          <option value="full">まとめて生成</option>
-          <option value="split">種類特定と文章作成を分割</option>
-        </select>
         <button id="saveBrowserSettingsBtn" class="btn btn-primary" type="button">この端末に保存</button>
         <p id="browserSettingsStatus" class="action-status"></p>
       </div>
@@ -160,7 +154,6 @@
   <script>
     const storedApiKey = localStorage.getItem('plant_dex_api_key') || '';
     const storedModel = localStorage.getItem('plant_dex_gemini_model') || '';
-    const storedAnalysisMode = localStorage.getItem('plant_dex_analysis_mode') || '';
     const settingsApiKey = document.getElementById('settingsApiKey');
     settingsApiKey.value = storedApiKey;
 
@@ -168,16 +161,11 @@
     if (storedModel) {
       settingsGeminiModel.value = storedModel;
     }
-    const settingsAnalysisMode = document.getElementById('settingsAnalysisMode');
-    if (storedAnalysisMode) {
-      settingsAnalysisMode.value = storedAnalysisMode;
-    }
 
     document.getElementById('saveBrowserSettingsBtn').addEventListener('click', () => {
       const status = document.getElementById('browserSettingsStatus');
       localStorage.setItem('plant_dex_api_key', settingsApiKey.value.trim());
       localStorage.setItem('plant_dex_gemini_model', settingsGeminiModel.value);
-      localStorage.setItem('plant_dex_analysis_mode', settingsAnalysisMode.value);
       status.textContent = 'この端末に保存しました。';
       status.className = 'action-status is-success';
     });
