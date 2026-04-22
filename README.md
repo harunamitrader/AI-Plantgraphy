@@ -38,8 +38,8 @@ AI Plantgraphy は、スマホで撮った植物写真をAIで解析し、自分
 PowerShellでリポジトリを取得して、セットアップします。
 
 ```powershell
-git clone https://github.com/harunamitrader/plant-dex.git
-cd plant-dex
+git clone https://github.com/harunamitrader/AI-Plantgraphy.git
+cd AI-Plantgraphy
 powershell -ExecutionPolicy Bypass -File .\scripts\install_windows.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
 ```

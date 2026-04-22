@@ -149,7 +149,7 @@ flowchart LR
 - 保存先の例:
 
 ```text
-plant-dex\data\images\20260411-114500-a1b2c3\
+AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
   1.jpg
   2.jpg
   3.jpg
@@ -510,13 +510,13 @@ PCサーバーは以下をログに残す。
 ログ保存先:
 
 ```text
-plant-dex\data\logs\server.log
+AI-Plantgraphy\data\logs\server.log
 ```
 
 ## 15. フォルダ構成案
 
 ```text
-plant-dex\
+AI-Plantgraphy\
   docs\
     SPECIFICATION.md
     IMPLEMENTATION_PLAN.md

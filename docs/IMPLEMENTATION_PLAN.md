@@ -27,7 +27,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 作業
 
-- `plant-dex` をプロジェクトルートにする
+- `AI-Plantgraphy` をプロジェクトルートにする
 - Python 3.12以上を確認する
 - 仮想環境を作成する
 - FastAPI関連パッケージを入れる
@@ -36,9 +36,9 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server`
-- `plant-dex\server\requirements.txt`
-- `plant-dex\.env.example`
+- `AI-Plantgraphy\server`
+- `AI-Plantgraphy\server\requirements.txt`
+- `AI-Plantgraphy\.env.example`
 
 ### 確認項目
 
@@ -65,9 +65,9 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\main.py`
-- `plant-dex\server\app\config.py`
-- `plant-dex\server\app\services\image_store.py`
+- `AI-Plantgraphy\server\app\main.py`
+- `AI-Plantgraphy\server\app\config.py`
+- `AI-Plantgraphy\server\app\services\image_store.py`
 
 ### 確認項目
 
@@ -94,8 +94,8 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\services\gemini_cli.py`
-- `plant-dex\server\app\prompts\plant_identification.md`
+- `AI-Plantgraphy\server\app\services\gemini_cli.py`
+- `AI-Plantgraphy\server\app\prompts\plant_identification.md`
 
 ### Geminiプロンプト方針
 
@@ -131,10 +131,10 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\db.py`
-- `plant-dex\server\app\models.py`
-- `plant-dex\server\app\services\plant_matcher.py`
-- `plant-dex\data\plants.sqlite`
+- `AI-Plantgraphy\server\app\db.py`
+- `AI-Plantgraphy\server\app\models.py`
+- `AI-Plantgraphy\server\app\services\plant_matcher.py`
+- `AI-Plantgraphy\data\plants.sqlite`
 
 ### 確認項目
 
@@ -160,11 +160,11 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\web\templates\index.html`
-- `plant-dex\server\app\web\templates\plant_detail.html`
-- `plant-dex\server\app\web\templates\observation_detail.html`
-- `plant-dex\server\app\web\templates\review.html`
-- `plant-dex\server\app\web\static\style.css`
+- `AI-Plantgraphy\server\app\web\templates\index.html`
+- `AI-Plantgraphy\server\app\web\templates\plant_detail.html`
+- `AI-Plantgraphy\server\app\web\templates\observation_detail.html`
+- `AI-Plantgraphy\server\app\web\templates\review.html`
+- `AI-Plantgraphy\server\app\web\static\style.css`
 
 ### UI方針
 
@@ -199,10 +199,10 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\services\connectivity.py`
-- `plant-dex\server\app\services\qr_code.py`
-- `plant-dex\server\app\web\templates\connect.html`
-- `plant-dex\docs\TAILSCALE_SETUP.md`
+- `AI-Plantgraphy\server\app\services\connectivity.py`
+- `AI-Plantgraphy\server\app\services\qr_code.py`
+- `AI-Plantgraphy\server\app\web\templates\connect.html`
+- `AI-Plantgraphy\docs\TAILSCALE_SETUP.md`
 
 ### 確認項目
 
@@ -228,8 +228,8 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\web\static\manifest.webmanifest`
-- `plant-dex\server\app\web\static\icons\`
+- `AI-Plantgraphy\server\app\web\static\manifest.webmanifest`
+- `AI-Plantgraphy\server\app\web\static\icons\`
 
 ### 確認項目
 
@@ -254,7 +254,7 @@ Windows 11 Pro 上でPCサーバーを開発・実行できる状態にする。
 
 ### 成果物
 
-- `plant-dex\server\app\services\discord_notify.py`
+- `AI-Plantgraphy\server\app\services\discord_notify.py`
 - 運用メモ
 
 ### 確認項目
@@ -383,7 +383,7 @@ GET  /observations/{id}
 
 ## 16. 開発開始時の具体的手順
 
-1. `plant-dex\server` を作る
+1. `AI-Plantgraphy\server` を作る
 2. Python仮想環境を作る
 3. FastAPIのHello Worldを作る
 4. `/api/observations` で画像1〜3枚を保存する
