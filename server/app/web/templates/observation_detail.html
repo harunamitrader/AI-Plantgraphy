@@ -32,6 +32,76 @@
     <div><span>Geminiモデル</span><strong>{{ observation.analysis.gemini_model or "記録なし" }}</strong></div>
   </section>
 
+  {% if observation.status in ["queued", "analyzing"] %}
+    <section class="panel timing-panel">
+      <p class="eyebrow">Timer</p>
+      <h2>解析待ち</h2>
+      <p
+        id="analysisTimer"
+        data-observation-id="{{ observation.id }}"
+        data-started-at="{{ observation.updated_at or observation.received_at }}"
+      >経過時間を計測中...</p>
+    </section>
+  {% endif %}
+
+  {% set timing = observation.analysis.analysis_timing %}
+  {% if timing is mapping %}
+    <section class="panel timing-panel">
+      <p class="eyebrow">Timing</p>
+      <h2>解析時間</h2>
+      <div class="timing-grid">
+        <div><span>全体</span><strong>{{ timing.server_total_seconds or timing.total_seconds or "?" }}秒</strong></div>
+        <div><span>Gemini CLI</span><strong>{{ timing.gemini_cli_seconds or timing.server_gemini_total_seconds or "?" }}秒</strong></div>
+        <div><span>画像準備</span><strong>{{ timing.copy_images_seconds or 0 }}秒</strong></div>
+        <div><span>JSON整形</span><strong>{{ timing.parse_seconds or 0 }}秒</strong></div>
+        <div><span>補完</span><strong>{{ timing.profile_fill_seconds or 0 }}秒</strong></div>
+        <div><span>DB保存</span><strong>{{ timing.db_save_seconds or 0 }}秒</strong></div>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if observation.status in ["queued", "analyzing"] %}
+    <script>
+      (() => {
+        const timer = document.getElementById('analysisTimer');
+        const startedAt = Date.parse(timer.dataset.startedAt || '') || Date.now();
+        const observationId = timer.dataset.observationId;
+
+        function elapsedSeconds() {
+          return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+        }
+
+        function progressLabel(data) {
+          const progress = data.analysis_progress || {};
+          const label = progress.label || data.status || '解析中';
+          const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
+          return `${label}${percent}`;
+        }
+
+        async function poll() {
+          try {
+            const response = await fetch(`/api/observations/${observationId}`);
+            const data = await response.json();
+            timer.textContent = `${progressLabel(data)} / 経過 ${elapsedSeconds()}秒`;
+            if (data.status !== 'queued' && data.status !== 'analyzing') {
+              window.location.reload();
+            }
+          } catch (err) {
+            timer.textContent = `状態確認に失敗しました: ${err.message}`;
+          }
+        }
+
+        timer.textContent = `解析待ち / 経過 ${elapsedSeconds()}秒`;
+        window.setInterval(() => {
+          const current = timer.textContent.split(' / ')[0] || '解析中';
+          timer.textContent = `${current} / 経過 ${elapsedSeconds()}秒`;
+        }, 1000);
+        window.setInterval(poll, 5000);
+        poll();
+      })();
+    </script>
+  {% endif %}
+
   {% if observation.analysis %}
     <section class="analysis-layout">
       <div class="panel">
@@ -254,6 +324,7 @@
 
         const btn = document.getElementById('reanalyzeBtn');
         const status = document.getElementById('reanalyzeStatus');
+        const startedAt = Date.now();
         btn.disabled = true;
         status.textContent = 'リクエスト送信中...';
         status.className = 'action-status';
@@ -272,7 +343,7 @@
           if (response.ok) {
             status.textContent = '再解析を開始しました。完了したら自動で更新します。';
             status.className = 'action-status is-success';
-            pollReanalysisStatus();
+            pollReanalysisStatus(startedAt);
           } else {
             const detail = await response.json();
             status.textContent = 'エラー: ' + (detail.detail || '失敗しました');
@@ -330,7 +401,7 @@
         }
       });
 
-      async function pollReanalysisStatus() {
+      async function pollReanalysisStatus(startedAt) {
         const status = document.getElementById('reanalyzeStatus');
         const maxAttempts = 72;
         let attempts = 0;
@@ -340,7 +411,8 @@
           try {
             const response = await fetch('/api/observations/{{ observation.id }}');
             const data = await response.json();
-            status.textContent = '現在の状態: ' + data.status;
+            const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            status.textContent = `${progressLabel(data)} / 経過 ${seconds}秒`;
             if (data.status !== 'queued' && data.status !== 'analyzing') {
               window.clearInterval(timer);
               window.location.reload();
@@ -355,6 +427,13 @@
             status.className = 'action-status is-error';
           }
         }, 5000);
+      }
+
+      function progressLabel(data) {
+        const progress = data.analysis_progress || {};
+        const label = progress.label || data.status || '解析中';
+        const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
+        return `${label}${percent}`;
       }
     </script>
   {% endif %}

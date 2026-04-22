@@ -355,6 +355,18 @@ def save_analysis_result(observation_id: str, result: dict) -> str:
     return plant_id
 
 
+def update_observation_raw_result(observation_id: str, result: dict) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE observations
+            SET raw_result_json = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (json.dumps(result, ensure_ascii=False), now_iso(), observation_id),
+        )
+
+
 def apply_manual_correction(
     *,
     observation_id: str,

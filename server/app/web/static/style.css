@@ -618,6 +618,35 @@ h3 {
   padding: 14px;
 }
 
+.timing-panel {
+  margin-top: 12px;
+}
+
+.timing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.timing-grid div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.timing-grid span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.timing-grid strong {
+  font-size: 15px;
+}
+
 .analysis-layout {
   display: grid;
   grid-template-columns: minmax(240px, 0.8fr) minmax(280px, 1.2fr);

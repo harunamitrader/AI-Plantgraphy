@@ -74,6 +74,8 @@
     const selectedCount = document.getElementById('selectedCount');
     const statusText = document.getElementById('uploadStatus');
     const uploadButton = document.getElementById('uploadButton');
+    let uploadStartedAt = 0;
+    let elapsedTimer = null;
     let candidates = [];
     let nextCandidateId = 1;
     let cameraStream = null;
@@ -300,6 +302,8 @@
       }
 
       uploadButton.disabled = true;
+      uploadStartedAt = Date.now();
+      startElapsedTimer('画像送信中');
       const totalSizeMb = files.reduce((total, file) => total + file.size, 0) / 1024 / 1024;
       setStatus(`軽量化済みの写真を送信中... 合計 ${totalSizeMb.toFixed(1)}MB`, false);
 
@@ -324,8 +328,10 @@
         }
 
         setStatus('解析を開始しました。完了したら詳細ページへ移動します。', false);
+        startElapsedTimer('解析待ち');
         pollObservation(data.observation_id);
       } catch (err) {
+        stopElapsedTimer();
         uploadButton.disabled = false;
         setStatus(`エラー: ${err.message}`, true);
       }
@@ -336,6 +342,21 @@
       statusText.className = isError ? 'action-status is-error' : 'action-status is-success';
     }
 
+    function startElapsedTimer(label) {
+      stopElapsedTimer();
+      elapsedTimer = window.setInterval(() => {
+        const seconds = Math.max(0, Math.floor((Date.now() - uploadStartedAt) / 1000));
+        statusText.textContent = `${label}... 経過 ${seconds}秒`;
+      }, 1000);
+    }
+
+    function stopElapsedTimer() {
+      if (elapsedTimer) {
+        window.clearInterval(elapsedTimer);
+        elapsedTimer = null;
+      }
+    }
+
     function pollObservation(observationId) {
       let attempts = 0;
       const timer = window.setInterval(async () => {
@@ -343,21 +364,32 @@
         try {
           const response = await fetch(`/api/observations/${observationId}`);
           const data = await response.json();
-          statusText.textContent = `現在の状態: ${data.status}`;
+          const seconds = Math.max(0, Math.floor((Date.now() - uploadStartedAt) / 1000));
+          statusText.textContent = `${progressLabel(data)} / 経過 ${seconds}秒`;
           if (data.status !== 'queued' && data.status !== 'analyzing') {
             window.clearInterval(timer);
+            stopElapsedTimer();
             window.location.href = `/observations/${observationId}`;
           }
           if (attempts >= 72) {
             window.clearInterval(timer);
+            stopElapsedTimer();
             window.location.href = `/observations/${observationId}`;
           }
         } catch (err) {
           window.clearInterval(timer);
+          stopElapsedTimer();
           uploadButton.disabled = false;
           setStatus(`状態確認に失敗しました: ${err.message}`, true);
         }
       }, 5000);
+    }
+
+    function progressLabel(data) {
+      const progress = data.analysis_progress || {};
+      const label = progress.label || data.status || '解析中';
+      const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
+      return `${label}${percent}`;
     }
   </script>
 {% endblock %}

@@ -1,5 +1,7 @@
 import json
+import time
 from pathlib import Path
+from threading import Lock
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -25,6 +27,9 @@ app = FastAPI(title="Plant Dex", version="0.1.0")
 templates = Jinja2Templates(directory=Path(__file__).parent / "web" / "templates")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static")
 app.mount("/media", StaticFiles(directory=IMAGE_DIR), name="media")
+
+ANALYSIS_PROGRESS: dict[str, dict] = {}
+ANALYSIS_PROGRESS_LOCK = Lock()
 
 
 @app.on_event("startup")
@@ -64,8 +69,11 @@ async def create_observation(
     latitude: float | None = Form(default=None),
     longitude: float | None = Form(default=None),
 ) -> dict:
+    save_started_at = time.perf_counter()
     observation_id, image_paths = await save_observation_images(images)
-    write_log(f"observation_received id={observation_id}")
+    save_seconds = elapsed_seconds(save_started_at)
+    write_log(f"observation_received id={observation_id} save_seconds={save_seconds}")
+    set_analysis_progress(observation_id, "queued", "解析待ち", 0)
     db.create_observation(
         observation_id=observation_id,
         image_paths=image_paths,
@@ -88,7 +96,9 @@ def api_observation(observation_id: str) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
-    return dict(observation)
+    data = dict(observation)
+    data["analysis_progress"] = get_analysis_progress(observation_id, data.get("status"))
+    return data
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -276,6 +286,7 @@ def reanalyze(
         if path
     ]
     db.set_observation_status(observation_id, "queued")
+    set_analysis_progress(observation_id, "queued", "解析待ち", 0)
     background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model)
     return {"status": "queued", "observation_id": observation_id}
 
@@ -326,16 +337,38 @@ def review(request: Request) -> HTMLResponse:
 
 
 def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str | None = None) -> None:
+    analysis_started_at = time.perf_counter()
     try:
         model_label = gemini_model.strip() if gemini_model else ""
         write_log(f"analysis_started id={observation_id} model={model_label or 'default'}")
         db.set_observation_status(observation_id, "analyzing")
-        result = analyze_images(image_paths, gemini_model=gemini_model)
+        set_analysis_progress(observation_id, "preparing", "画像準備中", 10)
+        gemini_started_at = time.perf_counter()
+        result = analyze_images(
+            image_paths,
+            gemini_model=gemini_model,
+            progress_callback=lambda phase: set_analysis_phase(observation_id, phase),
+        )
+        gemini_total_seconds = elapsed_seconds(gemini_started_at)
+        result.setdefault("analysis_timing", {})
+        result["analysis_timing"]["server_gemini_total_seconds"] = gemini_total_seconds
         result_path = image_paths[0].parent / "result.json"
         result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        set_analysis_progress(observation_id, "saving", "結果保存中", 92)
+        db_started_at = time.perf_counter()
         plant_id = db.save_analysis_result(observation_id, result)
+        db_seconds = elapsed_seconds(db_started_at)
+        total_seconds = elapsed_seconds(analysis_started_at)
+        result["analysis_timing"]["db_save_seconds"] = db_seconds
+        result["analysis_timing"]["server_total_seconds"] = total_seconds
+        db.update_observation_raw_result(observation_id, result)
+        result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         plant = db.get_plant(plant_id)
-        write_log(f"analysis_finished id={observation_id} plant_id={plant_id}")
+        write_log(
+            f"analysis_finished id={observation_id} plant_id={plant_id} "
+            f"total_seconds={total_seconds} gemini_seconds={gemini_total_seconds} db_seconds={db_seconds}"
+        )
+        set_analysis_progress(observation_id, "finished", "完了", 100)
         if plant:
             notify_analysis_finished(
                 plant["display_name"],
@@ -343,14 +376,55 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
                 f"{get_settings().base_url}/observations/{observation_id}",
             )
     except Exception as exc:
+        total_seconds = elapsed_seconds(analysis_started_at)
         message = format_analysis_error(exc)
         db.set_observation_status(observation_id, "analysis_failed", message)
-        write_log(f"analysis_failed id={observation_id} error={message[:500]}")
+        set_analysis_progress(observation_id, "failed", "失敗", 100)
+        write_log(f"analysis_failed id={observation_id} total_seconds={total_seconds} error={message[:500]}")
         notify_analysis_failed(
             observation_id,
             message,
             f"{get_settings().base_url}/observations/{observation_id}",
         )
+
+
+def elapsed_seconds(started_at: float) -> float:
+    return round(time.perf_counter() - started_at, 3)
+
+
+def set_analysis_phase(observation_id: str, phase: str) -> None:
+    labels = {
+        "identifying": ("identifying", "種類特定中", 35),
+        "writing_profile": ("writing_profile", "解説文作成中", 78),
+    }
+    status, label, percent = labels.get(phase, (phase, phase, 50))
+    set_analysis_progress(observation_id, status, label, percent)
+
+
+def set_analysis_progress(observation_id: str, phase: str, label: str, percent: int) -> None:
+    with ANALYSIS_PROGRESS_LOCK:
+        ANALYSIS_PROGRESS[observation_id] = {
+            "phase": phase,
+            "label": label,
+            "percent": percent,
+            "updated_at": time.time(),
+        }
+
+
+def get_analysis_progress(observation_id: str, status: str | None) -> dict:
+    with ANALYSIS_PROGRESS_LOCK:
+        progress = dict(ANALYSIS_PROGRESS.get(observation_id) or {})
+    if progress:
+        return progress
+    if status == "queued":
+        return {"phase": "queued", "label": "解析待ち", "percent": 0}
+    if status == "analyzing":
+        return {"phase": "analyzing", "label": "解析中", "percent": 30}
+    if status == "analysis_failed":
+        return {"phase": "failed", "label": "失敗", "percent": 100}
+    if status in {"analyzed", "needs_review"}:
+        return {"phase": "finished", "label": "完了", "percent": 100}
+    return {"phase": status or "unknown", "label": status or "不明", "percent": 0}
 
 
 def format_analysis_error(exc: Exception) -> str:

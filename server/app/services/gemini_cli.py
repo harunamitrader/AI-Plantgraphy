@@ -4,8 +4,10 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import time
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Callable
 
 from ..config import PROJECT_DIR, get_settings
 
@@ -48,19 +50,34 @@ JSONスキーマ:
 """
 
 
-def analyze_images(image_paths: list[Path], gemini_model: str | None = None) -> dict:
+def analyze_images(
+    image_paths: list[Path],
+    gemini_model: str | None = None,
+    progress_callback: Callable[[str], None] | None = None,
+) -> dict:
+    total_started_at = time.perf_counter()
     settings = get_settings()
     model = clean_model_name(gemini_model) or clean_model_name(settings.gemini_model)
     if not settings.gemini_enabled:
         result = mock_result()
         if model:
             result["gemini_model"] = model
+        result["analysis_timing"] = {
+            "total_seconds": elapsed_seconds(total_started_at),
+            "gemini_cli_seconds": 0.0,
+            "mock": True,
+        }
         return result
 
     with tempfile.TemporaryDirectory(prefix="plant-dex-gemini-") as temp_dir:
+        copy_started_at = time.perf_counter()
         readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
+        copy_seconds = elapsed_seconds(copy_started_at)
         prompt = build_prompt(readable_paths)
         image_args = [f"@{path.absolute()}" for path in readable_paths]
+        if progress_callback:
+            progress_callback("identifying")
+        cli_started_at = time.perf_counter()
         output = run_gemini_prompt(
             prompt,
             gemini_model=model,
@@ -70,17 +87,37 @@ def analyze_images(image_paths: list[Path], gemini_model: str | None = None) -> 
             ],
             trailing_args=image_args,
         )
+        cli_seconds = elapsed_seconds(cli_started_at)
 
     try:
+        parse_started_at = time.perf_counter()
         result = normalize_result(parse_json_output(output))
+        parse_seconds = elapsed_seconds(parse_started_at)
     except JSONDecodeError as exc:
         preview = output[:1200] if output else "Gemini CLI returned empty output."
         raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
 
+    if progress_callback:
+        progress_callback("writing_profile")
+    profile_started_at = time.perf_counter()
     result = ensure_profile_texts(result, gemini_model=model)
+    profile_seconds = elapsed_seconds(profile_started_at)
     if model:
         result["gemini_model"] = model
+    result["analysis_timing"] = {
+        "copy_images_seconds": copy_seconds,
+        "gemini_cli_seconds": cli_seconds,
+        "parse_seconds": parse_seconds,
+        "profile_fill_seconds": profile_seconds,
+        "total_seconds": elapsed_seconds(total_started_at),
+        "image_count": len(image_paths),
+        "model": model or "default",
+    }
     return result
+
+
+def elapsed_seconds(started_at: float) -> float:
+    return round(time.perf_counter() - started_at, 3)
 
 
 def run_gemini_prompt(
