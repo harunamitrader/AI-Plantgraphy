@@ -78,11 +78,32 @@
           return `${label}${percent}`;
         }
 
+        function identityLabel(data) {
+          const analysis = parseAnalysis(data.raw_result_json);
+          const name = analysis.common_name_ja || analysis.scientific_name;
+          if (!name) {
+            return '';
+          }
+          const confidence = typeof analysis.confidence === 'number' ? ` / 信頼度 ${Math.round(analysis.confidence * 100)}%` : '';
+          return ` / ${name}${confidence}`;
+        }
+
+        function parseAnalysis(rawJson) {
+          if (!rawJson) {
+            return {};
+          }
+          try {
+            return JSON.parse(rawJson) || {};
+          } catch (err) {
+            return {};
+          }
+        }
+
         async function poll() {
           try {
             const response = await fetch(`/api/observations/${observationId}`);
             const data = await response.json();
-            timer.textContent = `${progressLabel(data)} / 経過 ${elapsedSeconds()}秒`;
+            timer.textContent = `${progressLabel(data)}${identityLabel(data)} / 経過 ${elapsedSeconds()}秒`;
             if (data.status !== 'queued' && data.status !== 'analyzing') {
               window.location.reload();
             }
@@ -412,7 +433,7 @@
             const response = await fetch('/api/observations/{{ observation.id }}');
             const data = await response.json();
             const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-            status.textContent = `${progressLabel(data)} / 経過 ${seconds}秒`;
+            status.textContent = `${progressLabel(data)}${identityLabel(data)} / 経過 ${seconds}秒`;
             if (data.status !== 'queued' && data.status !== 'analyzing') {
               window.clearInterval(timer);
               window.location.reload();
@@ -429,12 +450,33 @@
         }, 5000);
       }
 
-      function progressLabel(data) {
-        const progress = data.analysis_progress || {};
-        const label = progress.label || data.status || '解析中';
-        const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
-        return `${label}${percent}`;
-      }
+        function progressLabel(data) {
+          const progress = data.analysis_progress || {};
+          const label = progress.label || data.status || '解析中';
+          const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
+          return `${label}${percent}`;
+        }
+
+        function identityLabel(data) {
+          const analysis = parseAnalysis(data.raw_result_json);
+          const name = analysis.common_name_ja || analysis.scientific_name;
+          if (!name) {
+            return '';
+          }
+          const confidence = typeof analysis.confidence === 'number' ? ` / 信頼度 ${Math.round(analysis.confidence * 100)}%` : '';
+          return ` / ${name}${confidence}`;
+        }
+
+        function parseAnalysis(rawJson) {
+          if (!rawJson) {
+            return {};
+          }
+          try {
+            return JSON.parse(rawJson) || {};
+          } catch (err) {
+            return {};
+          }
+        }
     </script>
   {% endif %}
 

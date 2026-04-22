@@ -348,6 +348,7 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
             image_paths,
             gemini_model=gemini_model,
             progress_callback=lambda phase: set_analysis_phase(observation_id, phase),
+            identity_callback=lambda identity: save_identity_preview(observation_id, identity),
         )
         gemini_total_seconds = elapsed_seconds(gemini_started_at)
         result.setdefault("analysis_timing", {})
@@ -399,6 +400,14 @@ def set_analysis_phase(observation_id: str, phase: str) -> None:
     }
     status, label, percent = labels.get(phase, (phase, phase, 50))
     set_analysis_progress(observation_id, status, label, percent)
+
+
+def save_identity_preview(observation_id: str, identity: dict) -> None:
+    db.update_observation_identity_result(observation_id, identity)
+    name = identity.get("common_name_ja") or identity.get("scientific_name") or "名称未確定"
+    confidence = identity.get("confidence")
+    set_analysis_progress(observation_id, "writing_profile", "解説文作成中", 78)
+    write_log(f"analysis_identity_ready id={observation_id} name={name} confidence={confidence}")
 
 
 def set_analysis_progress(observation_id: str, phase: str, label: str, percent: int) -> None:

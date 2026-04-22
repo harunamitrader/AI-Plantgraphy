@@ -367,6 +367,23 @@ def update_observation_raw_result(observation_id: str, result: dict) -> None:
         )
 
 
+def update_observation_identity_result(observation_id: str, result: dict) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE observations
+            SET raw_result_json = ?, confidence = ?, error_message = NULL, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                json.dumps(result, ensure_ascii=False),
+                parse_float(result.get("confidence")),
+                now_iso(),
+                observation_id,
+            ),
+        )
+
+
 def apply_manual_correction(
     *,
     observation_id: str,

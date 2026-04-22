@@ -54,6 +54,7 @@ def analyze_images(
     image_paths: list[Path],
     gemini_model: str | None = None,
     progress_callback: Callable[[str], None] | None = None,
+    identity_callback: Callable[[dict], None] | None = None,
 ) -> dict:
     total_started_at = time.perf_counter()
     settings = get_settings()
@@ -97,13 +98,15 @@ def analyze_images(
         preview = output[:1200] if output else "Gemini CLI returned empty output."
         raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
 
+    if model:
+        result["gemini_model"] = model
+    if identity_callback:
+        identity_callback(dict(result))
     if progress_callback:
         progress_callback("writing_profile")
     profile_started_at = time.perf_counter()
     result = ensure_profile_texts(result, gemini_model=model)
     profile_seconds = elapsed_seconds(profile_started_at)
-    if model:
-        result["gemini_model"] = model
     result["analysis_timing"] = {
         "copy_images_seconds": copy_seconds,
         "gemini_cli_seconds": cli_seconds,
