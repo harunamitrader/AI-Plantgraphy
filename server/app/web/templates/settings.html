@@ -11,7 +11,7 @@
 
   {% if connectivity.checks.api_key == "default" %}
     <section class="error">
-      <h2>APIキーが初期値です</h2>
+      <h2>アプリパスワードが初期値です</h2>
       <p>公開前に `.env` の `PLANT_DEX_API_KEY` を `change-me` 以外へ変更してください。</p>
     </section>
   {% endif %}
@@ -32,7 +32,7 @@
       <p class="eyebrow">This device</p>
       <h2>端末設定</h2>
       <div class="settings-form">
-        <label for="settingsApiKey">APIキー</label>
+        <label for="settingsApiKey">アプリパスワード</label>
         <input id="settingsApiKey" type="password" autocomplete="off" placeholder="change-me">
         <p class="field-help">場所ラベルの変更、バックアップ、解析送信で使います。この端末にだけ保存されます。</p>
         <label for="settingsGeminiModel">Geminiモデル</label>
@@ -111,7 +111,7 @@
     </div>
     <div class="check-grid">
       <div><span>Gemini CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
-      <div><span>APIキー</span><strong>{{ connectivity.checks.api_key }}</strong></div>
+      <div><span>アプリパスワード</span><strong>{{ connectivity.checks.api_key }}</strong></div>
       <div><span>Tailscale Serve</span><strong>{{ connectivity.checks.tailscale_serve }}</strong></div>
       <div><span>Tailscale HTTPS</span><strong>{{ connectivity.checks.tailscale_https }}</strong></div>
     </div>
@@ -152,7 +152,7 @@
   </section>
 
   <script>
-    const storedApiKey = localStorage.getItem('plant_dex_api_key') || '';
+    const storedApiKey = localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '';
     const storedModel = localStorage.getItem('plant_dex_gemini_model') || '';
     const settingsApiKey = document.getElementById('settingsApiKey');
     settingsApiKey.value = storedApiKey;
@@ -164,7 +164,8 @@
 
     document.getElementById('saveBrowserSettingsBtn').addEventListener('click', () => {
       const status = document.getElementById('browserSettingsStatus');
-      localStorage.setItem('plant_dex_api_key', settingsApiKey.value.trim());
+      localStorage.setItem('ai_plantgraphy_password', settingsApiKey.value.trim());
+      localStorage.removeItem('plant_dex_api_key');
       localStorage.setItem('plant_dex_gemini_model', settingsGeminiModel.value);
       status.textContent = 'この端末に保存しました。';
       status.className = 'action-status is-success';
@@ -175,11 +176,11 @@
       const label = document.getElementById('newLocationLabel').value.trim();
       const status = document.getElementById('locationLabelStatus');
       if (!apiKey || !label) {
-        status.textContent = 'APIキーと場所ラベルを入力してください。';
+        status.textContent = 'アプリパスワードと場所ラベルを入力してください。';
         status.className = 'action-status is-error';
         return;
       }
-      localStorage.setItem('plant_dex_api_key', apiKey);
+      localStorage.setItem('ai_plantgraphy_password', apiKey);
       const formData = new FormData();
       formData.append('label', label);
       try {
@@ -210,7 +211,7 @@
       const apiKey = settingsApiKey.value.trim();
       const status = document.getElementById('locationLabelStatus');
       if (!apiKey) {
-        status.textContent = 'APIキーを入力してください。';
+        status.textContent = 'アプリパスワードを入力してください。';
         status.className = 'action-status is-error';
         return;
       }
@@ -254,12 +255,12 @@
     exportBtn.addEventListener('click', async () => {
       const apiKey = settingsApiKey.value.trim();
       if (!apiKey) {
-        exportStatus.textContent = 'APIキーを入力してください。';
+        exportStatus.textContent = 'アプリパスワードを入力してください。';
         exportStatus.className = 'action-status is-error';
         return;
       }
 
-      localStorage.setItem('plant_dex_api_key', apiKey);
+      localStorage.setItem('ai_plantgraphy_password', apiKey);
       exportBtn.disabled = true;
       exportStatus.textContent = 'zipを作成中...';
       exportStatus.className = 'action-status';

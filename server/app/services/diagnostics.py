@@ -11,7 +11,7 @@ def build_diagnostics() -> dict:
     checks = [
         check_item(
             "api_key",
-            "APIキー",
+            "アプリパスワード",
             connectivity["checks"]["api_key"] == "set",
             "初期値のままです。`.env` の `PLANT_DEX_API_KEY` を変更してください。",
         ),

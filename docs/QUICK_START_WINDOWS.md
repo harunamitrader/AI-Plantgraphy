@@ -32,7 +32,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install_windows.ps1
 - Python仮想環境 `.venv` を作成
 - 必要なPythonパッケージをインストール
 - `.env` を作成
-- APIキーをランダムな値に変更
+- アプリパスワードをランダムな値に変更
 
 ## 4. 起動ショートカットを作る
 
@@ -73,6 +73,10 @@ PowerShellで以下が動くことを確認します。
 gemini --version
 ```
 
+Gemini CLIは、GoogleアカウントまたはGemini APIキーで一度認証しておく必要があります。
+AI PlantgraphyはGemini CLIを非対話モードで呼び出すだけなので、管理者権限やリポジトリ編集権限は不要です。
+フォルダ信頼やサンドボックス設定を求められた場合は、AI Plantgraphyのリポジトリ、または `data\images` フォルダの読み取りを許可してください。
+
 `.env` を開いて以下に変更します。
 
 ```text
@@ -93,7 +97,7 @@ AI Plantgraphyを再起動します。
 http://127.0.0.1:8000/settings
 ```
 
-接続、保存先、Gemini CLI、APIキーの状態を確認できます。
+接続、保存先、Gemini CLI、アプリパスワードの状態を確認できます。
 
 ## 10. テスト
 

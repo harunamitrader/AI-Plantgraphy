@@ -33,4 +33,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
 
 ## セキュリティ
 
-APIキー、Discord Webhook URL、個人の植物写真、位置情報をIssueやPull Requestに貼らないでください。
+アプリパスワード、Gemini APIキー、Discord Webhook URL、個人の植物写真、位置情報をIssueやPull Requestに貼らないでください。

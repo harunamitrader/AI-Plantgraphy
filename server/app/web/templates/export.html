@@ -16,7 +16,7 @@
         <h2>バックアップzip</h2>
         <p>内容は `plants.sqlite`、`images/`、`manifest.json` です。PCの `data/exports` にも同じzipが残ります。</p>
       </div>
-      <label for="exportApiKey">APIキー</label>
+      <label for="exportApiKey">アプリパスワード</label>
       <input id="exportApiKey" type="password" autocomplete="off" placeholder="change-me">
       <button id="exportBtn" class="btn btn-primary" type="button">zipを作成してダウンロード</button>
       <p id="exportStatus" class="action-status"></p>
@@ -27,17 +27,18 @@
     const exportApiKey = document.getElementById('exportApiKey');
     const exportBtn = document.getElementById('exportBtn');
     const exportStatus = document.getElementById('exportStatus');
-    exportApiKey.value = localStorage.getItem('plant_dex_api_key') || '';
+    exportApiKey.value = localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '';
 
     exportBtn.addEventListener('click', async () => {
       const apiKey = exportApiKey.value.trim();
       if (!apiKey) {
-        exportStatus.textContent = 'APIキーを入力してください。初期値は change-me です。';
+        exportStatus.textContent = 'アプリパスワードを入力してください。初期値は change-me です。';
         exportStatus.className = 'action-status is-error';
         return;
       }
 
-      localStorage.setItem('plant_dex_api_key', apiKey);
+      localStorage.setItem('ai_plantgraphy_password', apiKey);
+      localStorage.removeItem('plant_dex_api_key');
       exportBtn.disabled = true;
       exportStatus.textContent = 'zipを作成中...';
       exportStatus.className = 'action-status';

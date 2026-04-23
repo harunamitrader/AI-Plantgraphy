@@ -8,7 +8,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Upload one to three plant photos to AI Plantgraphy.")
     parser.add_argument("images", nargs="+", help="One to three image file paths.")
     parser.add_argument("--url", default="http://127.0.0.1:8000/api/observations")
-    parser.add_argument("--api-key", default="change-me")
+    parser.add_argument("--password", default=None, help="AI Plantgraphy app password.")
+    parser.add_argument("--api-key", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--note", default="")
     parser.add_argument("--location-label", default="")
     parser.add_argument("--gemini-model", default="")
@@ -31,7 +32,7 @@ def main() -> None:
 
         response = requests.post(
             args.url,
-            headers={"X-Plant-Dex-Api-Key": args.api_key},
+            headers={"X-Plant-Dex-Api-Key": args.password or args.api_key or "change-me"},
             files=files,
             data={
                 "note": args.note,

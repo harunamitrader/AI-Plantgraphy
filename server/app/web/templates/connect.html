@@ -11,7 +11,7 @@
 
   {% if connectivity.checks.api_key == "default" %}
     <section class="error">
-      <h2>APIキーが初期値です</h2>
+      <h2>アプリパスワードが初期値です</h2>
       <p>公開前に `.env` の `PLANT_DEX_API_KEY` を `change-me` 以外へ変更してください。</p>
     </section>
   {% endif %}
@@ -114,7 +114,7 @@
     </div>
     <div class="check-grid">
       <div><span>Gemini CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
-      <div><span>APIキー</span><strong>{{ connectivity.checks.api_key }}</strong></div>
+      <div><span>アプリパスワード</span><strong>{{ connectivity.checks.api_key }}</strong></div>
       <div><span>Tailscale CLI</span><strong>{{ connectivity.checks.tailscale_cli }}</strong></div>
       <div><span>Tailscale Serve</span><strong>{{ connectivity.checks.tailscale_serve }}</strong></div>
       <div><span>Tailscale HTTPS</span><strong>{{ connectivity.checks.tailscale_https }}</strong></div>

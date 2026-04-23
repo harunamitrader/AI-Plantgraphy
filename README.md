@@ -5,12 +5,28 @@
 AI Plantgraphy は、スマホで撮った植物写真をAIで解析し、自分だけの植物図鑑を作るWebアプリです。
 庭木、草花、鉢植え、公園で見つけた植物などを写真と名前、特徴、手入れメモ付きで残せます。
 
+## 1枚でわかる AI Plantgraphy
+
+![AI Plantgraphyの概要](docs/１枚解説.png)
+
+## 画面イメージ
+
+スマホのブラウザまたはPWAから、撮影、解析待ち、図鑑の確認まで操作できます。
+
+| ホーム | 植物を追加 |
+| --- | --- |
+| <img src="docs/assets/screenshot/screenshot1.png" alt="ホーム画面" width="360"> | <img src="docs/assets/screenshot/screenshot7.png" alt="植物を追加する画面" width="360"> |
+
+| 観察詳細 | 図鑑 |
+| --- | --- |
+| <img src="docs/assets/screenshot/screenshot3.png" alt="観察詳細画面" width="360"> | <img src="docs/assets/screenshot/screenshot2.png" alt="図鑑画面" width="360"> |
+
 ## できること
 
 - スマホで植物の写真を1〜3枚選んで送信
 - 自宅PC上の Gemini CLI で植物名を推定
-- 解析結果、候補、特徴、見た目の魅力、手入れメモを保存
-- 同じ種類の植物をまとめて図鑑化
+- 解析結果、候補、見えている特徴、不確実な点を観察記録として保存
+- 同じ種類の植物をまとめ、基本的な特徴、見た目の魅力、手入れメモを図鑑側に保存
 - スマホから図鑑・観察記録・確認待ちを閲覧
 - Tailscaleを使って外出先から自宅PCへ安全に接続
 - 写真を軽量化して、スマホ表示を重くしすぎない
@@ -61,6 +77,15 @@ gemini --version
 gemini --help
 ```
 
+Gemini CLI側で必要なのは、次の2つです。
+
+- Gemini CLIがGoogleアカウントまたはGemini APIキーで認証済みであること
+- AI Plantgraphyの `data\images` に保存された画像を、PCの通常ユーザー権限で読み取れること
+
+AI PlantgraphyはGemini CLIを `gemini -p` の非対話モードで呼び出し、植物解析のために画像パスとプロンプトを渡します。
+Gemini CLIにリポジトリ全体の編集権限や、管理者権限を渡す必要はありません。
+Gemini CLIがフォルダ信頼やサンドボックス設定を求める場合は、このリポジトリまたは `data` フォルダを読み取り対象として許可してください。
+
 `.env` を開いて、以下を設定します。
 
 ```text
@@ -78,6 +103,8 @@ PLANT_DEX_GEMINI_MODEL=gemini-3-flash-preview
 PC側の設定ページに表示されるURLまたはQRコードをスマホで開いてください。
 
 連続カメラを外出先で使うには、Tailscale ServeのHTTPS URLが必要です。
+
+<img src="docs/assets/screenshot/screenshot8.png" alt="設定ページの接続ガイド" width="360">
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
@@ -133,7 +160,7 @@ data\exports
 AIの植物判定は間違うことがあります。
 食用・薬用・毒性判断など、安全に関わる用途ではAI結果だけを信じないでください。
 
-APIキー、Discord Webhook URL、位置情報、個人写真を公開IssueやPull Requestに貼らないでください。
+アプリパスワード、Gemini APIキー、Discord Webhook URL、位置情報、個人写真を公開IssueやPull Requestに貼らないでください。
 
 ## ライセンス
 

@@ -113,7 +113,7 @@ https://<PC名>.<tailnet>.ts.net/upload
 
 ### 写真を送れない
 
-- APIキーが正しいか確認する
+- アプリパスワードが正しいか確認する
 - 写真が1〜3枚選ばれているか確認する
 - 画像サイズが大きすぎないか確認する
 
@@ -121,4 +121,4 @@ https://<PC名>.<tailnet>.ts.net/upload
 
 AI PlantgraphyはTailscale経由で使うことを標準にしています。
 
-ただし、Tailscaleを使っていてもAI PlantgraphyのAPIキーは必要です。APIキーの初期値 `change-me` は公開前に変更してください。
+ただし、Tailscaleを使っていてもAI Plantgraphyのアプリパスワードは必要です。アプリパスワードの初期値 `change-me` は公開前に変更してください。

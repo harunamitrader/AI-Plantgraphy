@@ -222,7 +222,7 @@ class ServiceTests(unittest.TestCase):
         message = format_analysis_error(RuntimeError("Command '['gemini']' timed out after 300 seconds"))
         self.assertEqual(
             message,
-            "Gemini CLIがタイムアウトしました。Gemini CLIのログイン状態、APIキー、通信状態を確認してから再解析してください。",
+            "Gemini CLIがタイムアウトしました。Gemini CLIのログイン状態、Gemini側のAPIキー、通信状態を確認してから再解析してください。",
         )
 
     def test_gemini_auth_prompt_is_detected(self):

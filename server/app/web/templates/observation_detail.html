@@ -251,7 +251,7 @@
 
       <div class="action-form">
         <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
-        <p class="field-help">APIキーとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
+        <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
       </div>
       <p id="reanalyzeStatus" class="action-status"></p>
 
@@ -277,10 +277,10 @@
       });
 
       document.getElementById('correctionBtn').addEventListener('click', async () => {
-        const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
+        const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const status = document.getElementById('correctionStatus');
         if (!apiKey) {
-          status.textContent = '設定ページでAPIキーを保存してください。';
+          status.textContent = '設定ページでアプリパスワードを保存してください。';
           status.className = 'action-status is-error';
           return;
         }
@@ -319,11 +319,11 @@
       });
 
       document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
-        const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
+        const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const geminiModel = localStorage.getItem('plant_dex_gemini_model') || '';
         if (!apiKey) {
           const status = document.getElementById('reanalyzeStatus');
-          status.textContent = '設定ページでAPIキーを保存してください。';
+          status.textContent = '設定ページでアプリパスワードを保存してください。';
           status.className = 'action-status is-error';
           return;
         }
@@ -356,6 +356,7 @@
             status.className = 'action-status is-error';
             btn.disabled = false;
             if (response.status === 401) {
+              localStorage.removeItem('ai_plantgraphy_password');
               localStorage.removeItem('plant_dex_api_key');
             }
           }
@@ -367,10 +368,10 @@
       });
 
       document.getElementById('deleteBtn').addEventListener('click', async () => {
-        const apiKey = (localStorage.getItem('plant_dex_api_key') || '').trim();
+        const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const status = document.getElementById('deleteStatus');
         if (!apiKey) {
-          status.textContent = '設定ページでAPIキーを保存してください。';
+          status.textContent = '設定ページでアプリパスワードを保存してください。';
           status.className = 'action-status is-error';
           return;
         }

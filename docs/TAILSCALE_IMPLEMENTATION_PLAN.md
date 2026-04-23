@@ -48,7 +48,7 @@ PCブラウザで開く接続ガイド画面。
 
 - AI Plantgraphyの起動状態
 - Gemini CLIの利用状態
-- APIキー設定状態
+- アプリパスワード設定状態
 - ローカルWi-Fi用URL
 - Tailscale用URL
 - Tailscale用QRコード
@@ -269,17 +269,17 @@ AI-Plantgraphy\docs\TAILSCALE_SETUP.md
 | --- | --- | --- |
 | AI Plantgraphy | `/api/health` が返る | サーバーが起動していません |
 | Gemini CLI | `gemini --version` 相当が通る | Gemini CLIが見つかりません |
-| APIキー | 初期値以外か確認 | APIキーを変更してください |
+| アプリパスワード | 初期値以外か確認 | アプリパスワードを変更してください |
 | Tailscale IP | `100.64.0.0/10` のIPがある | Tailscaleにログインしてください |
 | ローカルIP | プライベートIPがある | Wi-Fi接続を確認してください |
 
 ## 11. セキュリティ方針
 
 - Tailscaleを標準アクセス経路にする
-- APIキー認証は継続する
+- パスワード認証は継続する
 - `0.0.0.0` で起動するが、公開URLはTailscale経由を推奨する
 - Cloudflare Tunnelは初期導線から外す
-- APIキーの初期値 `change-me` は接続ページで警告する
+- アプリパスワードの初期値 `change-me` は接続ページで警告する
 
 ## 12. 実装ステップ
 
@@ -298,7 +298,7 @@ AI-Plantgraphy\server\app\services\connectivity.py
 - Tailscale IP判定
 - URL生成
 - Gemini CLI簡易チェック
-- APIキー状態チェック
+- アプリパスワード状態チェック
 
 ### Step 2: QRコードサービス
 
@@ -370,8 +370,8 @@ AI-Plantgraphy\README.md
 
 ### 13.3 セキュリティ
 
-- APIキーなしのアップロードが拒否される
-- APIキー初期値の場合に警告が出る
+- パスワードなしのアップロードが拒否される
+- アプリパスワード初期値の場合に警告が出る
 - Tailscale OFFのスマホから `100.x.x.x` URLへ接続できない
 
 ## 14. 完了条件
