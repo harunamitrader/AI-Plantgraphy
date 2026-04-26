@@ -2,7 +2,7 @@
   "name": "AI Plantgraphy",
   "short_name": "Plantgraphy",
   "description": "植物写真をAIで解析して、自分だけの植物図鑑を作るWebアプリです。",
-  "start_url": "/connect",
+  "start_url": "/upload",
   "scope": "/",
   "display": "standalone",
   "background_color": "#eef5ef",

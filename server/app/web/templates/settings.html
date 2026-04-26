@@ -62,6 +62,22 @@
   <section class="panel">
     <div class="section-title">
       <div>
+        <p class="eyebrow">PWA</p>
+        <h2>オフライン診断</h2>
+      </div>
+    </div>
+    <div class="diagnostic-list compact-list" id="pwaDiagnostics">
+      <div class="diagnostic-item">
+        <strong>確認中</strong>
+        <span>loading</span>
+        <p>この端末の Service Worker とキャッシュ状態を確認しています。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
         <p class="eyebrow">Location</p>
         <h2>場所ラベル</h2>
       </div>
@@ -191,6 +207,133 @@
       target.textContent = `${count} 件`;
     }
 
+    function renderPwaDiagnostics(items) {
+      const container = document.getElementById('pwaDiagnostics');
+      if (!container) {
+        return;
+      }
+      container.innerHTML = '';
+      items.forEach((item) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = `diagnostic-item is-${item.status || 'info'}`;
+
+        const title = document.createElement('strong');
+        title.textContent = item.label;
+        wrapper.appendChild(title);
+
+        const state = document.createElement('span');
+        state.textContent = item.state;
+        wrapper.appendChild(state);
+
+        const body = document.createElement('p');
+        body.textContent = item.message;
+        wrapper.appendChild(body);
+
+        container.appendChild(wrapper);
+      });
+    }
+
+    function askServiceWorkerStatus(registration) {
+      return new Promise((resolve) => {
+        const worker = registration?.active || registration?.waiting || registration?.installing;
+        if (!worker) {
+          resolve(null);
+          return;
+        }
+
+        const timeout = setTimeout(() => resolve(null), 1500);
+        const listener = (event) => {
+          if (event.data?.type !== 'AI_PLANTGRAPHY_SW_STATUS') {
+            return;
+          }
+          navigator.serviceWorker.removeEventListener('message', listener);
+          clearTimeout(timeout);
+          resolve(event.data);
+        };
+
+        navigator.serviceWorker.addEventListener('message', listener);
+        worker.postMessage({type: 'AI_PLANTGRAPHY_SW_STATUS'});
+      });
+    }
+
+    async function refreshPwaDiagnostics() {
+      const items = [];
+      const isPwa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      items.push({
+        label: '表示モード',
+        state: isPwa ? 'standalone' : 'browser',
+        status: isPwa ? 'ok' : 'warning',
+        message: isPwa ? 'ホーム画面から起動しています。' : 'ブラウザ表示です。オフライン運用はPWA起動のほうが安定します。'
+      });
+
+      if (!('serviceWorker' in navigator) || !window.isSecureContext) {
+        items.push({
+          label: 'Service Worker',
+          state: 'unavailable',
+          status: 'error',
+          message: 'この端末では Service Worker を利用できません。HTTPS の Tailscale URL から開いてください。'
+        });
+        renderPwaDiagnostics(items);
+        return;
+      }
+
+      try {
+        const registration = await navigator.serviceWorker.getRegistration('/static/service-worker.js');
+        if (!registration) {
+          items.push({
+            label: 'Service Worker',
+            state: 'missing',
+            status: 'error',
+            message: 'まだ登録されていません。オンライン状態でページを開き直してから PWA を再追加してください。'
+          });
+          renderPwaDiagnostics(items);
+          return;
+        }
+
+        const swStatus = await askServiceWorkerStatus(registration);
+        const version = swStatus?.version || 'unknown';
+        items.push({
+          label: 'Service Worker',
+          state: version,
+          status: version === 'ai-plantgraphy-v8' ? 'ok' : 'warning',
+          message: version === 'ai-plantgraphy-v8'
+            ? '最新版のオフライン対応 Service Worker が動作しています。'
+            : '古い Service Worker を使っている可能性があります。オンラインで /upload と /settings を開いてから PWA を再追加してください。'
+        });
+
+        const cacheNames = await caches.keys();
+        const hasOfflineCache = cacheNames.includes('ai-plantgraphy-v8');
+        items.push({
+          label: 'キャッシュ',
+          state: hasOfflineCache ? 'ready' : 'missing',
+          status: hasOfflineCache ? 'ok' : 'warning',
+          message: hasOfflineCache
+            ? 'オフライン用キャッシュが端末にあります。'
+            : 'オフライン用キャッシュが見つかりません。オンラインで主要ページを一度開いてください。'
+        });
+
+        const cachedUpload = await caches.match('/upload');
+        const cachedPending = await caches.match('/pending-local');
+        items.push({
+          label: '主要ページ',
+          state: cachedUpload && cachedPending ? 'cached' : 'partial',
+          status: cachedUpload && cachedPending ? 'ok' : 'warning',
+          message: cachedUpload && cachedPending
+            ? '/upload と /pending-local がキャッシュ済みです。'
+            : '主要ページのキャッシュが不足しています。オンラインで 追加 と 未送信 を一度開いてください。'
+        });
+      } catch (error) {
+        items.push({
+          label: 'PWA診断',
+          state: 'error',
+          status: 'error',
+          message: `確認中にエラーが出ました: ${error.message}`
+        });
+      }
+
+      renderPwaDiagnostics(items);
+    }
+
     document.getElementById('addLocationLabelBtn').addEventListener('click', async () => {
       const apiKey = settingsApiKey.value.trim();
       const label = document.getElementById('newLocationLabel').value.trim();
@@ -316,6 +459,9 @@
       }
     });
 
-    window.addEventListener('load', refreshLocalDraftCount);
+    window.addEventListener('load', () => {
+      refreshLocalDraftCount();
+      refreshPwaDiagnostics();
+    });
   </script>
 {% endblock %}

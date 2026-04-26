@@ -1,6 +1,7 @@
-const CACHE_NAME = 'ai-plantgraphy-v6';
+const CACHE_NAME = 'ai-plantgraphy-v8';
 const CORE_ASSETS = [
   '/',
+  '/connect',
   '/plants',
   '/upload',
   '/pending-local',
@@ -17,7 +18,7 @@ const CORE_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).then(() => self.skipWaiting())
   );
 });
 
@@ -25,8 +26,20 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+    ).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data.type !== 'AI_PLANTGRAPHY_SW_STATUS') {
+    return;
+  }
+  event.source?.postMessage({
+    type: 'AI_PLANTGRAPHY_SW_STATUS',
+    version: CACHE_NAME,
+    coreAssets: CORE_ASSETS,
+  });
 });
 
 self.addEventListener('fetch', (event) => {
@@ -35,24 +48,70 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    fetch(event.request).catch(async () => {
-      const cached = await caches.match(event.request);
-      if (cached) {
-        return cached;
-      }
-      if (event.request.mode === 'navigate') {
-        const url = new URL(event.request.url);
-        if (url.pathname === '/upload') {
-          return caches.match('/upload');
-        }
-        if (url.pathname === '/pending-local') {
-          return caches.match('/pending-local');
-        }
-        if (url.pathname === '/settings') {
-          return caches.match('/settings');
+    (async () => {
+      const fallbackPath = fallbackPathFor(event.request);
+      if (fallbackPath) {
+        const cachedPage = await caches.match(fallbackPath);
+        if (cachedPage) {
+          event.waitUntil(refreshPageCache(fallbackPath));
+          return cachedPage;
         }
       }
-      throw new Error('offline');
-    })
+
+      try {
+        const response = await fetch(event.request);
+        if (response.ok || event.request.mode !== 'navigate') {
+          return response;
+        }
+        return (await navigationFallback(event.request)) || response;
+      } catch (err) {
+        const cached = await caches.match(event.request);
+        if (cached) {
+          return cached;
+        }
+        return (await navigationFallback(event.request)) || Response.error();
+      }
+    })()
   );
 });
+
+async function navigationFallback(request) {
+  const fallbackPath = fallbackPathFor(request);
+  return fallbackPath ? caches.match(fallbackPath) : null;
+}
+
+function fallbackPathFor(request) {
+  if (request.mode !== 'navigate') {
+    return null;
+  }
+  const url = new URL(request.url);
+  if (url.pathname === '/' || url.pathname === '') {
+    return '/';
+  }
+  if (url.pathname === '/connect') {
+    return '/upload';
+  }
+  if (url.pathname === '/upload') {
+    return '/upload';
+  }
+  if (url.pathname === '/pending-local') {
+    return '/pending-local';
+  }
+  if (url.pathname === '/settings') {
+    return '/settings';
+  }
+  return null;
+}
+
+async function refreshPageCache(path) {
+  try {
+    const response = await fetch(path, { cache: 'no-store' });
+    if (!response.ok) {
+      return;
+    }
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(path, response.clone());
+  } catch (err) {
+    // offline or upstream unavailable; keep current cache
+  }
+}
