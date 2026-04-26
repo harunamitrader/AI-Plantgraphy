@@ -203,7 +203,7 @@ class ServiceTests(unittest.TestCase):
 
     def test_main_pages_render(self):
         client = TestClient(app)
-        for path in ["/", "/plants", "/settings", "/connect", "/diagnostics", "/upload", "/observations", "/review", "/export"]:
+        for path in ["/", "/plants", "/settings", "/connect", "/diagnostics", "/upload", "/pending-local", "/observations", "/review", "/export"]:
             with self.subTest(path=path):
                 self.assertEqual(client.get(path).status_code, 200)
 

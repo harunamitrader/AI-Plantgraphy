@@ -1,11 +1,13 @@
-const CACHE_NAME = 'ai-plantgraphy-v5';
+const CACHE_NAME = 'ai-plantgraphy-v6';
 const CORE_ASSETS = [
   '/',
   '/plants',
   '/upload',
+  '/pending-local',
   '/settings',
-  '/static/style.css?v=20260423-photo-grid',
+  '/static/style.css?v=20260426-offline-drafts',
   '/static/app.js',
+  '/static/offline-drafts.js',
   '/static/manifest.webmanifest',
   '/static/brand/ai-plantgraphy-icon.png',
   '/static/brand/ai-plantgraphy-header.jpg',
@@ -33,6 +35,24 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) {
+        return cached;
+      }
+      if (event.request.mode === 'navigate') {
+        const url = new URL(event.request.url);
+        if (url.pathname === '/upload') {
+          return caches.match('/upload');
+        }
+        if (url.pathname === '/pending-local') {
+          return caches.match('/pending-local');
+        }
+        if (url.pathname === '/settings') {
+          return caches.match('/settings');
+        }
+      }
+      throw new Error('offline');
+    })
   );
 });

@@ -144,6 +144,15 @@ def upload_page(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/pending-local", response_class=HTMLResponse)
+def pending_local_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "pending_local.html",
+        {},
+    )
+
+
 @app.get("/connect", response_class=HTMLResponse)
 def connect_page() -> RedirectResponse:
     return RedirectResponse("/settings", status_code=307)
@@ -487,6 +496,7 @@ def present_observation(row) -> dict:
     item["confidence_percent"] = percent_label(item.get("confidence") or item["analysis"].get("confidence"))
     item["status_label"] = status_label(item.get("status"))
     item["observed_label"] = short_date(item.get("captured_at") or item.get("received_at"))
+    item["plant_url"] = f"/plants/{item.get('plant_id')}" if item.get("plant_id") else ""
     return item
 
 

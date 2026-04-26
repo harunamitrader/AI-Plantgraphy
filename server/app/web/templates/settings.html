@@ -51,6 +51,17 @@
   <section class="panel">
     <div class="section-title">
       <div>
+        <p class="eyebrow">Offline draft</p>
+        <h2>未送信の端末保存</h2>
+      </div>
+      <span id="localDraftCount">0 件</span>
+    </div>
+    <p class="field-help">PWAを一度開いていれば、PC停止中でも追加ページで写真を端末保存できます。送信は <a href="/pending-local">未送信一覧</a> から手動で行います。</p>
+  </section>
+
+  <section class="panel">
+    <div class="section-title">
+      <div>
         <p class="eyebrow">Location</p>
         <h2>場所ラベル</h2>
       </div>
@@ -170,6 +181,15 @@
       status.textContent = 'この端末に保存しました。';
       status.className = 'action-status is-success';
     });
+
+    async function refreshLocalDraftCount() {
+      const target = document.getElementById('localDraftCount');
+      if (!target || !window.AIPlantgraphyDrafts) {
+        return;
+      }
+      const count = await window.AIPlantgraphyDrafts.countDrafts();
+      target.textContent = `${count} 件`;
+    }
 
     document.getElementById('addLocationLabelBtn').addEventListener('click', async () => {
       const apiKey = settingsApiKey.value.trim();
@@ -295,5 +315,7 @@
         exportBtn.disabled = false;
       }
     });
+
+    window.addEventListener('load', refreshLocalDraftCount);
   </script>
 {% endblock %}

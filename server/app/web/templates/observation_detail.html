@@ -9,6 +9,9 @@
       <div class="hero-actions">
         <span class="status-pill">{{ observation.status_label }}</span>
         <span class="status-pill accent">信頼度 {{ observation.confidence_percent }}</span>
+        {% if observation.plant_url %}
+          <a class="btn btn-secondary" href="{{ observation.plant_url }}">図鑑で見る</a>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -136,6 +139,9 @@
           <span class="status-pill accent">{{ observation.confidence_percent }}</span>
           <h3>{{ observation.analysis.common_name_ja or "名称未確定" }}</h3>
           <p>{{ observation.analysis.scientific_name or "学名未確定" }}</p>
+          {% if observation.plant_url %}
+            <a class="btn btn-secondary" href="{{ observation.plant_url }}">この植物の図鑑へ</a>
+          {% endif %}
         </div>
       </div>
 

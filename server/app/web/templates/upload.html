@@ -53,12 +53,18 @@
         </select>
       </div>
 
-      <button class="btn btn-primary" id="uploadButton" type="submit">送信して解析する</button>
+      <div class="pending-local-actions">
+        <button class="btn btn-primary" id="uploadButton" type="submit">送信して解析する</button>
+        <button class="btn" id="saveDraftButton" type="button">あとで送信する</button>
+      </div>
       <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
+      <p class="field-help">サーバーが停止中でも、PWAを一度開いていれば端末保存だけ先に進められます。</p>
       <p id="uploadStatus" class="action-status"></p>
     </form>
   </section>
+{% endblock %}
 
+{% block scripts %}
   <script>
     const form = document.getElementById('uploadForm');
     const galleryInput = document.getElementById('galleryImages');
@@ -74,6 +80,7 @@
     const selectedCount = document.getElementById('selectedCount');
     const statusText = document.getElementById('uploadStatus');
     const uploadButton = document.getElementById('uploadButton');
+    const saveDraftButton = document.getElementById('saveDraftButton');
     let uploadStartedAt = 0;
     let elapsedTimer = null;
     let candidates = [];
@@ -290,6 +297,41 @@
       cameraPanel.hidden = true;
     }
 
+    saveDraftButton.addEventListener('click', async () => {
+      if (!window.AIPlantgraphyDrafts) {
+        setStatus('この端末では下書き保存を使えません。', true);
+        return;
+      }
+      const selected = getSelectedCandidates();
+      if (selected.length < 1 || selected.length > 3) {
+        setStatus('保存する写真を1〜3枚選んでください。', true);
+        return;
+      }
+      saveDraftButton.disabled = true;
+      try {
+        await window.AIPlantgraphyDrafts.saveDraft({
+          note: document.getElementById('note').value,
+          locationLabel: document.getElementById('locationLabel').value,
+          geminiModel: localStorage.getItem('plant_dex_gemini_model') || '',
+          selectedImageIds: selected.map((candidate) => candidate.id),
+          images: candidates.map((candidate) => ({
+            id: candidate.id,
+            name: candidate.file.name,
+            type: candidate.file.type,
+            blob: candidate.file
+          }))
+        });
+        setStatus('端末に保存しました。サーバー起動後に未送信一覧から送信できます。', false);
+        window.setTimeout(() => {
+          window.location.href = '/pending-local';
+        }, 500);
+      } catch (err) {
+        setStatus(`保存できませんでした: ${err.message}`, true);
+      } finally {
+        saveDraftButton.disabled = false;
+      }
+    });
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const files = getSelectedCandidates().map((candidate) => candidate.file);
@@ -306,6 +348,7 @@
       }
 
       uploadButton.disabled = true;
+      saveDraftButton.disabled = true;
       uploadStartedAt = Date.now();
       startElapsedTimer('画像送信中');
       const totalSizeMb = files.reduce((total, file) => total + file.size, 0) / 1024 / 1024;
@@ -337,6 +380,7 @@
       } catch (err) {
         stopElapsedTimer();
         uploadButton.disabled = false;
+        saveDraftButton.disabled = false;
         setStatus(`エラー: ${err.message}`, true);
       }
     });
