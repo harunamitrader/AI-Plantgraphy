@@ -104,6 +104,27 @@
     return `/observations/${observationId}`;
   }
 
+  function plantUrl(plantId) {
+    if (!plantId) {
+      return pageUrl('plants');
+    }
+    if (isPagesHost()) {
+      return `${apiUrl(`/plants/${plantId}`)}`;
+    }
+    return `/plants/${plantId}`;
+  }
+
+  function resolveServerUrl(pathOrUrl) {
+    const text = String(pathOrUrl || '').trim();
+    if (!text) {
+      return '';
+    }
+    if (/^https?:\/\//i.test(text)) {
+      return text;
+    }
+    return `${apiUrl(text.startsWith('/') ? text : `/${text}`)}`;
+  }
+
   function serverPageUrl(slug) {
     const normalized = String(slug || '').replace(/^\/+/, '').replace(/\.html$/, '');
     if (!normalized || normalized === 'home' || normalized === 'index') {
@@ -197,7 +218,9 @@
     apiUrl,
     pageUrl,
     observationUrl,
+    plantUrl,
     serverPageUrl,
+    resolveServerUrl,
     bindOnlineLinks,
     getStoredPassword,
     setStoredPassword,

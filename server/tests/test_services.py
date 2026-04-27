@@ -229,6 +229,68 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("base_url", payload)
         self.assertIn("gemini_model_choices", payload)
 
+    def test_list_apis_return_page_data(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-list")
+            db.create_observation(
+                observation_id="obs-list",
+                image_paths=image_paths,
+                captured_at="2026-04-27T09:00:00+09:00",
+                note="庭の花",
+                location_label="自宅庭",
+                latitude=None,
+                longitude=None,
+            )
+            db.save_analysis_result(
+                "obs-list",
+                {
+                    "common_name_ja": "サクラ",
+                    "scientific_name": "Cerasus x yedoensis",
+                    "confidence": 0.95,
+                    "candidates": [
+                        {
+                            "common_name_ja": "サクラ",
+                            "scientific_name": "Cerasus x yedoensis",
+                            "confidence": 0.95,
+                            "reason": "test",
+                        }
+                    ],
+                },
+            )
+            client = TestClient(app)
+
+            plants_response = client.get("/api/plants")
+            self.assertEqual(plants_response.status_code, 200)
+            plant = plants_response.json()["plants"][0]
+            self.assertEqual(plant["display_name"], "サクラ")
+            self.assertIn("/plants/", plant["detail_url"])
+            self.assertIn("/media/", plant["representative_image_url"])
+
+            plant_detail_response = client.get(f"/api/plants/{plant['id']}")
+            self.assertEqual(plant_detail_response.status_code, 200)
+            plant_detail = plant_detail_response.json()
+            self.assertEqual(plant_detail["plant"]["display_name"], "サクラ")
+            self.assertTrue(plant_detail["photo_urls"])
+
+            observations_response = client.get("/api/observations")
+            self.assertEqual(observations_response.status_code, 200)
+            observation = observations_response.json()["observations"][0]
+            self.assertEqual(observation["display_name"], "サクラ")
+            self.assertEqual(observation["location_label"], "自宅庭")
+            self.assertIn("/observations/", observation["detail_url"])
+            self.assertTrue(observation["image_urls"])
+
+            observation_detail_response = client.get("/api/observations/obs-list")
+            self.assertEqual(observation_detail_response.status_code, 200)
+            observation_detail = observation_detail_response.json()
+            self.assertEqual(observation_detail["display_name"], "サクラ")
+            self.assertTrue(observation_detail["image_urls"])
+
+            review_response = client.get("/api/review")
+            self.assertEqual(review_response.status_code, 200)
+            self.assertEqual(review_response.json()["observations"], [])
+
     def test_timeout_error_is_user_friendly(self):
         message = format_analysis_error(RuntimeError("Command '['gemini']' timed out after 300 seconds"))
         self.assertEqual(

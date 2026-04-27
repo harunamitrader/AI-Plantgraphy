@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
+    <title>図鑑 | AI Plantgraphy</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v1">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><img src="./static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <nav class="nav">
+        <a href="./index.html">ホーム</a>
+        <a href="./plants.html" class="is-current">図鑑</a>
+        <a href="./observations.html">観察</a>
+        <a href="./upload.html">追加</a>
+        <a href="./pending-local.html">未送信</a>
+        <a href="./review.html">確認待ち</a>
+        <a href="./settings.html">設定</a>
+      </nav>
+    </header>
+    <main class="page">
+      <section class="page-hero compact-hero">
+        <div>
+          <p class="eyebrow">Library</p>
+          <h1>図鑑</h1>
+          <p>接続先PCの植物図鑑を読み込みます。詳細はPC側の植物ページで開きます。</p>
+          <p class="field-help"><a id="plantsOnlineLink" href="./settings.html">PC側の図鑑ページを開く</a></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Inventory</p>
+            <h2>植物一覧</h2>
+          </div>
+          <span id="plantCount">0 種</span>
+        </div>
+        <div class="inventory-tools">
+          <label for="plantSearch">植物を探す</label>
+          <input id="plantSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、特徴、手入れで検索">
+        </div>
+        <p id="plantsStatus" class="action-status"></p>
+        <div class="inventory-grid" id="plantGrid"></div>
+        <p class="empty filter-empty" id="plantEmpty" hidden>一致する植物はありません。</p>
+      </section>
+    </main>
+
+    <script src="./static/app.js" defer></script>
+    <script>
+      window.addEventListener('load', async () => {
+        const appConfig = window.AIPlantgraphyApp;
+        const status = document.getElementById('plantsStatus');
+        const plantGrid = document.getElementById('plantGrid');
+        const plantCount = document.getElementById('plantCount');
+        const plantSearch = document.getElementById('plantSearch');
+        const plantEmpty = document.getElementById('plantEmpty');
+        const onlineLink = document.getElementById('plantsOnlineLink');
+        if (appConfig && appConfig.getApiBaseUrl()) {
+          onlineLink.href = appConfig.serverPageUrl('plants');
+        }
+
+        function setStatus(message, isError = false) {
+          status.textContent = message;
+          status.className = isError ? 'action-status is-error' : 'action-status';
+        }
+
+        function renderPlants(plants) {
+          plantGrid.innerHTML = '';
+          const totalPlants = plants.length;
+          plantCount.textContent = `${totalPlants} 種`;
+          if (!totalPlants) {
+            plantGrid.innerHTML = '<p class="empty">まだ植物は登録されていません。</p>';
+            return;
+          }
+          plants.forEach((plant) => {
+            const card = document.createElement('a');
+            card.className = 'plant-card';
+            card.href = `./plant.html?id=${encodeURIComponent(plant.id)}`;
+            card.dataset.searchText = `${plant.display_name || ''} ${plant.scientific_name || ''} ${plant.basic_profile_text || ''} ${plant.visual_appeal_text || ''} ${plant.care_notes || ''}`.toLowerCase();
+            const imageHtml = plant.representative_image_url
+              ? `<img src="${appConfig.resolveServerUrl(plant.representative_image_url)}" alt="${escapeHtml(plant.display_name || '植物')}">`
+              : '';
+            card.innerHTML = `
+              ${imageHtml}
+              <div class="plant-card-body">
+                <span class="status-pill">図鑑</span>
+                <h3>${escapeHtml(plant.display_name || '名称未設定')}</h3>
+                <p>${escapeHtml(plant.scientific_name || '学名未確定')}</p>
+              </div>
+            `;
+            plantGrid.appendChild(card);
+          });
+
+          const cards = Array.from(document.querySelectorAll('.plant-card'));
+          plantSearch.addEventListener('input', () => {
+            const terms = plantSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            let visibleCount = 0;
+            cards.forEach((card) => {
+              const text = card.dataset.searchText || '';
+              const isVisible = terms.every((term) => text.includes(term));
+              card.hidden = !isVisible;
+              if (isVisible) {
+                visibleCount += 1;
+              }
+            });
+            plantCount.textContent = terms.length ? `${visibleCount} / ${totalPlants} 種` : `${totalPlants} 種`;
+            plantEmpty.hidden = visibleCount !== 0;
+          });
+        }
+
+        function escapeHtml(value) {
+          return String(value || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;');
+        }
+
+        if (!appConfig || !appConfig.getApiBaseUrl()) {
+          setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
+          return;
+        }
+
+        setStatus('植物図鑑を読み込んでいます...');
+        try {
+          const data = await appConfig.fetchJson('/api/plants', { cache: 'no-store' });
+          renderPlants(data.plants || []);
+          setStatus('');
+        } catch (error) {
+          setStatus(`植物図鑑を読み込めませんでした: ${error.message}`, true);
+        }
+      });
+    </script>
+  </body>
+</html>

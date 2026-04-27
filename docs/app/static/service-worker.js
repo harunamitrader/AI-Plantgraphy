@@ -1,9 +1,14 @@
-const CACHE_NAME = 'ai-plantgraphy-pages-v1';
+const CACHE_NAME = 'ai-plantgraphy-pages-v2';
 const CORE_ASSET_PATHS = [
   '',
   'index.html',
+  'plant.html',
+  'plants.html',
+  'observation.html',
+  'observations.html',
   'upload.html',
   'pending-local.html',
+  'review.html',
   'settings.html',
   'static/style.css',
   'static/app.js',
@@ -98,11 +103,26 @@ function fallbackUrlFor(request) {
   if (!page || page === 'index.html') {
     return rooted('index.html');
   }
+  if (page === 'plants.html') {
+    return rooted('plants.html');
+  }
+  if (page === 'plant.html') {
+    return rooted('plant.html');
+  }
+  if (page === 'observations.html') {
+    return rooted('observations.html');
+  }
+  if (page === 'observation.html') {
+    return rooted('observation.html');
+  }
   if (page === 'upload.html') {
     return rooted('upload.html');
   }
   if (page === 'pending-local.html') {
     return rooted('pending-local.html');
+  }
+  if (page === 'review.html') {
+    return rooted('review.html');
   }
   if (page === 'settings.html') {
     return rooted('settings.html');

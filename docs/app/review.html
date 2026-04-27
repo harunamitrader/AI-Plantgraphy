@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
+    <title>確認待ち | AI Plantgraphy</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v1">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><img src="./static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <nav class="nav">
+        <a href="./index.html">ホーム</a>
+        <a href="./plants.html">図鑑</a>
+        <a href="./observations.html">観察</a>
+        <a href="./upload.html">追加</a>
+        <a href="./pending-local.html">未送信</a>
+        <a href="./review.html" class="is-current">確認待ち</a>
+        <a href="./settings.html">設定</a>
+      </nav>
+    </header>
+    <main class="page">
+      <section class="page-hero compact-hero">
+        <div>
+          <p class="eyebrow">Review queue</p>
+          <h1>確認待ち</h1>
+          <p>低信頼度、解析失敗、解析中の記録を読み込みます。詳細はPC側の観察ページで開きます。</p>
+          <p class="field-help"><a id="reviewOnlineLink" href="./settings.html">PC側の確認待ちを開く</a></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Needs review</p>
+            <h2>見直す記録</h2>
+          </div>
+          <span id="reviewCount">0 件</span>
+        </div>
+        <div class="inventory-tools">
+          <label for="reviewSearch">確認待ちを探す</label>
+          <input id="reviewSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、状態、エラーで検索">
+        </div>
+        <p id="reviewStatus" class="action-status"></p>
+        <div class="record-list" id="reviewList"></div>
+        <p class="empty filter-empty" id="reviewEmpty" hidden>一致する確認待ちはありません。</p>
+      </section>
+    </main>
+
+    <script src="./static/app.js" defer></script>
+    <script>
+      window.addEventListener('load', async () => {
+        const appConfig = window.AIPlantgraphyApp;
+        const status = document.getElementById('reviewStatus');
+        const reviewList = document.getElementById('reviewList');
+        const reviewCount = document.getElementById('reviewCount');
+        const reviewSearch = document.getElementById('reviewSearch');
+        const reviewEmpty = document.getElementById('reviewEmpty');
+        const onlineLink = document.getElementById('reviewOnlineLink');
+        if (appConfig && appConfig.getApiBaseUrl()) {
+          onlineLink.href = appConfig.serverPageUrl('review');
+        }
+
+        function setStatus(message, isError = false) {
+          status.textContent = message;
+          status.className = isError ? 'action-status is-error' : 'action-status';
+        }
+
+        function renderReviews(observations) {
+          reviewList.innerHTML = '';
+          const totalReviews = observations.length;
+          reviewCount.textContent = `${totalReviews} 件`;
+          if (!totalReviews) {
+            reviewList.innerHTML = '<p class="empty">確認待ちはありません。</p>';
+            return;
+          }
+          observations.forEach((observation) => {
+            const card = document.createElement('a');
+            card.className = 'record-card';
+            card.href = `./observation.html?id=${encodeURIComponent(observation.id)}`;
+            card.dataset.searchText = `${observation.display_name || ''} ${observation.analysis?.scientific_name || ''} ${observation.status_label || ''} ${observation.error_message || ''} ${observation.note || ''}`.toLowerCase();
+            const firstImage = Array.isArray(observation.image_urls) && observation.image_urls.length ? observation.image_urls[0] : '';
+            const imageHtml = firstImage
+              ? `<img src="${appConfig.resolveServerUrl(firstImage)}" alt="${escapeHtml(observation.display_name || '確認待ち')}">`
+              : '';
+            card.innerHTML = `
+              ${imageHtml}
+              <div>
+                <span class="status-pill accent">${escapeHtml(observation.status_label || '不明')}</span>
+                <h3>${escapeHtml(observation.display_name || '解析待ち')}</h3>
+                <p>${escapeHtml(observation.analysis?.scientific_name || '学名未確定')}</p>
+                <small>${escapeHtml(observation.observed_label || '未入力')} / 信頼度 ${escapeHtml(observation.confidence_percent || '不明')}</small>
+                <small>${escapeHtml(observation.error_message || observation.analysis?.uncertainty_notes || '候補を確認してください。')}</small>
+              </div>
+            `;
+            reviewList.appendChild(card);
+          });
+
+          const cards = Array.from(document.querySelectorAll('.record-card'));
+          reviewSearch.addEventListener('input', () => {
+            const terms = reviewSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            let visibleCount = 0;
+            cards.forEach((card) => {
+              const text = card.dataset.searchText || '';
+              const isVisible = terms.every((term) => text.includes(term));
+              card.hidden = !isVisible;
+              if (isVisible) {
+                visibleCount += 1;
+              }
+            });
+            reviewCount.textContent = terms.length ? `${visibleCount} / ${totalReviews} 件` : `${totalReviews} 件`;
+            reviewEmpty.hidden = visibleCount !== 0;
+          });
+        }
+
+        function escapeHtml(value) {
+          return String(value || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;');
+        }
+
+        if (!appConfig || !appConfig.getApiBaseUrl()) {
+          setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
+          return;
+        }
+
+        setStatus('確認待ちを読み込んでいます...');
+        try {
+          const data = await appConfig.fetchJson('/api/review', { cache: 'no-store' });
+          renderReviews(data.observations || []);
+          setStatus('');
+        } catch (error) {
+          setStatus(`確認待ちを読み込めませんでした: ${error.message}`, true);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -124,9 +124,42 @@ def api_observation(observation_id: str) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
-    data = dict(observation)
+    data = present_observation(observation, absolute_urls=True)
     data["analysis_progress"] = get_analysis_progress(observation_id, data.get("status"))
     return data
+
+
+@app.get("/api/plants")
+def api_plants() -> dict:
+    return {
+        "plants": [present_plant(row, absolute_urls=True) for row in db.list_plants()],
+    }
+
+
+@app.get("/api/plants/{plant_id}")
+def api_plant_detail(plant_id: str) -> dict:
+    plant = db.get_plant(plant_id)
+    if plant is None:
+        raise HTTPException(status_code=404, detail="植物が見つかりません。")
+    return {
+        "plant": present_plant(plant, absolute_urls=True),
+        "observations": [present_observation(row, absolute_urls=True) for row in db.list_observations_for_plant(plant_id)],
+        "photo_urls": [absolute_public_url(media_url(path)) for path in db.list_recent_image_paths_for_plant(plant_id)],
+    }
+
+
+@app.get("/api/observations")
+def api_observations() -> dict:
+    return {
+        "observations": [present_observation(row, absolute_urls=True) for row in db.list_observations()],
+    }
+
+
+@app.get("/api/review")
+def api_review() -> dict:
+    return {
+        "observations": [present_observation(row, absolute_urls=True) for row in db.list_review_observations()],
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -498,17 +531,21 @@ def format_analysis_error(exc: Exception) -> str:
     return message
 
 
-def present_plant(row) -> dict:
+def present_plant(row, absolute_urls: bool = False) -> dict:
     item = dict(row)
     item["representative_image_url"] = media_url(item.get("representative_image_path"))
+    item["detail_url"] = f"/plants/{item['id']}"
     item["last_seen_label"] = short_date(item.get("last_observed_at"))
     item["basic_profile_display"] = clean_display_text(item.get("basic_profile_text"), "基本的な特徴はまだありません。")
     item["visual_appeal_display"] = clean_display_text(item.get("visual_appeal_text"), "見た目の特徴と魅力はまだありません。")
     item["care_notes_display"] = clean_display_text(item.get("care_notes"), "手入れメモはまだありません。")
+    if absolute_urls:
+        item["representative_image_url"] = absolute_public_url(item["representative_image_url"])
+        item["detail_url"] = absolute_public_url(item["detail_url"])
     return item
 
 
-def present_observation(row) -> dict:
+def present_observation(row, absolute_urls: bool = False) -> dict:
     item = dict(row)
     item["image_urls"] = [
         media_url(path)
@@ -525,6 +562,11 @@ def present_observation(row) -> dict:
     item["status_label"] = status_label(item.get("status"))
     item["observed_label"] = short_date(item.get("captured_at") or item.get("received_at"))
     item["plant_url"] = f"/plants/{item.get('plant_id')}" if item.get("plant_id") else ""
+    item["detail_url"] = f"/observations/{item['id']}"
+    if absolute_urls:
+        item["image_urls"] = [absolute_public_url(url) for url in item["image_urls"]]
+        item["plant_url"] = absolute_public_url(item["plant_url"]) if item["plant_url"] else ""
+        item["detail_url"] = absolute_public_url(item["detail_url"])
     return item
 
 
@@ -588,6 +630,15 @@ def media_url(path_value: str | None) -> str:
             except ValueError:
                 return ""
     return "/media/" + "/".join(relative.parts)
+
+
+def absolute_public_url(path: str | None) -> str:
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    base_url = get_settings().base_url.rstrip("/")
+    return f"{base_url}{path}" if base_url else path
 
 
 def first_url(values: list[str]) -> str:
