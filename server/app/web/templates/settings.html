@@ -32,6 +32,9 @@
       <p class="eyebrow">This device</p>
       <h2>端末設定</h2>
       <div class="settings-form">
+        <label for="settingsApiBaseUrl">接続先URL</label>
+        <input id="settingsApiBaseUrl" type="url" autocomplete="off" placeholder="https://your-pc.tailnet.ts.net">
+        <p class="field-help">ここに自分のPCのTailscale HTTPS URLを保存します。初期値は入っていません。</p>
         <label for="settingsApiKey">アプリパスワード</label>
         <input id="settingsApiKey" type="password" autocomplete="off" placeholder="change-me">
         <p class="field-help">場所ラベルの変更、バックアップ、解析送信で使います。この端末にだけ保存されます。</p>
@@ -44,6 +47,11 @@
         </select>
         <button id="saveBrowserSettingsBtn" class="btn btn-primary" type="button">この端末に保存</button>
         <p id="browserSettingsStatus" class="action-status"></p>
+        <div class="check-grid">
+          <div><span>現在の送信先</span><strong id="currentApiBase">未設定</strong></div>
+          <div><span>接続先PC</span><strong id="currentServerName">未確認</strong></div>
+        </div>
+        <button id="checkBootstrapBtn" class="btn" type="button">接続先を確認</button>
       </div>
     </div>
   </section>
@@ -179,8 +187,15 @@
   </section>
 
   <script>
-    const storedApiKey = localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '';
-    const storedModel = localStorage.getItem('plant_dex_gemini_model') || '';
+    const appConfig = window.AIPlantgraphyApp;
+    const settingsApiBaseUrl = document.getElementById('settingsApiBaseUrl');
+    const currentApiBase = document.getElementById('currentApiBase');
+    const currentServerName = document.getElementById('currentServerName');
+    const storedApiBase = appConfig ? appConfig.getStoredApiBaseUrl() : '';
+    const storedApiKey = appConfig ? appConfig.getStoredPassword() : '';
+    const storedModel = appConfig ? appConfig.getStoredGeminiModel() : '';
+    settingsApiBaseUrl.value = storedApiBase;
+    currentApiBase.textContent = storedApiBase || (appConfig && appConfig.getDefaultApiBaseUrl()) || '未設定';
     const settingsApiKey = document.getElementById('settingsApiKey');
     settingsApiKey.value = storedApiKey;
 
@@ -191,11 +206,43 @@
 
     document.getElementById('saveBrowserSettingsBtn').addEventListener('click', () => {
       const status = document.getElementById('browserSettingsStatus');
-      localStorage.setItem('ai_plantgraphy_password', settingsApiKey.value.trim());
-      localStorage.removeItem('plant_dex_api_key');
-      localStorage.setItem('plant_dex_gemini_model', settingsGeminiModel.value);
+      const normalizedApiBase = appConfig ? appConfig.setApiBaseUrl(settingsApiBaseUrl.value) : settingsApiBaseUrl.value.trim();
+      if (appConfig) {
+        appConfig.setStoredPassword(settingsApiKey.value.trim());
+        appConfig.setStoredGeminiModel(settingsGeminiModel.value);
+      }
+      currentApiBase.textContent = normalizedApiBase || (appConfig && appConfig.getDefaultApiBaseUrl()) || '未設定';
       status.textContent = 'この端末に保存しました。';
       status.className = 'action-status is-success';
+    });
+
+    document.getElementById('checkBootstrapBtn').addEventListener('click', async () => {
+      const status = document.getElementById('browserSettingsStatus');
+      if (!appConfig) {
+        status.textContent = 'アプリ設定を読み込めません。';
+        status.className = 'action-status is-error';
+        return;
+      }
+      const normalizedApiBase = appConfig.setApiBaseUrl(settingsApiBaseUrl.value);
+      currentApiBase.textContent = normalizedApiBase || appConfig.getDefaultApiBaseUrl() || '未設定';
+      if (!appConfig.hasConfiguredApiBaseUrl()) {
+        currentServerName.textContent = '未設定';
+        status.textContent = '接続先URLを入力してください。';
+        status.className = 'action-status is-error';
+        return;
+      }
+      status.textContent = '接続先を確認しています...';
+      status.className = 'action-status';
+      try {
+        const bootstrap = await appConfig.fetchBootstrap();
+        currentServerName.textContent = bootstrap.server_name || '不明';
+        status.textContent = `接続先を確認しました: ${bootstrap.server_name || '不明'}`;
+        status.className = 'action-status is-success';
+      } catch (err) {
+        currentServerName.textContent = '接続失敗';
+        status.textContent = `接続確認に失敗しました: ${err.message}`;
+        status.className = 'action-status is-error';
+      }
     });
 
     async function refreshLocalDraftCount() {
@@ -343,11 +390,13 @@
         status.className = 'action-status is-error';
         return;
       }
-      localStorage.setItem('ai_plantgraphy_password', apiKey);
+      if (appConfig) {
+        appConfig.setStoredPassword(apiKey);
+      }
       const formData = new FormData();
       formData.append('label', label);
       try {
-        const response = await fetch('/api/settings/location-labels', {
+        const response = await fetch(appConfig.apiUrl('/api/settings/location-labels'), {
           method: 'POST',
           headers: {'X-Plant-Dex-Api-Key': apiKey},
           body: formData
@@ -380,7 +429,7 @@
       }
       const label = button.dataset.label;
       try {
-        const response = await fetch(`/api/settings/location-labels/${encodeURIComponent(label)}`, {
+        const response = await fetch(appConfig.apiUrl(`/api/settings/location-labels/${encodeURIComponent(label)}`), {
           method: 'DELETE',
           headers: {'X-Plant-Dex-Api-Key': apiKey}
         });
@@ -423,13 +472,15 @@
         return;
       }
 
-      localStorage.setItem('ai_plantgraphy_password', apiKey);
+      if (appConfig) {
+        appConfig.setStoredPassword(apiKey);
+      }
       exportBtn.disabled = true;
       exportStatus.textContent = 'zipを作成中...';
       exportStatus.className = 'action-status';
 
       try {
-        const response = await fetch('/api/export', {
+        const response = await fetch(appConfig.apiUrl('/api/export'), {
           method: 'POST',
           headers: {'X-Plant-Dex-Api-Key': apiKey}
         });

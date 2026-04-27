@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
+    <title>未送信 | AI Plantgraphy</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v1">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><img src="./static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <nav class="nav">
+        <a href="./index.html">ホーム</a>
+        <a href="./upload.html">追加</a>
+        <a href="./pending-local.html" class="is-current">未送信</a>
+        <a href="./settings.html">設定</a>
+      </nav>
+    </header>
+    <main class="page">
+      <section class="page-hero compact-hero">
+        <div>
+          <p class="eyebrow">Pending local</p>
+          <h1>未送信一覧</h1>
+          <p>端末に保存した観察を確認し、サーバー復帰後に手動で送信します。</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Queue</p>
+            <h2>端末保存済み</h2>
+          </div>
+          <span id="pendingLocalCount">0 件</span>
+        </div>
+        <div class="pending-local-actions">
+          <button id="checkServerBtn" class="btn" type="button">接続確認</button>
+          <button id="sendAllDraftsBtn" class="btn btn-primary" type="button">すべて送信</button>
+        </div>
+        <div class="check-grid">
+          <div><span>送信先URL</span><strong id="pendingApiBaseLabel">未設定</strong></div>
+          <div><span>接続先PC</span><strong id="pendingServerNameLabel">未確認</strong></div>
+        </div>
+        <p class="field-help">PWAまたはブラウザの端末保存です。ブラウザデータを消すと未送信データも消えます。</p>
+        <p id="pendingLocalStatus" class="action-status"></p>
+        <div id="pendingLocalList" class="pending-local-list"></div>
+      </section>
+    </main>
+
+    <script src="./static/offline-drafts.js" defer></script>
+    <script src="./static/app.js" defer></script>
+    <script>
+      window.addEventListener('load', async () => {
+        if (!window.AIPlantgraphyDrafts) {
+          return;
+        }
+
+        const status = document.getElementById('pendingLocalStatus');
+        const list = document.getElementById('pendingLocalList');
+        const count = document.getElementById('pendingLocalCount');
+        const sendAllBtn = document.getElementById('sendAllDraftsBtn');
+        const checkServerBtn = document.getElementById('checkServerBtn');
+        const pendingApiBaseLabel = document.getElementById('pendingApiBaseLabel');
+        const pendingServerNameLabel = document.getElementById('pendingServerNameLabel');
+        const appConfig = window.AIPlantgraphyApp;
+
+        async function refreshTarget() {
+          const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
+          pendingApiBaseLabel.textContent = apiBase || '未設定';
+          if (!appConfig || !apiBase) {
+            pendingServerNameLabel.textContent = '未設定';
+            return;
+          }
+          try {
+            const bootstrap = await appConfig.fetchBootstrap();
+            pendingServerNameLabel.textContent = bootstrap.server_name || '不明';
+          } catch (error) {
+            pendingServerNameLabel.textContent = '接続失敗';
+          }
+        }
+
+        function setStatus(message, isError = false, isSuccess = false) {
+          status.textContent = message;
+          status.className = 'action-status';
+          if (isError) {
+            status.classList.add('is-error');
+          } else if (isSuccess) {
+            status.classList.add('is-success');
+          }
+        }
+
+        function selectedImageUrls(draft) {
+          const items = draft.images || [];
+          const selected = Array.isArray(draft.selectedImageIds) && draft.selectedImageIds.length
+            ? items.filter((image) => draft.selectedImageIds.includes(image.id))
+            : items.slice(-3);
+          return selected.map((image) => ({ ...image, url: URL.createObjectURL(image.blob) }));
+        }
+
+        async function renderDrafts() {
+          const drafts = await window.AIPlantgraphyDrafts.listDrafts();
+          count.textContent = `${drafts.length} 件`;
+          list.innerHTML = '';
+          if (!drafts.length) {
+            list.innerHTML = '<p class="empty">未送信の観察はありません。</p>';
+            return;
+          }
+
+          drafts.forEach((draft) => {
+            const card = document.createElement('article');
+            card.className = 'pending-local-card';
+
+            const header = document.createElement('div');
+            header.className = 'pending-local-header';
+            header.innerHTML = `
+              <div>
+                <strong>${window.AIPlantgraphyDrafts.escapeHtml(window.AIPlantgraphyDrafts.formatDraftDate(draft.createdAt))}</strong>
+                <p>${window.AIPlantgraphyDrafts.escapeHtml(draft.note || 'メモなし')}</p>
+              </div>
+              <span>${(draft.images || []).length} 枚</span>
+            `;
+
+            const photos = document.createElement('div');
+            photos.className = 'pending-local-photos';
+            selectedImageUrls(draft).forEach((image, index) => {
+              const img = document.createElement('img');
+              img.src = image.url;
+              img.alt = `未送信写真 ${index + 1}`;
+              photos.appendChild(img);
+            });
+
+            const meta = document.createElement('div');
+            meta.className = 'pending-local-meta';
+            meta.innerHTML = `
+              <div><span>場所</span><strong>${window.AIPlantgraphyDrafts.escapeHtml(draft.locationLabel || '未入力')}</strong></div>
+              <div><span>Geminiモデル</span><strong>${window.AIPlantgraphyDrafts.escapeHtml(draft.geminiModel || 'PC側の既定')}</strong></div>
+              <div><span>送信先</span><strong>${window.AIPlantgraphyDrafts.escapeHtml(draft.apiBaseUrl || '未設定')}</strong></div>
+            `;
+
+            const actions = document.createElement('div');
+            actions.className = 'pending-local-actions';
+
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'btn btn-primary';
+            sendBtn.type = 'button';
+            sendBtn.textContent = '送信';
+            sendBtn.addEventListener('click', async () => {
+              await sendDraft(draft.id, sendBtn);
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn';
+            deleteBtn.type = 'button';
+            deleteBtn.textContent = '削除';
+            deleteBtn.addEventListener('click', async () => {
+              await window.AIPlantgraphyDrafts.deleteDraft(draft.id);
+              setStatus('削除しました。', false, true);
+              await renderDrafts();
+            });
+
+            actions.appendChild(sendBtn);
+            actions.appendChild(deleteBtn);
+
+            card.appendChild(header);
+            card.appendChild(photos);
+            card.appendChild(meta);
+            card.appendChild(actions);
+            list.appendChild(card);
+          });
+        }
+
+        async function sendDraft(draftId, button) {
+          const apiKey = appConfig ? appConfig.getStoredPassword() : '';
+          if (!appConfig || !appConfig.getApiBaseUrl()) {
+            setStatus('設定ページで自分のPCの接続先URLを保存してください。', true);
+            return;
+          }
+          if (!apiKey) {
+            setStatus('設定ページでアプリパスワードを保存してください。', true);
+            return;
+          }
+          const draft = await window.AIPlantgraphyDrafts.getDraft(draftId);
+          if (!draft) {
+            setStatus('未送信データが見つかりません。', true);
+            return;
+          }
+          if (!draft.apiBaseUrl) {
+            setStatus('この下書きには送信先URLが保存されていません。', true);
+            return;
+          }
+          if (appConfig.normalizeApiBaseUrl(draft.apiBaseUrl) !== appConfig.normalizeApiBaseUrl(appConfig.getApiBaseUrl())) {
+            setStatus('この下書きは現在の接続先とは別のPC向けです。設定の送信先URLを合わせてから送信してください。', true);
+            return;
+          }
+          button.disabled = true;
+          setStatus('サーバー接続を確認しています...');
+          try {
+            await window.AIPlantgraphyDrafts.checkHealthAt(draft.apiBaseUrl);
+            const result = await window.AIPlantgraphyDrafts.sendDraft(draftId, apiKey);
+            setStatus('送信しました。解析詳細へ移動します。', false, true);
+            await renderDrafts();
+            window.location.href = appConfig ? appConfig.observationUrl(result.observation_id) : result.observation_id;
+          } catch (error) {
+            setStatus(`送信できませんでした: ${error.message}`, true);
+            button.disabled = false;
+          }
+        }
+
+        checkServerBtn.addEventListener('click', async () => {
+          if (!appConfig || !appConfig.getApiBaseUrl()) {
+            setStatus('設定ページで自分のPCの接続先URLを保存してください。', true);
+            return;
+          }
+          setStatus('接続確認中...');
+          try {
+            const bootstrap = await appConfig.fetchBootstrap();
+            pendingServerNameLabel.textContent = bootstrap.server_name || '不明';
+            setStatus(`サーバーに接続できます: ${bootstrap.server_name || '不明'}`, false, true);
+          } catch (error) {
+            setStatus(`接続できません: ${error.message}`, true);
+          }
+        });
+
+        sendAllBtn.addEventListener('click', async () => {
+          const apiKey = appConfig ? appConfig.getStoredPassword() : '';
+          if (!appConfig || !appConfig.getApiBaseUrl()) {
+            setStatus('設定ページで自分のPCの接続先URLを保存してください。', true);
+            return;
+          }
+          if (!apiKey) {
+            setStatus('設定ページでアプリパスワードを保存してください。', true);
+            return;
+          }
+          sendAllBtn.disabled = true;
+          try {
+            await window.AIPlantgraphyDrafts.checkHealth();
+            const drafts = await window.AIPlantgraphyDrafts.listDrafts();
+            let success = 0;
+            let failed = 0;
+            for (const draft of drafts) {
+              try {
+                if (!draft.apiBaseUrl) {
+                  failed += 1;
+                  continue;
+                }
+                if (appConfig.normalizeApiBaseUrl(draft.apiBaseUrl) !== appConfig.normalizeApiBaseUrl(appConfig.getApiBaseUrl())) {
+                  failed += 1;
+                  continue;
+                }
+                await window.AIPlantgraphyDrafts.sendDraft(draft.id, apiKey);
+                success += 1;
+              } catch (error) {
+                failed += 1;
+              }
+            }
+            await renderDrafts();
+            setStatus(`${success}件送信しました。${failed ? `${failed}件は失敗しました。` : ''}`, failed > 0, failed === 0);
+          } catch (error) {
+            setStatus(`送信を開始できませんでした: ${error.message}`, true);
+          } finally {
+            sendAllBtn.disabled = false;
+          }
+        });
+
+        await renderDrafts();
+        await refreshTarget();
+      });
+    </script>
+  </body>
+</html>

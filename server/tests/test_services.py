@@ -218,6 +218,17 @@ class ServiceTests(unittest.TestCase):
             self.assertIn("connectivity", payload)
             self.assertTrue(any(item["key"] == "image_dir" for item in payload["checks"]))
 
+    def test_bootstrap_api_reports_server_metadata(self):
+        client = TestClient(app)
+        response = client.get("/api/bootstrap")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["app_name"], "AI Plantgraphy")
+        self.assertIn("server_name", payload)
+        self.assertIn("base_url", payload)
+        self.assertIn("gemini_model_choices", payload)
+
     def test_timeout_error_is_user_friendly(self):
         message = format_analysis_error(RuntimeError("Command '['gemini']' timed out after 300 seconds"))
         self.assertEqual(

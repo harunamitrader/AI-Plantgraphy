@@ -5,6 +5,12 @@
 AI Plantgraphy は、スマホで撮った植物写真をAIで解析し、自分だけの植物図鑑を作るWebアプリです。
 庭木、草花、鉢植え、公園で見つけた植物などを写真と名前、特徴、手入れメモ付きで残せます。
 
+公開中の共用フロント:
+
+- [https://harunamitrader.github.io/AI-Plantgraphy/app/](https://harunamitrader.github.io/AI-Plantgraphy/app/)
+
+この共用フロントには送信先URLの初期値を埋め込んでいません。各ユーザーが `設定` で自分のPCの Tailscale HTTPS URL とアプリパスワードを保存して使います。
+
 ## 1枚でわかる AI Plantgraphy
 
 ![AI Plantgraphyの概要](docs/１枚解説.png)
@@ -112,6 +118,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\configure_tailscale_https.ps1
 
 HTTPS化が難しい場合でも、通常カメラと写真選択は使えます。
 
+## GitHub Pages 版を使う
+
+PC停止中でも画面を開きたい場合は、GitHub Pages 版の共用フロントを使います。
+
+- 共用フロント: [https://harunamitrader.github.io/AI-Plantgraphy/app/](https://harunamitrader.github.io/AI-Plantgraphy/app/)
+- セットアップ手順: [docs/GITHUB_PAGES_SETUP.md](docs/GITHUB_PAGES_SETUP.md)
+
+この構成では:
+
+- Web アプリの画面は GitHub Pages から開く
+- 写真の一時保存はスマホ端末内で行う
+- 実際の解析と正式保存は各ユーザーの自宅PCで行う
+
+安全のため、次のガードがあります。
+
+- 接続先URLの初期値は空
+- 送信前に接続先URLと接続先PC名を表示
+- 下書き保存時の送信先URLと、送信時の送信先URLが一致しないと送信不可
+
 ## 写真を送る
 
 Web画面では、次の3つの方法で写真候補を作れます。
@@ -149,6 +174,8 @@ data\exports
 
 - 仕様書: [docs/SPECIFICATION.md](docs/SPECIFICATION.md)
 - 実装計画書: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
+- GitHub Pages セットアップ: [docs/GITHUB_PAGES_SETUP.md](docs/GITHUB_PAGES_SETUP.md)
+- GitHub Pages 分離計画: [docs/GITHUB_PAGES_IMPLEMENTATION_PLAN.md](docs/GITHUB_PAGES_IMPLEMENTATION_PLAN.md)
 - Windowsクイックスタート: [docs/QUICK_START_WINDOWS.md](docs/QUICK_START_WINDOWS.md)
 - Tailscaleセットアップ: [docs/TAILSCALE_SETUP.md](docs/TAILSCALE_SETUP.md)
 - 変更履歴: [CHANGELOG.md](CHANGELOG.md)

@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
+    <title>植物を追加 | AI Plantgraphy</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v1">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><img src="./static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <nav class="nav">
+        <a href="./index.html">ホーム</a>
+        <a href="./upload.html" class="is-current">追加</a>
+        <a href="./pending-local.html">未送信</a>
+        <a href="./settings.html">設定</a>
+      </nav>
+    </header>
+    <main class="page">
+      <section class="page-hero compact-hero">
+        <div>
+          <p class="eyebrow">New record</p>
+          <h1>植物を追加</h1>
+          <p>写真候補を作り、1〜3枚を選んで解析するか、端末に保存します。</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <form id="uploadForm" class="upload-form">
+          <div>
+            <span class="form-label">写真候補</span>
+            <div class="file-actions">
+              <button class="file-action" id="continuousCameraBtn" type="button">連続カメラ</button>
+              <label class="file-action secondary" for="cameraImages">通常カメラ</label>
+              <label class="file-action quiet" for="galleryImages">写真から選ぶ</label>
+            </div>
+            <input class="visually-hidden" id="galleryImages" name="galleryImages" type="file" accept="image/*" multiple>
+            <input class="visually-hidden" id="cameraImages" name="cameraImages" type="file" accept="image/*" capture="environment">
+            <p class="field-help">
+              後から追加した3枚が自動で選ばれます。送信は1〜3枚です。
+              候補: <span id="candidateCount">0</span>枚 / 送信: <span id="selectedCount">0</span>枚
+            </p>
+          </div>
+
+          <div class="camera-panel" id="cameraPanel" hidden>
+            <video id="cameraPreview" playsinline autoplay muted></video>
+            <canvas id="cameraCanvas" hidden></canvas>
+            <div class="camera-actions">
+              <button class="btn btn-primary" id="captureFrameBtn" type="button">撮影して候補に追加</button>
+              <button class="btn" id="stopCameraBtn" type="button">カメラを閉じる</button>
+            </div>
+            <p class="field-help" id="cameraHelp">撮影するたびに候補へ追加します。送信対象は後から追加された3枚が自動で選ばれます。</p>
+          </div>
+
+          <div class="preview-grid" id="previewGrid"></div>
+
+          <div>
+            <label for="note">メモ</label>
+            <textarea id="note" name="note" rows="3" placeholder="庭の南側、鉢植え、花が咲き始め など"></textarea>
+          </div>
+
+          <div>
+            <label for="locationLabel">場所ラベル</label>
+            <select id="locationLabel" name="locationLabel">
+              <option value="">未入力</option>
+            </select>
+          </div>
+
+          <div class="pending-local-actions">
+            <button class="btn btn-primary" id="uploadButton" type="submit">送信して解析する</button>
+            <button class="btn" id="saveDraftButton" type="button">あとで送信する</button>
+          </div>
+          <div class="check-grid">
+            <div><span>送信先URL</span><strong id="uploadApiBaseLabel">未設定</strong></div>
+            <div><span>接続先PC</span><strong id="uploadServerNameLabel">未確認</strong></div>
+          </div>
+          <p class="field-help">アプリパスワードとGeminiモデルは <a href="./settings.html">設定</a> で変更できます。</p>
+          <p class="field-help">共用フロントなので、必ず自分のPCの接続先URLを設定してから送信してください。</p>
+          <p id="uploadStatus" class="action-status"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="./static/offline-drafts.js" defer></script>
+    <script src="./static/app.js" defer></script>
+    <script>
+      window.addEventListener('load', async () => {
+        const form = document.getElementById('uploadForm');
+        const galleryInput = document.getElementById('galleryImages');
+        const cameraInput = document.getElementById('cameraImages');
+        const continuousCameraBtn = document.getElementById('continuousCameraBtn');
+        const cameraPanel = document.getElementById('cameraPanel');
+        const cameraPreview = document.getElementById('cameraPreview');
+        const cameraCanvas = document.getElementById('cameraCanvas');
+        const captureFrameBtn = document.getElementById('captureFrameBtn');
+        const stopCameraBtn = document.getElementById('stopCameraBtn');
+        const previewGrid = document.getElementById('previewGrid');
+        const selectedCount = document.getElementById('selectedCount');
+        const statusText = document.getElementById('uploadStatus');
+        const uploadButton = document.getElementById('uploadButton');
+        const saveDraftButton = document.getElementById('saveDraftButton');
+        const uploadApiBaseLabel = document.getElementById('uploadApiBaseLabel');
+        const uploadServerNameLabel = document.getElementById('uploadServerNameLabel');
+        const locationLabelSelect = document.getElementById('locationLabel');
+        const appConfig = window.AIPlantgraphyApp;
+        let uploadStartedAt = 0;
+        let elapsedTimer = null;
+        let candidates = [];
+        let nextCandidateId = 1;
+        let cameraStream = null;
+        const MAX_UPLOAD_EDGE = 1280;
+        const JPEG_QUALITY = 0.78;
+
+        async function refreshUploadTarget() {
+          const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
+          uploadApiBaseLabel.textContent = apiBase || '未設定';
+          if (!appConfig || !apiBase) {
+            uploadServerNameLabel.textContent = '未設定';
+            return;
+          }
+          try {
+            const bootstrap = await appConfig.fetchBootstrap();
+            uploadServerNameLabel.textContent = bootstrap.server_name || '不明';
+            renderLocationLabels(bootstrap.location_labels || []);
+          } catch (error) {
+            uploadServerNameLabel.textContent = '接続失敗';
+          }
+        }
+
+        function renderLocationLabels(labels) {
+          const current = locationLabelSelect.value;
+          locationLabelSelect.innerHTML = '<option value="">未入力</option>';
+          (labels || []).forEach((label) => {
+            const option = document.createElement('option');
+            option.value = label;
+            option.textContent = label;
+            if (label === current) {
+              option.selected = true;
+            }
+            locationLabelSelect.appendChild(option);
+          });
+        }
+
+        function setStatus(message, isError) {
+          statusText.textContent = message;
+          statusText.className = isError ? 'action-status is-error' : 'action-status is-success';
+        }
+
+        function startElapsedTimer(label) {
+          stopElapsedTimer();
+          elapsedTimer = window.setInterval(() => {
+            const seconds = Math.max(0, Math.floor((Date.now() - uploadStartedAt) / 1000));
+            statusText.textContent = `${label}... 経過 ${seconds}秒`;
+          }, 1000);
+        }
+
+        function stopElapsedTimer() {
+          if (elapsedTimer) {
+            window.clearInterval(elapsedTimer);
+            elapsedTimer = null;
+          }
+        }
+
+        async function optimizeImageForUpload(file) {
+          if (!file.type.startsWith('image/')) {
+            return file;
+          }
+          try {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const scale = Math.min(1, MAX_UPLOAD_EDGE / Math.max(bitmap.width, bitmap.height));
+            const width = Math.max(1, Math.round(bitmap.width * scale));
+            const height = Math.max(1, Math.round(bitmap.height * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d');
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, width, height);
+            context.drawImage(bitmap, 0, 0, width, height);
+            bitmap.close();
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+            if (!blob) {
+              return file;
+            }
+            const baseName = (file.name || 'plant-photo').replace(/\.[^.]+$/, '');
+            return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: file.lastModified || Date.now() });
+          } catch (error) {
+            return file;
+          }
+        }
+
+        function getSelectedCandidates() {
+          return candidates.filter((candidate) => candidate.selected);
+        }
+
+        function selectLatestCandidates() {
+          const selectedIds = new Set(candidates.slice(-3).map((candidate) => candidate.id));
+          candidates = candidates.map((candidate) => ({ ...candidate, selected: selectedIds.has(candidate.id) }));
+        }
+
+        function renderCandidates() {
+          const selected = getSelectedCandidates();
+          document.getElementById('candidateCount').textContent = candidates.length;
+          selectedCount.textContent = selected.length;
+          previewGrid.innerHTML = '';
+          candidates.forEach((candidate, index) => {
+            const card = document.createElement('div');
+            card.className = candidate.selected ? 'preview-item is-selected' : 'preview-item';
+            const img = document.createElement('img');
+            img.alt = `選択写真 ${index + 1}`;
+            img.src = candidate.url;
+            const controls = document.createElement('div');
+            controls.className = 'preview-controls';
+
+            const check = document.createElement('button');
+            check.type = 'button';
+            check.className = 'preview-check';
+            check.textContent = candidate.selected ? '✓ 選択中' : '選ぶ';
+            check.addEventListener('click', () => {
+              const selectedTotal = getSelectedCandidates().length;
+              if (!candidate.selected && selectedTotal >= 3) {
+                setStatus('送信できる写真は最大3枚です。別の写真のチェックを外してください。', true);
+                return;
+              }
+              candidate.selected = !candidate.selected;
+              renderCandidates();
+            });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'preview-remove';
+            remove.textContent = '外す';
+            remove.addEventListener('click', () => {
+              URL.revokeObjectURL(candidate.url);
+              candidates = candidates.filter((item) => item.id !== candidate.id);
+              if (getSelectedCandidates().length === 0 && candidates.length > 0) {
+                selectLatestCandidates();
+              }
+              renderCandidates();
+            });
+
+            controls.appendChild(check);
+            controls.appendChild(remove);
+            card.appendChild(img);
+            card.appendChild(controls);
+            previewGrid.appendChild(card);
+          });
+        }
+
+        async function addCandidates(files) {
+          for (const file of files) {
+            const optimizedFile = await optimizeImageForUpload(file);
+            candidates.push({
+              id: nextCandidateId,
+              file: optimizedFile,
+              selected: false,
+              url: URL.createObjectURL(optimizedFile)
+            });
+            nextCandidateId += 1;
+          }
+          selectLatestCandidates();
+          renderCandidates();
+        }
+
+        async function startContinuousCamera() {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setStatus('このブラウザでは連続カメラを使えません。通常カメラを使ってください。', true);
+            return;
+          }
+          if (!window.isSecureContext) {
+            setStatus('連続カメラはHTTPSまたはlocalhostで使えます。', true);
+            return;
+          }
+          try {
+            stopContinuousCamera();
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1600 },
+                height: { ideal: 1600 },
+                aspectRatio: { ideal: 1 }
+              },
+              audio: false
+            });
+            cameraPreview.srcObject = cameraStream;
+            cameraPanel.hidden = false;
+            await cameraPreview.play();
+          } catch (error) {
+            cameraPanel.hidden = true;
+            setStatus(`連続カメラを起動できませんでした: ${error.message}`, true);
+          }
+        }
+
+        async function captureFrame() {
+          if (!cameraStream || !cameraPreview.videoWidth || !cameraPreview.videoHeight) {
+            setStatus('カメラ映像の準備中です。少し待ってから撮影してください。', true);
+            return;
+          }
+          const side = Math.min(cameraPreview.videoWidth, cameraPreview.videoHeight);
+          const sourceX = Math.floor((cameraPreview.videoWidth - side) / 2);
+          const sourceY = Math.floor((cameraPreview.videoHeight - side) / 2);
+          cameraCanvas.width = side;
+          cameraCanvas.height = side;
+          const context = cameraCanvas.getContext('2d');
+          context.drawImage(cameraPreview, sourceX, sourceY, side, side, 0, 0, side, side);
+          const blob = await new Promise((resolve) => cameraCanvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+          if (!blob) {
+            setStatus('写真を作成できませんでした。', true);
+            return;
+          }
+          const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+          const file = new File([blob], filename, { type: 'image/jpeg' });
+          await addCandidates([file]);
+          setStatus('候補に追加しました。続けて撮影できます。', false);
+        }
+
+        function stopContinuousCamera() {
+          if (cameraStream) {
+            cameraStream.getTracks().forEach((track) => track.stop());
+            cameraStream = null;
+          }
+          cameraPreview.srcObject = null;
+          cameraPanel.hidden = true;
+        }
+
+        galleryInput.addEventListener('change', async () => {
+          await addCandidates(Array.from(galleryInput.files));
+          galleryInput.value = '';
+        });
+        cameraInput.addEventListener('change', async () => {
+          await addCandidates(Array.from(cameraInput.files));
+          cameraInput.value = '';
+        });
+        continuousCameraBtn.addEventListener('click', startContinuousCamera);
+        captureFrameBtn.addEventListener('click', captureFrame);
+        stopCameraBtn.addEventListener('click', stopContinuousCamera);
+        window.addEventListener('pagehide', stopContinuousCamera);
+
+        saveDraftButton.addEventListener('click', async () => {
+          if (!window.AIPlantgraphyDrafts) {
+            setStatus('この端末では下書き保存を使えません。', true);
+            return;
+          }
+          const selected = getSelectedCandidates();
+          if (selected.length < 1 || selected.length > 3) {
+            setStatus('保存する写真を1〜3枚選んでください。', true);
+            return;
+          }
+          saveDraftButton.disabled = true;
+          try {
+            await window.AIPlantgraphyDrafts.saveDraft({
+              note: document.getElementById('note').value,
+              locationLabel: document.getElementById('locationLabel').value,
+              geminiModel: appConfig ? appConfig.getStoredGeminiModel() : '',
+              apiBaseUrl: appConfig ? appConfig.getApiBaseUrl() : '',
+              selectedImageIds: selected.map((candidate) => candidate.id),
+              images: candidates.map((candidate) => ({
+                id: candidate.id,
+                name: candidate.file.name,
+                type: candidate.file.type,
+                blob: candidate.file
+              }))
+            });
+            setStatus('端末に保存しました。サーバー起動後に未送信一覧から送信できます。', false);
+            window.setTimeout(() => {
+              window.location.href = appConfig ? appConfig.pageUrl('pending-local') : './pending-local.html';
+            }, 500);
+          } catch (error) {
+            setStatus(`保存できませんでした: ${error.message}`, true);
+          } finally {
+            saveDraftButton.disabled = false;
+          }
+        });
+
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const files = getSelectedCandidates().map((candidate) => candidate.file);
+          const apiKey = appConfig ? appConfig.getStoredPassword() : '';
+          const geminiModel = appConfig ? appConfig.getStoredGeminiModel() : '';
+          const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
+
+          if (!apiBase) {
+            setStatus('設定ページで自分のPCの接続先URLを保存してください。', true);
+            return;
+          }
+          if (!apiKey) {
+            setStatus('設定ページでアプリパスワードを保存してください。', true);
+            return;
+          }
+          if (files.length < 1 || files.length > 3) {
+            setStatus('送信する写真を1〜3枚選んでください。', true);
+            return;
+          }
+
+          uploadButton.disabled = true;
+          saveDraftButton.disabled = true;
+          uploadStartedAt = Date.now();
+          startElapsedTimer('画像送信中');
+          const formData = new FormData();
+          files.forEach((file) => formData.append('images', file));
+          formData.append('note', document.getElementById('note').value);
+          formData.append('location_label', document.getElementById('locationLabel').value);
+          formData.append('gemini_model', geminiModel);
+
+          try {
+            const response = await fetch(appConfig.apiUrl('/api/observations'), {
+              method: 'POST',
+              headers: { 'X-Plant-Dex-Api-Key': apiKey },
+              body: formData
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.detail || '送信に失敗しました。');
+            }
+            setStatus('解析を開始しました。完了したら詳細ページへ移動します。', false);
+            startElapsedTimer('解析待ち');
+            pollObservation(data.observation_id);
+          } catch (error) {
+            stopElapsedTimer();
+            uploadButton.disabled = false;
+            saveDraftButton.disabled = false;
+            setStatus(`エラー: ${error.message}`, true);
+          }
+        });
+
+        function progressLabel(data) {
+          const progress = data.analysis_progress || {};
+          const label = progress.label || data.status || '解析中';
+          const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
+          return `${label}${percent}`;
+        }
+
+        function identityLabel(data) {
+          const analysis = parseAnalysis(data.raw_result_json);
+          const name = analysis.common_name_ja || analysis.scientific_name;
+          if (!name) {
+            return '';
+          }
+          const confidence = typeof analysis.confidence === 'number' ? ` / 信頼度 ${Math.round(analysis.confidence * 100)}%` : '';
+          return ` / ${name}${confidence}`;
+        }
+
+        function parseAnalysis(rawJson) {
+          if (!rawJson) {
+            return {};
+          }
+          try {
+            return JSON.parse(rawJson) || {};
+          } catch (error) {
+            return {};
+          }
+        }
+
+        function pollObservation(observationId) {
+          let attempts = 0;
+          const timer = window.setInterval(async () => {
+            attempts += 1;
+            try {
+              const response = await fetch(appConfig.apiUrl(`/api/observations/${observationId}`));
+              const data = await response.json();
+              const seconds = Math.max(0, Math.floor((Date.now() - uploadStartedAt) / 1000));
+              statusText.textContent = `${progressLabel(data)}${identityLabel(data)} / 経過 ${seconds}秒`;
+              if (data.status !== 'queued' && data.status !== 'analyzing') {
+                window.clearInterval(timer);
+                stopElapsedTimer();
+                window.location.href = appConfig ? appConfig.observationUrl(observationId) : observationId;
+              }
+              if (attempts >= 72) {
+                window.clearInterval(timer);
+                stopElapsedTimer();
+                window.location.href = appConfig ? appConfig.observationUrl(observationId) : observationId;
+              }
+            } catch (error) {
+              window.clearInterval(timer);
+              stopElapsedTimer();
+              uploadButton.disabled = false;
+              saveDraftButton.disabled = false;
+              setStatus(`状態確認に失敗しました: ${error.message}`, true);
+            }
+          }, 5000);
+        }
+
+        await refreshUploadTarget();
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
+    <title>設定 | AI Plantgraphy</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v1">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><img src="./static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <nav class="nav">
+        <a href="./index.html">ホーム</a>
+        <a href="./upload.html">追加</a>
+        <a href="./pending-local.html">未送信</a>
+        <a href="./settings.html" class="is-current">設定</a>
+      </nav>
+    </header>
+    <main class="page">
+      <section class="page-hero compact-hero">
+        <div>
+          <p class="eyebrow">Settings</p>
+          <h1>設定</h1>
+          <p>接続先URL、アプリパスワード、Geminiモデルをこの端末に保存します。</p>
+        </div>
+      </section>
+
+      <section class="settings-grid">
+        <div class="panel">
+          <p class="eyebrow">This device</p>
+          <h2>端末設定</h2>
+          <div class="settings-form">
+            <label for="settingsApiBaseUrl">接続先URL</label>
+            <input id="settingsApiBaseUrl" type="url" autocomplete="off" placeholder="https://your-pc.tailnet.ts.net">
+            <p class="field-help">必ず自分のPCの Tailscale HTTPS URL を入れてください。初期値は空です。</p>
+
+            <label for="settingsApiKey">アプリパスワード</label>
+            <input id="settingsApiKey" type="password" autocomplete="off" placeholder="change-me">
+
+            <label for="settingsGeminiModel">Geminiモデル</label>
+            <select id="settingsGeminiModel">
+              <option value="">接続先から読込後に選べます</option>
+            </select>
+
+            <button id="saveBrowserSettingsBtn" class="btn btn-primary" type="button">この端末に保存</button>
+            <button id="checkBootstrapBtn" class="btn" type="button">接続先を確認</button>
+            <p id="browserSettingsStatus" class="action-status"></p>
+
+            <div class="check-grid">
+              <div><span>現在の送信先</span><strong id="currentApiBase">未設定</strong></div>
+              <div><span>接続先PC</span><strong id="currentServerName">未確認</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">Offline draft</p>
+          <h2>未送信の端末保存</h2>
+          <p class="field-help">この共用フロント自体は GitHub Pages 上で開くため、PC停止中でも起動できます。送信は <a href="./pending-local.html">未送信一覧</a> から手動で行います。</p>
+          <div class="check-grid">
+            <div><span>未送信件数</span><strong id="localDraftCount">0 件</strong></div>
+            <div><span>PWA診断</span><strong id="pwaMode">確認中</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Location</p>
+            <h2>場所ラベル</h2>
+          </div>
+          <span id="locationLabelCount">0 件</span>
+        </div>
+        <div class="settings-form inline-settings">
+          <label for="newLocationLabel">追加する場所</label>
+          <input id="newLocationLabel" type="text" maxlength="40" placeholder="北庭、畑、通勤路 など">
+          <button id="addLocationLabelBtn" class="btn btn-primary" type="button">追加</button>
+        </div>
+        <div class="label-list" id="locationLabelList"></div>
+        <p id="locationLabelStatus" class="action-status"></p>
+      </section>
+    </main>
+
+    <script src="./static/offline-drafts.js" defer></script>
+    <script src="./static/app.js" defer></script>
+    <script>
+      window.addEventListener('load', async () => {
+        const appConfig = window.AIPlantgraphyApp;
+        const settingsApiBaseUrl = document.getElementById('settingsApiBaseUrl');
+        const settingsApiKey = document.getElementById('settingsApiKey');
+        const settingsGeminiModel = document.getElementById('settingsGeminiModel');
+        const browserSettingsStatus = document.getElementById('browserSettingsStatus');
+        const currentApiBase = document.getElementById('currentApiBase');
+        const currentServerName = document.getElementById('currentServerName');
+        const localDraftCount = document.getElementById('localDraftCount');
+        const pwaMode = document.getElementById('pwaMode');
+
+        const storedApiBase = appConfig.getStoredApiBaseUrl();
+        settingsApiBaseUrl.value = storedApiBase;
+        settingsApiKey.value = appConfig.getStoredPassword();
+        currentApiBase.textContent = storedApiBase || '未設定';
+        pwaMode.textContent = window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser';
+
+        if (window.AIPlantgraphyDrafts) {
+          localDraftCount.textContent = `${await window.AIPlantgraphyDrafts.countDrafts()} 件`;
+        }
+
+        function setStatus(message, isError = false, isSuccess = false) {
+          browserSettingsStatus.textContent = message;
+          browserSettingsStatus.className = 'action-status';
+          if (isError) {
+            browserSettingsStatus.classList.add('is-error');
+          } else if (isSuccess) {
+            browserSettingsStatus.classList.add('is-success');
+          }
+        }
+
+        function renderLocationLabels(labels) {
+          const list = document.getElementById('locationLabelList');
+          const count = document.getElementById('locationLabelCount');
+          list.innerHTML = '';
+          count.textContent = `${labels.length} 件`;
+          labels.forEach((label) => {
+            const button = document.createElement('button');
+            button.className = 'label-chip';
+            button.type = 'button';
+            button.dataset.label = label;
+            button.append(document.createTextNode(`${label} `));
+            const marker = document.createElement('span');
+            marker.textContent = '削除';
+            button.appendChild(marker);
+            list.appendChild(button);
+          });
+        }
+
+        function renderGeminiModels(choices, selectedValue) {
+          settingsGeminiModel.innerHTML = '';
+          const empty = document.createElement('option');
+          empty.value = '';
+          empty.textContent = '接続先PCの既定';
+          settingsGeminiModel.appendChild(empty);
+          (choices || []).forEach((choice) => {
+            const option = document.createElement('option');
+            option.value = choice.value;
+            option.textContent = choice.label;
+            if ((selectedValue && choice.value === selectedValue) || (!selectedValue && choice.value === appConfig.getStoredGeminiModel())) {
+              option.selected = true;
+            }
+            settingsGeminiModel.appendChild(option);
+          });
+        }
+
+        async function loadBootstrap() {
+          const bootstrap = await appConfig.fetchBootstrap();
+          currentServerName.textContent = bootstrap.server_name || '不明';
+          renderLocationLabels(bootstrap.location_labels || []);
+          renderGeminiModels(bootstrap.gemini_model_choices || [], bootstrap.gemini_model || '');
+          return bootstrap;
+        }
+
+        document.getElementById('saveBrowserSettingsBtn').addEventListener('click', () => {
+          const normalizedApiBase = appConfig.setApiBaseUrl(settingsApiBaseUrl.value);
+          appConfig.setStoredPassword(settingsApiKey.value.trim());
+          appConfig.setStoredGeminiModel(settingsGeminiModel.value);
+          currentApiBase.textContent = normalizedApiBase || '未設定';
+          setStatus('この端末に保存しました。', false, true);
+        });
+
+        document.getElementById('checkBootstrapBtn').addEventListener('click', async () => {
+          const normalizedApiBase = appConfig.setApiBaseUrl(settingsApiBaseUrl.value);
+          currentApiBase.textContent = normalizedApiBase || '未設定';
+          if (!appConfig.hasConfiguredApiBaseUrl()) {
+            currentServerName.textContent = '未設定';
+            setStatus('接続先URLを入力してください。', true);
+            return;
+          }
+          setStatus('接続先を確認しています...');
+          try {
+            const bootstrap = await loadBootstrap();
+            setStatus(`接続先を確認しました: ${bootstrap.server_name || '不明'}`, false, true);
+          } catch (error) {
+            currentServerName.textContent = '接続失敗';
+            setStatus(`接続確認に失敗しました: ${error.message}`, true);
+          }
+        });
+
+        document.getElementById('addLocationLabelBtn').addEventListener('click', async () => {
+          const apiKey = settingsApiKey.value.trim();
+          const label = document.getElementById('newLocationLabel').value.trim();
+          const status = document.getElementById('locationLabelStatus');
+          if (!appConfig.hasConfiguredApiBaseUrl()) {
+            status.textContent = '接続先URLを保存してください。';
+            status.className = 'action-status is-error';
+            return;
+          }
+          if (!apiKey || !label) {
+            status.textContent = 'アプリパスワードと場所ラベルを入力してください。';
+            status.className = 'action-status is-error';
+            return;
+          }
+          appConfig.setStoredPassword(apiKey);
+          const formData = new FormData();
+          formData.append('label', label);
+          try {
+            const response = await fetch(appConfig.apiUrl('/api/settings/location-labels'), {
+              method: 'POST',
+              headers: { 'X-Plant-Dex-Api-Key': apiKey },
+              body: formData
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.detail || '追加に失敗しました。');
+            }
+            renderLocationLabels(data.location_labels || []);
+            document.getElementById('newLocationLabel').value = '';
+            status.textContent = '追加しました。';
+            status.className = 'action-status is-success';
+          } catch (error) {
+            status.textContent = `エラー: ${error.message}`;
+            status.className = 'action-status is-error';
+          }
+        });
+
+        document.getElementById('locationLabelList').addEventListener('click', async (event) => {
+          const button = event.target.closest('[data-label]');
+          if (!button) {
+            return;
+          }
+          const apiKey = settingsApiKey.value.trim();
+          const status = document.getElementById('locationLabelStatus');
+          if (!appConfig.hasConfiguredApiBaseUrl()) {
+            status.textContent = '接続先URLを保存してください。';
+            status.className = 'action-status is-error';
+            return;
+          }
+          if (!apiKey) {
+            status.textContent = 'アプリパスワードを入力してください。';
+            status.className = 'action-status is-error';
+            return;
+          }
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/settings/location-labels/${encodeURIComponent(button.dataset.label)}`), {
+              method: 'DELETE',
+              headers: { 'X-Plant-Dex-Api-Key': apiKey }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.detail || '削除に失敗しました。');
+            }
+            renderLocationLabels(data.location_labels || []);
+            status.textContent = '削除しました。';
+            status.className = 'action-status is-success';
+          } catch (error) {
+            status.textContent = `エラー: ${error.message}`;
+            status.className = 'action-status is-error';
+          }
+        });
+
+        if (appConfig.hasConfiguredApiBaseUrl()) {
+          try {
+            await loadBootstrap();
+          } catch (error) {
+            currentServerName.textContent = '接続失敗';
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2e7a55">
+    <title>ホーム | AI Plantgraphy</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v1">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><img src="./static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <nav class="nav">
+        <a href="./index.html" class="is-current">ホーム</a>
+        <a href="./upload.html">追加</a>
+        <a href="./pending-local.html">未送信</a>
+        <a href="./settings.html">設定</a>
+      </nav>
+    </header>
+    <main class="page">
+      <section class="page-hero compact-hero">
+        <div>
+          <p class="eyebrow">Shared front</p>
+          <h1>AI Plantgraphy</h1>
+          <p>このページは共用フロントです。写真や観察データは、設定した自分のPCにだけ送信されます。</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Start</p>
+            <h2>使い始める順番</h2>
+          </div>
+        </div>
+        <div class="diagnostic-list compact-list">
+          <div class="diagnostic-item">
+            <strong>1. 設定</strong>
+            <span>必須</span>
+            <p><a href="./settings.html">設定</a> で自分のPCの Tailscale HTTPS URL とアプリパスワードを保存します。</p>
+          </div>
+          <div class="diagnostic-item">
+            <strong>2. 追加</strong>
+            <span>写真準備</span>
+            <p><a href="./upload.html">追加</a> で写真を選び、PC停止中でも「あとで送信する」で端末保存できます。</p>
+          </div>
+          <div class="diagnostic-item">
+            <strong>3. 未送信</strong>
+            <span>手動送信</span>
+            <p><a href="./pending-local.html">未送信</a> から、自分のPCが起動しているときだけ送信します。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Connection</p>
+            <h2>この端末の接続先</h2>
+          </div>
+        </div>
+        <div class="check-grid">
+          <div><span>送信先URL</span><strong id="homeApiBaseLabel">未設定</strong></div>
+          <div><span>接続先PC</span><strong id="homeServerNameLabel">未確認</strong></div>
+        </div>
+        <p class="field-help">接続先URLが未設定のままでは送信できません。まず <a href="./settings.html">設定</a> を開いて、自分のPCだけを登録してください。</p>
+        <p id="homeConnectionStatus" class="action-status"></p>
+      </section>
+    </main>
+    <script src="./static/offline-drafts.js" defer></script>
+    <script src="./static/app.js" defer></script>
+    <script>
+      window.addEventListener('load', async () => {
+        const appConfig = window.AIPlantgraphyApp;
+        const apiBaseLabel = document.getElementById('homeApiBaseLabel');
+        const serverNameLabel = document.getElementById('homeServerNameLabel');
+        const status = document.getElementById('homeConnectionStatus');
+        const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
+        apiBaseLabel.textContent = apiBase || '未設定';
+        if (!appConfig || !apiBase) {
+          serverNameLabel.textContent = '未設定';
+          status.textContent = '設定ページで自分のPCの接続先URLを保存してください。';
+          return;
+        }
+        status.textContent = '接続先を確認しています...';
+        try {
+          const bootstrap = await appConfig.fetchBootstrap();
+          serverNameLabel.textContent = bootstrap.server_name || '不明';
+          status.textContent = `この端末は ${bootstrap.server_name || '不明'} に送信する設定です。`;
+          status.className = 'action-status is-success';
+        } catch (error) {
+          serverNameLabel.textContent = '接続失敗';
+          status.textContent = `接続確認に失敗しました: ${error.message}`;
+          status.className = 'action-status is-error';
+        }
+      });
+    </script>
+  </body>
+</html>

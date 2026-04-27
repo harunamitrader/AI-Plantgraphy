@@ -57,6 +57,10 @@
         <button class="btn btn-primary" id="uploadButton" type="submit">送信して解析する</button>
         <button class="btn" id="saveDraftButton" type="button">あとで送信する</button>
       </div>
+      <div class="check-grid">
+        <div><span>送信先URL</span><strong id="uploadApiBaseLabel">未設定</strong></div>
+        <div><span>接続先PC</span><strong id="uploadServerNameLabel">未確認</strong></div>
+      </div>
       <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
       <p class="field-help">サーバーが停止中でも、PWAを一度開いていれば端末保存だけ先に進められます。</p>
       <p id="uploadStatus" class="action-status"></p>
@@ -81,6 +85,9 @@
     const statusText = document.getElementById('uploadStatus');
     const uploadButton = document.getElementById('uploadButton');
     const saveDraftButton = document.getElementById('saveDraftButton');
+    const uploadApiBaseLabel = document.getElementById('uploadApiBaseLabel');
+    const uploadServerNameLabel = document.getElementById('uploadServerNameLabel');
+    const appConfig = window.AIPlantgraphyApp;
     let uploadStartedAt = 0;
     let elapsedTimer = null;
     let candidates = [];
@@ -103,6 +110,21 @@
     captureFrameBtn.addEventListener('click', captureFrame);
     stopCameraBtn.addEventListener('click', stopContinuousCamera);
     window.addEventListener('pagehide', stopContinuousCamera);
+
+    async function refreshUploadTarget() {
+      const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
+      uploadApiBaseLabel.textContent = apiBase || '未設定';
+      if (!appConfig || !apiBase) {
+        uploadServerNameLabel.textContent = '未設定';
+        return;
+      }
+      try {
+        const bootstrap = await appConfig.fetchBootstrap();
+        uploadServerNameLabel.textContent = bootstrap.server_name || '不明';
+      } catch (err) {
+        uploadServerNameLabel.textContent = '接続失敗';
+      }
+    }
 
     async function addCandidates(files) {
       for (const file of files) {
@@ -312,7 +334,8 @@
         await window.AIPlantgraphyDrafts.saveDraft({
           note: document.getElementById('note').value,
           locationLabel: document.getElementById('locationLabel').value,
-          geminiModel: localStorage.getItem('plant_dex_gemini_model') || '',
+          geminiModel: appConfig ? appConfig.getStoredGeminiModel() : '',
+          apiBaseUrl: appConfig ? appConfig.getApiBaseUrl() : '',
           selectedImageIds: selected.map((candidate) => candidate.id),
           images: candidates.map((candidate) => ({
             id: candidate.id,
@@ -323,7 +346,7 @@
         });
         setStatus('端末に保存しました。サーバー起動後に未送信一覧から送信できます。', false);
         window.setTimeout(() => {
-          window.location.href = '/pending-local';
+          window.location.href = appConfig ? appConfig.pageUrl('pending-local') : '/pending-local';
         }, 500);
       } catch (err) {
         setStatus(`保存できませんでした: ${err.message}`, true);
@@ -335,9 +358,14 @@
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const files = getSelectedCandidates().map((candidate) => candidate.file);
-      const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
-      const geminiModel = localStorage.getItem('plant_dex_gemini_model') || '';
+      const apiKey = appConfig ? appConfig.getStoredPassword() : '';
+      const geminiModel = appConfig ? appConfig.getStoredGeminiModel() : '';
+      const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
 
+      if (!apiBase) {
+        setStatus('設定ページで自分のPCの接続先URLを保存してください。', true);
+        return;
+      }
       if (!apiKey) {
         setStatus('設定ページでアプリパスワードを保存してください。', true);
         return;
@@ -361,7 +389,7 @@
       formData.append('gemini_model', geminiModel);
 
       try {
-        const response = await fetch('/api/observations', {
+        const response = await fetch(appConfig.apiUrl('/api/observations'), {
           method: 'POST',
           headers: {
             'X-Plant-Dex-Api-Key': apiKey
@@ -410,19 +438,19 @@
       const timer = window.setInterval(async () => {
         attempts += 1;
         try {
-          const response = await fetch(`/api/observations/${observationId}`);
+          const response = await fetch(appConfig.apiUrl(`/api/observations/${observationId}`));
           const data = await response.json();
           const seconds = Math.max(0, Math.floor((Date.now() - uploadStartedAt) / 1000));
           statusText.textContent = `${progressLabel(data)}${identityLabel(data)} / 経過 ${seconds}秒`;
           if (data.status !== 'queued' && data.status !== 'analyzing') {
             window.clearInterval(timer);
             stopElapsedTimer();
-            window.location.href = `/observations/${observationId}`;
+            window.location.href = appConfig ? appConfig.observationUrl(observationId) : `/observations/${observationId}`;
           }
           if (attempts >= 72) {
             window.clearInterval(timer);
             stopElapsedTimer();
-            window.location.href = `/observations/${observationId}`;
+            window.location.href = appConfig ? appConfig.observationUrl(observationId) : `/observations/${observationId}`;
           }
         } catch (err) {
           window.clearInterval(timer);
@@ -460,5 +488,7 @@
         return {};
       }
     }
+
+    refreshUploadTarget();
   </script>
 {% endblock %}

@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+import socket
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -33,6 +34,7 @@ GEMINI_MODEL_LABELS = {
 class Settings(BaseSettings):
     api_key: str = "change-me"
     base_url: str = "http://127.0.0.1:8000"
+    server_name: str = socket.gethostname()
     gemini_enabled: bool = False
     gemini_command: str = "gemini"
     gemini_model: str = "gemini-3-flash-preview"

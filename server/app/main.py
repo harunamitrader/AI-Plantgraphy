@@ -5,6 +5,7 @@ from threading import Lock
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -24,6 +25,17 @@ from .services.qr_code import qr_data_url
 ensure_data_dirs()
 
 app = FastAPI(title="AI Plantgraphy", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost",
+        "http://127.0.0.1",
+    ],
+    allow_origin_regex=r"^https://[a-z0-9-]+\.github\.io$|^http://localhost:\d+$|^http://127\.0\.0\.1:\d+$",
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 templates = Jinja2Templates(directory=Path(__file__).parent / "web" / "templates")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static")
 app.mount("/media", StaticFiles(directory=IMAGE_DIR), name="media")
@@ -46,6 +58,22 @@ def require_api_key(x_plant_dex_api_key: str | None = Header(default=None)) -> N
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/bootstrap")
+def bootstrap() -> dict:
+    settings = get_settings()
+    return {
+        "status": "ok",
+        "app_name": "AI Plantgraphy",
+        "server_name": settings.server_name,
+        "server_id": settings.server_name.lower(),
+        "base_url": settings.base_url,
+        "gemini_enabled": settings.gemini_enabled,
+        "gemini_model": settings.gemini_model,
+        "gemini_model_choices": gemini_model_choices(),
+        "location_labels": get_location_labels(),
+    }
 
 
 @app.get("/api/connectivity")
