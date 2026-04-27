@@ -104,6 +104,34 @@
     return `/observations/${observationId}`;
   }
 
+  function serverPageUrl(slug) {
+    const normalized = String(slug || '').replace(/^\/+/, '').replace(/\.html$/, '');
+    if (!normalized || normalized === 'home' || normalized === 'index') {
+      return apiUrl('/');
+    }
+    return apiUrl(`/${normalized}`);
+  }
+
+  function bindOnlineLinks(root = document) {
+    const links = root.querySelectorAll('[data-online-link]');
+    if (!links.length) {
+      return;
+    }
+    const hasApiBase = hasConfiguredApiBaseUrl();
+    links.forEach((link) => {
+      const slug = link.getAttribute('data-online-link') || '';
+      if (!hasApiBase) {
+        link.setAttribute('href', pageUrl('settings'));
+        link.classList.add('is-disabled');
+        link.setAttribute('title', '先に設定ページで自分のPCの接続先URLを保存してください。');
+        return;
+      }
+      link.setAttribute('href', serverPageUrl(slug));
+      link.classList.remove('is-disabled');
+      link.removeAttribute('title');
+    });
+  }
+
   function getStoredPassword() {
     return (localStorage.getItem(PASSWORD_KEY) || localStorage.getItem(LEGACY_PASSWORD_KEY) || '').trim();
   }
@@ -146,6 +174,14 @@
     });
   }
 
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => bindOnlineLinks());
+    } else {
+      bindOnlineLinks();
+    }
+  }
+
   window.AIPlantgraphyApp = {
     apiBaseKey: API_BASE_KEY,
     passwordKey: PASSWORD_KEY,
@@ -161,6 +197,8 @@
     apiUrl,
     pageUrl,
     observationUrl,
+    serverPageUrl,
+    bindOnlineLinks,
     getStoredPassword,
     setStoredPassword,
     getStoredGeminiModel,

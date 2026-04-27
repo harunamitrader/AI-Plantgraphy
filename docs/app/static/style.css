@@ -112,6 +112,10 @@ a {
   box-shadow: 0 6px 16px rgba(46, 122, 85, 0.18);
 }
 
+.nav a.is-disabled {
+  opacity: 0.62;
+}
+
 .page {
   width: min(1120px, 100%);
   max-width: 100%;
