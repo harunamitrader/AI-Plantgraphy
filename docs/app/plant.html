@@ -155,11 +155,12 @@
 
           plantPhotoStrip.innerHTML = '';
           photoUrls.forEach((url, index) => {
+            const resolvedUrl = appConfig.resolveServerUrl(url);
             const button = document.createElement('button');
             button.className = 'photo-button';
             button.type = 'button';
-            button.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(`${plant.display_name || '植物'} 写真 ${index + 1}`)}">`;
-            button.addEventListener('click', () => openImage(url, `${plant.display_name || '植物'} 写真 ${index + 1}`));
+            button.innerHTML = `<img src="${escapeHtml(resolvedUrl)}" alt="${escapeHtml(`${plant.display_name || '植物'} 写真 ${index + 1}`)}">`;
+            button.addEventListener('click', () => openImage(resolvedUrl, `${plant.display_name || '植物'} 写真 ${index + 1}`));
             plantPhotoStrip.appendChild(button);
           });
 
@@ -170,8 +171,9 @@
             row.className = 'activity-row';
             row.href = `./observation.html?id=${encodeURIComponent(observation.id)}`;
             const firstImage = Array.isArray(observation.image_urls) && observation.image_urls.length ? observation.image_urls[0] : '';
+            const firstImageUrl = firstImage ? appConfig.resolveServerUrl(firstImage) : '';
             row.innerHTML = `
-              ${firstImage ? `<img src="${escapeHtml(firstImage)}" alt="${escapeHtml(plant.display_name || '植物')}">` : ''}
+              ${firstImageUrl ? `<img src="${escapeHtml(firstImageUrl)}" alt="${escapeHtml(plant.display_name || '植物')}">` : ''}
               <div>
                 <span>${escapeHtml(observation.observed_label || '未入力')}</span>
                 <small>${escapeHtml(observation.status_label || '不明')} / 信頼度 ${escapeHtml(observation.confidence_percent || '不明')}</small>

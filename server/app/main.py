@@ -16,7 +16,7 @@ from .services.app_settings import add_location_label, get_location_labels, remo
 from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
 from .services.export_store import create_export_zip
-from .services.gemini_cli import analyze_images, generate_plant_profile, normalize_confidence, normalize_result
+from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
 from .services.image_store import save_observation_images
 from .services.diagnostics import build_diagnostics
 from .services.observation_cleanup import remove_observation_images
@@ -124,7 +124,7 @@ def api_observation(observation_id: str) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
-    data = present_observation(observation, absolute_urls=True)
+    data = present_observation(observation)
     data["analysis_progress"] = get_analysis_progress(observation_id, data.get("status"))
     return data
 
@@ -132,7 +132,7 @@ def api_observation(observation_id: str) -> dict:
 @app.get("/api/plants")
 def api_plants() -> dict:
     return {
-        "plants": [present_plant(row, absolute_urls=True) for row in db.list_plants()],
+        "plants": [present_plant(row) for row in db.list_plants()],
     }
 
 
@@ -142,23 +142,23 @@ def api_plant_detail(plant_id: str) -> dict:
     if plant is None:
         raise HTTPException(status_code=404, detail="植物が見つかりません。")
     return {
-        "plant": present_plant(plant, absolute_urls=True),
-        "observations": [present_observation(row, absolute_urls=True) for row in db.list_observations_for_plant(plant_id)],
-        "photo_urls": [absolute_public_url(media_url(path)) for path in db.list_recent_image_paths_for_plant(plant_id)],
+        "plant": present_plant(plant),
+        "observations": [present_observation(row) for row in db.list_observations_for_plant(plant_id)],
+        "photo_urls": [media_url(path) for path in db.list_recent_image_paths_for_plant(plant_id)],
     }
 
 
 @app.get("/api/observations")
 def api_observations() -> dict:
     return {
-        "observations": [present_observation(row, absolute_urls=True) for row in db.list_observations()],
+        "observations": [present_observation(row) for row in db.list_observations()],
     }
 
 
 @app.get("/api/review")
 def api_review() -> dict:
     return {
-        "observations": [present_observation(row, absolute_urls=True) for row in db.list_review_observations()],
+        "observations": [present_observation(row) for row in db.list_review_observations()],
     }
 
 

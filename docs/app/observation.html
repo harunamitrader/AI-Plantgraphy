@@ -191,11 +191,12 @@
           const photoStrip = document.getElementById('observationPhotoStrip');
           photoStrip.innerHTML = '';
           (observation.image_urls || []).forEach((url, index) => {
+            const resolvedUrl = appConfig.resolveServerUrl(url);
             const button = document.createElement('button');
             button.className = 'photo-button';
             button.type = 'button';
-            button.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(`観察写真 ${index + 1}`)}">`;
-            button.addEventListener('click', () => openImage(url, `観察写真 ${index + 1}`));
+            button.innerHTML = `<img src="${escapeHtml(resolvedUrl)}" alt="${escapeHtml(`観察写真 ${index + 1}`)}">`;
+            button.addEventListener('click', () => openImage(resolvedUrl, `観察写真 ${index + 1}`));
             photoStrip.appendChild(button);
           });
 
