@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#2e7a55">
+    <meta name="theme-color" content="#22403a">
     <title>{% block title %}AI Plantgraphy{% endblock %}</title>
     <link rel="manifest" href="/static/manifest.webmanifest">
     <link rel="icon" href="/static/icons/icon-192.png">
@@ -13,7 +13,7 @@
   <body class="pc-admin">
     {% set current_path = request.url.path %}
     <header class="site-header">
-      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy PC管理画面</a>
+      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy <span class="admin-pill">PC管理画面</span></a>
       <nav class="nav">
         <a href="/" class="{% if current_path == '/' %}is-current{% endif %}">ホーム</a>
         <a href="/plants" class="{% if current_path == '/plants' or current_path.startswith('/plants/') %}is-current{% endif %}">図鑑</a>
