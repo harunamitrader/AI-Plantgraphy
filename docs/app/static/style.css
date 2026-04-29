@@ -1407,8 +1407,7 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .inline-settings,
-  .camera-actions {
+  .inline-settings {
     grid-template-columns: 1fr;
   }
 
