@@ -23,8 +23,14 @@
       {% if primary_home_url %}
         <img class="qr-image" src="{{ home_qr }}" alt="ホーム画面のQRコード">
         <a class="url-box" href="{{ primary_home_url }}">{{ primary_home_url }}</a>
+        <p class="field-help">このQRは、スマホで普段使う GitHub Pages 側の画面を開きます。</p>
       {% else %}
         <p class="empty">接続URLを検出できませんでした。</p>
+      {% endif %}
+      {% if input_api_url %}
+        <h3>設定に入力するURL</h3>
+        <a class="url-box" href="{{ input_api_url }}">{{ input_api_url }}</a>
+        <p class="field-help">スマホ側の `設定` で `接続先URL` に入れるのは、この Tailscale HTTPS URL です。</p>
       {% endif %}
     </div>
 

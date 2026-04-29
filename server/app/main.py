@@ -223,28 +223,33 @@ def connect_page() -> RedirectResponse:
 def settings_page(request: Request) -> HTMLResponse:
     info = build_connectivity()
     diagnostics = build_diagnostics()
+    settings = get_settings()
     tailscale_https_is_ready = info["checks"]["tailscale_serve"] == "configured"
     primary_upload_url = (
         (first_url(info["upload_urls"]["tailscale_https"]) if tailscale_https_is_ready else None)
         or first_url(info["upload_urls"]["tailscale"])
         or first_url(info["upload_urls"]["local"])
     )
-    primary_home_url = (
-        (first_url(info["tailscale_https_urls"]) if tailscale_https_is_ready else None)
+    shared_frontend_url = settings.shared_frontend_url.strip()
+    input_api_url = (
+        first_url(info["tailscale_https_urls"])
         or first_url(info["tailscale_urls"])
         or first_url(info["local_urls"])
     )
+    primary_home_url = shared_frontend_url or input_api_url
     return templates.TemplateResponse(
         request,
         "settings.html",
         {
             "connectivity": info,
             "diagnostics": diagnostics,
+            "shared_frontend_url": shared_frontend_url,
+            "input_api_url": input_api_url,
             "primary_upload_url": primary_upload_url,
             "primary_home_url": primary_home_url,
             "upload_qr": qr_data_url(primary_upload_url) if primary_upload_url else "",
             "home_qr": qr_data_url(primary_home_url) if primary_home_url else "",
-            "gemini_model": get_settings().gemini_model,
+            "gemini_model": settings.gemini_model,
             "gemini_model_choices": gemini_model_choices(),
             "location_labels": get_location_labels(),
         },

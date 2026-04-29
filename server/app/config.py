@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     api_key: str = "change-me"
     base_url: str = "http://127.0.0.1:8000"
     server_name: str = socket.gethostname()
+    shared_frontend_url: str = "https://harunamitrader.github.io/AI-Plantgraphy/app/"
     gemini_enabled: bool = False
     gemini_command: str = "gemini"
     gemini_model: str = "gemini-3-flash-preview"
