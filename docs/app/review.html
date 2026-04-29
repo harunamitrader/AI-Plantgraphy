@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>確認待ち | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v7">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v8">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v7">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v8">
   </head>
   <body>
     <header class="site-header">
@@ -51,7 +51,8 @@
       </section>
     </main>
 
-    <script src="./static/app.js?v=pages-v7" defer></script>
+    <script src="./static/view-cache.js?v=pages-v8" defer></script>
+    <script src="./static/app.js?v=pages-v8" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -61,6 +62,7 @@
         const reviewSearch = document.getElementById('reviewSearch');
         const reviewEmpty = document.getElementById('reviewEmpty');
         const offlineBanner = document.getElementById('offlineBanner');
+        const viewCache = window.AIPlantgraphyViewCache;
         function setStatus(message, isError = false) {
           status.textContent = message;
           status.className = isError ? 'action-status is-error' : 'action-status';
@@ -130,10 +132,18 @@
         setStatus('確認待ちを読み込んでいます...');
         try {
           const data = await appConfig.fetchJson('/api/review', { cache: 'no-store' });
+          viewCache && await viewCache.saveIndex('review', data).catch(() => null);
           appConfig.hideOfflineBanner(offlineBanner);
           renderReviews(data.observations || []);
           setStatus('');
         } catch (error) {
+          const cached = viewCache ? await viewCache.loadIndex('review').catch(() => null) : null;
+          if (cached?.payload?.observations) {
+            renderReviews(cached.payload.observations || []);
+            appConfig.showOfflineBanner(offlineBanner, viewCache.offlineMessage('保存済みの確認待ち一覧を表示しています。', cached.savedAt));
+            setStatus('保存済みの確認待ち一覧を表示しています。');
+            return;
+          }
           appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 確認待ち一覧の更新は接続中のみ行えます。`);
           setStatus(`確認待ちを読み込めませんでした: ${error.message}`, true);
         }

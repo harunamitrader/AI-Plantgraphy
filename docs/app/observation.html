@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>観察詳細 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v7">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v8">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v7">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v8">
   </head>
   <body>
     <header class="site-header">
@@ -168,7 +168,8 @@
       </div>
     </main>
 
-    <script src="./static/app.js?v=pages-v7" defer></script>
+    <script src="./static/view-cache.js?v=pages-v8" defer></script>
+    <script src="./static/app.js?v=pages-v8" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -177,9 +178,11 @@
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const offlineBanner = document.getElementById('offlineBanner');
+        const viewCache = window.AIPlantgraphyViewCache;
         let currentObservation = null;
         let activeTimerInterval = null;
         let pollingInterval = null;
+        let isCachedView = false;
 
         function setStatus(message, isError = false) {
           status.textContent = message;
@@ -261,6 +264,21 @@
           const target = document.getElementById(elementId);
           target.textContent = message;
           target.className = state ? `action-status ${state}` : 'action-status';
+        }
+
+        function setActionsEnabled(enabled) {
+          document.querySelectorAll('#actionsSection input, #actionsSection textarea, #actionsSection button').forEach((element) => {
+            element.disabled = !enabled;
+          });
+          if (!enabled) {
+            setActionMessage('correctionStatus', 'オフライン表示中は保存できません。', 'is-error');
+            setActionMessage('reanalyzeStatus', 'オフライン表示中は再解析できません。', 'is-error');
+            setActionMessage('deleteStatus', 'オフライン表示中は削除できません。', 'is-error');
+          } else {
+            setActionMessage('correctionStatus', '', '');
+            setActionMessage('reanalyzeStatus', '', '');
+            setActionMessage('deleteStatus', '', '');
+          }
         }
 
         function renderTiming(observation) {
@@ -351,6 +369,7 @@
           document.getElementById('correctScientificName').value = (observation.analysis.scientific_name || '').trim();
           document.getElementById('correctNote').value = observation.note || '';
           document.getElementById('correctLocationLabel').value = observation.location_label || '';
+          setActionsEnabled(!isCachedView);
         }
 
         function renderObservation(observation) {
@@ -431,6 +450,8 @@
 
         async function loadObservation() {
           const observation = await appConfig.fetchJson(`/api/observations/${encodeURIComponent(observationId)}`, { cache: 'no-store' });
+          viewCache && await viewCache.saveDetail('observation', observationId, observation).catch(() => null);
+          isCachedView = false;
           renderObservation(observation);
           return observation;
         }
@@ -440,7 +461,7 @@
             window.clearInterval(pollingInterval);
             pollingInterval = null;
           }
-          if (!currentObservation || !isPendingStatus(currentObservation)) {
+          if (!currentObservation || !isPendingStatus(currentObservation) || isCachedView) {
             return;
           }
           pollingInterval = window.setInterval(async () => {
@@ -604,6 +625,14 @@
           appConfig.hideOfflineBanner(offlineBanner);
           startPolling();
         } catch (error) {
+          const cached = viewCache ? await viewCache.loadDetail('observation', observationId).catch(() => null) : null;
+          if (cached?.payload?.id) {
+            isCachedView = true;
+            renderObservation(cached.payload);
+            appConfig.showOfflineBanner(offlineBanner, viewCache.offlineMessage('保存済みの観察詳細を表示しています。', cached.savedAt));
+            setStatus('保存済みの観察詳細を表示しています。');
+            return;
+          }
           document.getElementById('observationName').textContent = '読み込み失敗';
           appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 再解析、削除、修正は接続中のみ実行できます。`);
           setStatus(`接続先PCに接続できません。PC起動後に再試行してください。(${error.message})`, true);
