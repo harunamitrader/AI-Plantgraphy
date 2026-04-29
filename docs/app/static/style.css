@@ -1004,8 +1004,8 @@ pre {
 
 .camera-panel video {
   width: 100%;
-  max-height: 68vh;
-  aspect-ratio: 4 / 3;
+  max-height: min(78vw, 68vh);
+  aspect-ratio: 1;
   border-radius: 8px;
   background: #0b1410;
   object-fit: cover;
@@ -1029,8 +1029,12 @@ pre {
 
 .camera-actions {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 3fr 1fr;
   gap: 6px;
+}
+
+.camera-actions .btn {
+  min-height: 60px;
 }
 
 .visually-hidden {

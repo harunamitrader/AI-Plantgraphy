@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>植物を追加 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v9">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v10">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v9">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v10">
   </head>
   <body>
     <header class="site-header">
@@ -88,8 +88,8 @@
       </section>
     </main>
 
-    <script src="./static/offline-drafts.js?v=pages-v9" defer></script>
-    <script src="./static/app.js?v=pages-v9" defer></script>
+    <script src="./static/offline-drafts.js?v=pages-v10" defer></script>
+    <script src="./static/app.js?v=pages-v10" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const form = document.getElementById('uploadForm');
@@ -115,8 +115,29 @@
         let candidates = [];
         let nextCandidateId = 1;
         let cameraStream = null;
+        const LAST_LOCATION_KEY = 'ai-plantgraphy:last-location-label';
         const MAX_UPLOAD_EDGE = 1280;
         const JPEG_QUALITY = 0.78;
+
+        function getLastLocationLabel() {
+          try {
+            return window.localStorage.getItem(LAST_LOCATION_KEY) || '';
+          } catch (error) {
+            return '';
+          }
+        }
+
+        function saveLastLocationLabel(value) {
+          try {
+            if (value) {
+              window.localStorage.setItem(LAST_LOCATION_KEY, value);
+            } else {
+              window.localStorage.removeItem(LAST_LOCATION_KEY);
+            }
+          } catch (error) {
+            // noop
+          }
+        }
 
         async function refreshUploadTarget() {
           const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
@@ -136,7 +157,7 @@
         }
 
         function renderLocationLabels(labels) {
-          const current = locationLabelSelect.value;
+          const current = locationLabelSelect.value || getLastLocationLabel();
           locationLabelSelect.innerHTML = '<option value="">未入力</option>';
           (labels || []).forEach((label) => {
             const option = document.createElement('option');
@@ -147,11 +168,26 @@
             }
             locationLabelSelect.appendChild(option);
           });
+          if (!locationLabelSelect.value && current) {
+            locationLabelSelect.value = current;
+          }
         }
 
         function setStatus(message, isError) {
           statusText.textContent = message;
           statusText.className = isError ? 'action-status is-error' : 'action-status is-success';
+        }
+
+        function resetUploadState() {
+          candidates.forEach((candidate) => URL.revokeObjectURL(candidate.url));
+          candidates = [];
+          nextCandidateId = 1;
+          galleryInput.value = '';
+          cameraInput.value = '';
+          document.getElementById('note').value = '';
+          renderCandidates();
+          uploadButton.disabled = false;
+          saveDraftButton.disabled = false;
         }
 
         function startElapsedTimer(label) {
@@ -343,6 +379,9 @@
         captureFrameBtn.addEventListener('click', captureFrame);
         stopCameraBtn.addEventListener('click', stopContinuousCamera);
         window.addEventListener('pagehide', stopContinuousCamera);
+        locationLabelSelect.addEventListener('change', () => {
+          saveLastLocationLabel(locationLabelSelect.value);
+        });
 
         saveDraftButton.addEventListener('click', async () => {
           if (!window.AIPlantgraphyDrafts) {
@@ -350,6 +389,7 @@
             return;
           }
           const selected = getSelectedCandidates();
+          const locationLabel = locationLabelSelect.value;
           if (selected.length < 1 || selected.length > 3) {
             setStatus('保存する写真を1〜3枚選んでください。', true);
             return;
@@ -358,7 +398,7 @@
           try {
             await window.AIPlantgraphyDrafts.saveDraft({
               note: document.getElementById('note').value,
-              locationLabel: document.getElementById('locationLabel').value,
+              locationLabel,
               geminiModel: appConfig ? appConfig.getStoredGeminiModel() : '',
               apiBaseUrl: appConfig ? appConfig.getApiBaseUrl() : '',
               selectedImageIds: selected.map((candidate) => candidate.id),
@@ -369,10 +409,9 @@
                 blob: candidate.file
               }))
             });
-            setStatus('端末に保存しました。サーバー起動後に未送信一覧から送信できます。', false);
-            window.setTimeout(() => {
-              window.location.href = appConfig ? appConfig.pageUrl('pending-local') : './pending-local.html';
-            }, 500);
+            saveLastLocationLabel(locationLabel);
+            resetUploadState();
+            setStatus('端末に保存しました。次の植物を続けて追加できます。未送信一覧からも確認できます。', false);
           } catch (error) {
             setStatus(`保存できませんでした: ${error.message}`, true);
           } finally {
@@ -386,6 +425,7 @@
           const apiKey = appConfig ? appConfig.getStoredPassword() : '';
           const geminiModel = appConfig ? appConfig.getStoredGeminiModel() : '';
           const apiBase = appConfig ? appConfig.getApiBaseUrl() : '';
+          const locationLabel = locationLabelSelect.value;
 
           if (!apiBase) {
             setStatus('設定ページで自分のPCの接続先URLを保存してください。', true);
@@ -407,7 +447,7 @@
           const formData = new FormData();
           files.forEach((file) => formData.append('images', file));
           formData.append('note', document.getElementById('note').value);
-          formData.append('location_label', document.getElementById('locationLabel').value);
+          formData.append('location_label', locationLabel);
           formData.append('gemini_model', geminiModel);
 
           try {
@@ -420,9 +460,10 @@
             if (!response.ok) {
               throw new Error(data.detail || '送信に失敗しました。');
             }
-            setStatus('解析を開始しました。完了したら詳細ページへ移動します。', false);
-            startElapsedTimer('解析待ち');
-            pollObservation(data.observation_id);
+            stopElapsedTimer();
+            saveLastLocationLabel(locationLabel);
+            resetUploadState();
+            setStatus(`解析を開始しました。次の植物を続けて追加できます。観察ID: ${data.observation_id}`, false);
           } catch (error) {
             stopElapsedTimer();
             uploadButton.disabled = false;
@@ -488,6 +529,7 @@
           }, 5000);
         }
 
+        renderLocationLabels([]);
         await refreshUploadTarget();
       });
     </script>
