@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-plantgraphy-pages-v6';
+const CACHE_NAME = 'ai-plantgraphy-pages-v7';
 const CORE_ASSET_PATHS = [
   '',
   'index.html',
@@ -10,10 +10,10 @@ const CORE_ASSET_PATHS = [
   'pending-local.html',
   'review.html',
   'settings.html',
-  'static/style.css?v=pages-v6',
-  'static/app.js?v=pages-v6',
-  'static/offline-drafts.js?v=pages-v6',
-  'manifest.webmanifest?v=pages-v6',
+  'static/style.css?v=pages-v7',
+  'static/app.js?v=pages-v7',
+  'static/offline-drafts.js?v=pages-v7',
+  'manifest.webmanifest?v=pages-v7',
   'static/brand/ai-plantgraphy-icon.png',
   'static/brand/ai-plantgraphy-header.jpg',
   'static/icons/icon-192.png',

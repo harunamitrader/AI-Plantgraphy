@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>設定 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v6">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v7">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v6">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v7">
   </head>
   <body>
     <header class="site-header">
@@ -66,7 +66,6 @@
           <p class="field-help">この共用フロント自体は GitHub Pages 上で開くため、PC停止中でも起動できます。送信は <a href="./pending-local.html">未送信一覧</a> から手動で行います。</p>
           <div class="check-grid">
             <div><span>未送信件数</span><strong id="localDraftCount">0 件</strong></div>
-            <div><span>PWA診断</span><strong id="pwaMode">確認中</strong></div>
           </div>
         </div>
       </section>
@@ -102,70 +101,10 @@
         <p class="field-help">内容は `plants.sqlite`、`images/`、`manifest.json` です。PCの `data/exports` にも保存されます。</p>
         <p id="exportStatus" class="action-status"></p>
       </section>
-
-      <section class="panel">
-        <div class="section-title">
-          <div>
-            <p class="eyebrow">Diagnostics</p>
-            <h2 id="diagnosticsTitle">診断を確認してください</h2>
-          </div>
-          <span id="diagnosticsCounts">0 records</span>
-        </div>
-        <div class="diagnostic-list compact-list" id="serverDiagnostics">
-          <div class="diagnostic-item">
-            <strong>未取得</strong>
-            <span>pending</span>
-            <p>接続先を確認すると、PC側の診断結果をここに表示します。</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="section-title">
-          <div>
-            <p class="eyebrow">Connection</p>
-            <h2>接続状態</h2>
-          </div>
-        </div>
-        <div class="check-grid" id="connectivityChecks">
-          <div><span>Gemini CLI</span><strong>未取得</strong></div>
-          <div><span>アプリパスワード</span><strong>未取得</strong></div>
-          <div><span>Tailscale Serve</span><strong>未取得</strong></div>
-          <div><span>Tailscale HTTPS</span><strong>未取得</strong></div>
-        </div>
-        <div class="settings-url-group">
-          <h3>Tailscale HTTPS</h3>
-          <div class="url-list" id="tailscaleHttpsList">
-            <p class="field-help">接続先を確認すると表示します。</p>
-          </div>
-        </div>
-        <div class="settings-url-group">
-          <h3>HTTP予備</h3>
-          <div class="url-list" id="tailscaleHttpList">
-            <p class="field-help">接続先を確認すると表示します。</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="section-title">
-          <div>
-            <p class="eyebrow">Current</p>
-            <h2>現在のPC設定</h2>
-          </div>
-        </div>
-        <div class="check-grid" id="currentPcSettings">
-          <div><span>Base URL</span><strong>未取得</strong></div>
-          <div><span>Gemini解析</span><strong>未取得</strong></div>
-          <div><span>Gemini既定モデル</span><strong>未取得</strong></div>
-          <div><span>Gemini待ち時間</span><strong>未取得</strong></div>
-          <div><span>Discord通知</span><strong>未取得</strong></div>
-        </div>
-      </section>
     </main>
 
-    <script src="./static/offline-drafts.js?v=pages-v6" defer></script>
-    <script src="./static/app.js?v=pages-v6" defer></script>
+    <script src="./static/offline-drafts.js?v=pages-v7" defer></script>
+    <script src="./static/app.js?v=pages-v7" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -176,13 +115,11 @@
         const currentApiBase = document.getElementById('currentApiBase');
         const currentServerName = document.getElementById('currentServerName');
         const localDraftCount = document.getElementById('localDraftCount');
-        const pwaMode = document.getElementById('pwaMode');
 
         const storedApiBase = appConfig.getStoredApiBaseUrl();
         settingsApiBaseUrl.value = storedApiBase;
         settingsApiKey.value = appConfig.getStoredPassword();
         currentApiBase.textContent = storedApiBase || '未設定';
-        pwaMode.textContent = window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser';
 
         if (window.AIPlantgraphyDrafts) {
           localDraftCount.textContent = `${await window.AIPlantgraphyDrafts.countDrafts()} 件`;
@@ -216,65 +153,6 @@
           });
         }
 
-        function renderDiagnostics(payload) {
-          const title = document.getElementById('diagnosticsTitle');
-          const counts = document.getElementById('diagnosticsCounts');
-          const list = document.getElementById('serverDiagnostics');
-          const checks = payload?.checks || [];
-          title.textContent = payload?.ok ? '使える状態です' : '確認が必要です';
-          counts.textContent = `${payload?.counts?.observations || 0} observations / ${payload?.counts?.plants || 0} plants`;
-          list.innerHTML = '';
-          checks.forEach((check) => {
-            const item = document.createElement('div');
-            item.className = `diagnostic-item is-${check.status || 'info'}`;
-            item.innerHTML = `<strong>${check.label}</strong><span>${check.status}</span><p>${check.message}</p>`;
-            list.appendChild(item);
-          });
-        }
-
-        function renderConnectivity(payload) {
-          const checks = payload?.checks || {};
-          const grid = document.getElementById('connectivityChecks');
-          grid.innerHTML = `
-            <div><span>Gemini CLI</span><strong>${checks.gemini_cli || '未取得'}</strong></div>
-            <div><span>アプリパスワード</span><strong>${checks.api_key || '未取得'}</strong></div>
-            <div><span>Tailscale Serve</span><strong>${checks.tailscale_serve || '未取得'}</strong></div>
-            <div><span>Tailscale HTTPS</span><strong>${checks.tailscale_https || '未取得'}</strong></div>
-          `;
-          renderUrlList('tailscaleHttpsList', payload?.tailscale_https_urls || []);
-          renderUrlList('tailscaleHttpList', payload?.tailscale_urls || []);
-        }
-
-        function renderUrlList(targetId, urls) {
-          const container = document.getElementById(targetId);
-          container.innerHTML = '';
-          if (!urls.length) {
-            const note = document.createElement('p');
-            note.className = 'field-help';
-            note.textContent = '利用できるURLがまだ見つかっていません。';
-            container.appendChild(note);
-            return;
-          }
-          urls.forEach((url) => {
-            const link = document.createElement('a');
-            link.href = url;
-            link.textContent = url;
-            container.appendChild(link);
-          });
-        }
-
-        function renderCurrentSettings(payload) {
-          const settings = payload?.settings || {};
-          const grid = document.getElementById('currentPcSettings');
-          grid.innerHTML = `
-            <div><span>Base URL</span><strong>${settings.base_url || '未取得'}</strong></div>
-            <div><span>Gemini解析</span><strong>${settings.gemini_enabled ? 'ON' : 'OFF'}</strong></div>
-            <div><span>Gemini既定モデル</span><strong>${settings.gemini_model || '未取得'}</strong></div>
-            <div><span>Gemini待ち時間</span><strong>${settings.gemini_timeout_seconds ? `${settings.gemini_timeout_seconds}秒` : '未取得'}</strong></div>
-            <div><span>Discord通知</span><strong>${settings.discord_enabled ? 'ON' : 'OFF'}</strong></div>
-          `;
-        }
-
         function renderGeminiModels(choices, selectedValue) {
           settingsGeminiModel.innerHTML = '';
           const empty = document.createElement('option');
@@ -292,22 +170,11 @@
           });
         }
 
-        async function refreshServerPanels() {
-          const [diagnosticsPayload, connectivityPayload] = await Promise.all([
-            appConfig.fetchJson('/api/diagnostics', { cache: 'no-store' }),
-            appConfig.fetchJson('/api/connectivity', { cache: 'no-store' }),
-          ]);
-          renderDiagnostics(diagnosticsPayload);
-          renderConnectivity(connectivityPayload);
-          renderCurrentSettings(diagnosticsPayload);
-        }
-
         async function loadBootstrap() {
           const bootstrap = await appConfig.fetchBootstrap();
           currentServerName.textContent = bootstrap.server_name || '不明';
           renderLocationLabels(bootstrap.location_labels || []);
           renderGeminiModels(bootstrap.gemini_model_choices || [], bootstrap.gemini_model || '');
-          await refreshServerPanels();
           return bootstrap;
         }
 
