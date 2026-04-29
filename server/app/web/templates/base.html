@@ -10,10 +10,10 @@
     <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <link rel="stylesheet" href="/static/style.css?v=20260426-offline-drafts">
   </head>
-  <body>
+  <body class="pc-admin">
     {% set current_path = request.url.path %}
     <header class="site-header">
-      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy</a>
+      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy PC管理画面</a>
       <nav class="nav">
         <a href="/" class="{% if current_path == '/' %}is-current{% endif %}">ホーム</a>
         <a href="/plants" class="{% if current_path == '/plants' or current_path.startswith('/plants/') %}is-current{% endif %}">図鑑</a>
@@ -24,6 +24,10 @@
         <a href="/settings" class="{% if current_path == '/settings' %}is-current{% endif %}">設定</a>
       </nav>
     </header>
+    <div class="pc-admin-banner">
+      <strong>PC管理画面</strong>
+      <span>通常利用は GitHub Pages 側の共用フロントから行います。この画面は接続確認、保守、設定確認向けです。</span>
+    </div>
     <main class="page">
       {% block content %}{% endblock %}
     </main>

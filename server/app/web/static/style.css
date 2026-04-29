@@ -12,6 +12,19 @@
   --shadow: 0 12px 28px rgba(31, 61, 47, 0.08);
 }
 
+body.pc-admin {
+  --ink: #2b221f;
+  --muted: #7c6a62;
+  --line: #e4d8d2;
+  --page: #f7f2ef;
+  --panel: #fffdfa;
+  --leaf: #8b4b3c;
+  --leaf-quiet: #f3e2db;
+  --coral: #c6533c;
+  --gold: #b88a2a;
+  --shadow: 0 12px 28px rgba(71, 45, 38, 0.08);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -49,6 +62,29 @@ a {
   backdrop-filter: blur(12px);
   max-width: 100%;
   min-width: 0;
+}
+
+.pc-admin-banner {
+  width: min(1120px, 100%);
+  max-width: 100%;
+  margin: 8px auto 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--leaf-quiet);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.pc-admin-banner strong {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 11px;
+}
+
+.pc-admin-banner span {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .brand {

@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>観察詳細 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v3">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v4">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v3">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v4">
   </head>
   <body>
     <header class="site-header">
@@ -48,6 +48,18 @@
         <div><span>Geminiモデル</span><strong id="factGeminiModel">記録なし</strong></div>
       </section>
 
+      <section class="panel timing-panel" id="activeTimingPanel" hidden>
+        <p class="eyebrow">Timer</p>
+        <h2>解析待ち</h2>
+        <p id="analysisTimer">経過時間を計測中...</p>
+      </section>
+
+      <section class="panel timing-panel" id="timingPanel" hidden>
+        <p class="eyebrow">Timing</p>
+        <h2>解析時間</h2>
+        <div class="timing-grid" id="timingGrid"></div>
+      </section>
+
       <section class="analysis-layout">
         <div class="panel">
           <div class="section-title flush">
@@ -71,6 +83,15 @@
             </div>
           </div>
           <div class="candidate-list" id="candidateList"></div>
+          <div id="aiCandidatesBlock" hidden>
+            <div class="section-title flush sub-section-title">
+              <div>
+                <p class="eyebrow">Before edit</p>
+                <h3>修正前のAI候補</h3>
+              </div>
+            </div>
+            <div class="candidate-list" id="aiCandidateList"></div>
+          </div>
         </div>
       </section>
 
@@ -87,10 +108,53 @@
         </div>
       </section>
 
+      <section class="error" id="errorSection" hidden>
+        <h2>エラー</h2>
+        <p id="errorText"></p>
+      </section>
+
       <details class="raw-json">
         <summary>解析JSONを表示</summary>
         <pre id="rawJsonPre"></pre>
       </details>
+
+      <section class="actions panel" id="actionsSection" hidden>
+        <h2>アクション</h2>
+        <div class="edit-form">
+          <div class="section-title flush">
+            <div>
+              <p class="eyebrow">Manual edit</p>
+              <h3>名前を修正する</h3>
+            </div>
+          </div>
+          <label for="correctCommonName">植物名</label>
+          <input id="correctCommonName" type="text" value="">
+          <label for="correctScientificName">学名</label>
+          <input id="correctScientificName" type="text" value="">
+          <label for="correctNote">メモ</label>
+          <textarea id="correctNote" rows="3"></textarea>
+          <label for="correctLocationLabel">場所ラベル</label>
+          <input id="correctLocationLabel" type="text" value="">
+          <button id="correctionBtn" class="btn btn-primary" type="button">修正して保存する</button>
+          <p id="correctionStatus" class="action-status"></p>
+        </div>
+
+        <div class="action-form">
+          <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
+          <p class="field-help">アプリパスワードとGeminiモデルは <a href="./settings.html">設定</a> で変更できます。</p>
+        </div>
+        <p id="reanalyzeStatus" class="action-status"></p>
+
+        <div class="danger-zone">
+          <div>
+            <p class="eyebrow">Delete</p>
+            <h3>この観察記録を削除</h3>
+            <p>この記録と保存した写真を削除します。植物に他の観察がない場合は植物カードも消えます。</p>
+          </div>
+          <button id="deleteBtn" class="btn btn-danger" type="button">削除する</button>
+          <p id="deleteStatus" class="action-status"></p>
+        </div>
+      </section>
 
       <p id="observationStatusText" class="action-status"></p>
 
@@ -103,7 +167,7 @@
       </div>
     </main>
 
-    <script src="./static/app.js?v=pages-v3" defer></script>
+    <script src="./static/app.js?v=pages-v4" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -111,6 +175,9 @@
         const status = document.getElementById('observationStatusText');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
+        let currentObservation = null;
+        let activeTimerInterval = null;
+        let pollingInterval = null;
 
         function setStatus(message, isError = false) {
           status.textContent = message;
@@ -140,28 +207,152 @@
           modalImage.src = '';
         }
 
-        document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', closeImage));
-        document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && imageModal.classList.contains('is-open')) {
-            closeImage();
+        function getPassword() {
+          return (appConfig.getStoredPassword() || '').trim();
+        }
+
+        function getGeminiModel() {
+          return appConfig.getStoredGeminiModel() || '';
+        }
+
+        function parseAnalysis(rawJson) {
+          if (!rawJson) {
+            return {};
           }
-        });
-
-        if (!appConfig || !appConfig.getApiBaseUrl()) {
-          document.getElementById('observationName').textContent = '接続先未設定';
-          setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
-          return;
-        }
-        if (!observationId) {
-          document.getElementById('observationName').textContent = '観察IDがありません';
-          setStatus('一覧から観察記録を選び直してください。', true);
-          return;
+          try {
+            return JSON.parse(rawJson) || {};
+          } catch (error) {
+            return {};
+          }
         }
 
-        setStatus('観察記録を読み込んでいます...');
+        function progressLabel(data) {
+          const progress = data.analysis_progress || {};
+          const label = progress.label || data.status || '解析中';
+          const percent = Number.isFinite(progress.percent) ? ` ${progress.percent}%` : '';
+          return `${label}${percent}`;
+        }
 
-        try {
-          const observation = await appConfig.fetchJson(`/api/observations/${encodeURIComponent(observationId)}`, { cache: 'no-store' });
+        function identityLabel(data) {
+          const analysis = parseAnalysis(data.raw_result_json);
+          const name = analysis.common_name_ja || analysis.scientific_name;
+          if (!name) {
+            return '';
+          }
+          const confidence = typeof analysis.confidence === 'number' ? ` / 信頼度 ${Math.round(analysis.confidence * 100)}%` : '';
+          return ` / ${name}${confidence}`;
+        }
+
+        function elapsedSeconds(startedAt) {
+          return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+        }
+
+        function isMutableStatus(observation) {
+          return ['analysis_failed', 'needs_review', 'analyzed'].includes(observation.status || '');
+        }
+
+        function isPendingStatus(observation) {
+          return ['queued', 'analyzing'].includes(observation.status || '');
+        }
+
+        function setActionMessage(elementId, message, state) {
+          const target = document.getElementById(elementId);
+          target.textContent = message;
+          target.className = state ? `action-status ${state}` : 'action-status';
+        }
+
+        function renderTiming(observation) {
+          const activePanel = document.getElementById('activeTimingPanel');
+          const timingPanel = document.getElementById('timingPanel');
+          const timingGrid = document.getElementById('timingGrid');
+          const timerText = document.getElementById('analysisTimer');
+          const timing = observation.analysis && observation.analysis.analysis_timing;
+
+          activePanel.hidden = true;
+          timingPanel.hidden = true;
+          timingGrid.innerHTML = '';
+
+          if (activeTimerInterval) {
+            window.clearInterval(activeTimerInterval);
+            activeTimerInterval = null;
+          }
+
+          if (isPendingStatus(observation)) {
+            const startedAt = Date.parse(observation.updated_at || observation.received_at || '') || Date.now();
+            activePanel.hidden = false;
+            timerText.textContent = `${progressLabel(observation)} / 経過 ${elapsedSeconds(startedAt)}秒`;
+            activeTimerInterval = window.setInterval(() => {
+              timerText.textContent = `${progressLabel(currentObservation || observation)} / 経過 ${elapsedSeconds(startedAt)}秒`;
+            }, 1000);
+          }
+
+          if (timing && typeof timing === 'object') {
+            timingPanel.hidden = false;
+            const entries = [
+              ['全体', timing.server_total_seconds ?? timing.total_seconds ?? '?'],
+              ['Gemini CLI', timing.gemini_cli_seconds ?? timing.server_gemini_total_seconds ?? '?'],
+              ['画像準備', timing.copy_images_seconds ?? 0],
+              ['JSON整形', timing.parse_seconds ?? 0],
+              ['図鑑解説', timing.plant_profile_seconds ?? timing.profile_fill_seconds ?? 0],
+              ['DB保存', timing.db_save_seconds ?? 0],
+            ];
+            timingGrid.innerHTML = entries.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}秒</strong></div>`).join('');
+          }
+        }
+
+        function renderCandidates(containerId, candidates, muted = false) {
+          const container = document.getElementById(containerId);
+          container.innerHTML = '';
+          if (!candidates.length) {
+            container.innerHTML = '<p class="empty">候補はありません。</p>';
+            return;
+          }
+          candidates.forEach((candidate) => {
+            const item = document.createElement('div');
+            item.className = muted ? 'candidate-item muted-candidate' : 'candidate-item';
+            item.innerHTML = `
+              <div>
+                <strong>${escapeHtml(candidate.common_name_ja || candidate.name || '候補名未確定')}</strong>
+                <small>${escapeHtml(candidate.scientific_name || '学名未確定')}</small>
+              </div>
+              <span>${typeof candidate.confidence === 'number' ? Math.round(candidate.confidence * 100) : '?'}%</span>
+              <button
+                class="candidate-fill"
+                type="button"
+                data-candidate-name="${escapeHtml(candidate.common_name_ja || candidate.name || '')}"
+                data-candidate-scientific="${escapeHtml(candidate.scientific_name || '')}"
+              >修正欄へ入れる</button>
+              <p>${escapeHtml(candidate.reason || '')}</p>
+            `;
+            container.appendChild(item);
+          });
+        }
+
+        function bindCandidateFillButtons() {
+          document.querySelectorAll('.candidate-fill').forEach((button) => {
+            button.addEventListener('click', () => {
+              document.getElementById('correctCommonName').value = button.dataset.candidateName || '';
+              document.getElementById('correctScientificName').value = button.dataset.candidateScientific || '';
+              document.getElementById('correctCommonName').focus();
+              document.getElementById('actionsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          });
+        }
+
+        function renderActions(observation) {
+          const actionsSection = document.getElementById('actionsSection');
+          actionsSection.hidden = !isMutableStatus(observation);
+          if (actionsSection.hidden) {
+            return;
+          }
+          document.getElementById('correctCommonName').value = (observation.analysis.common_name_ja || observation.display_name || '').trim();
+          document.getElementById('correctScientificName').value = (observation.analysis.scientific_name || '').trim();
+          document.getElementById('correctNote').value = observation.note || '';
+          document.getElementById('correctLocationLabel').value = observation.location_label || '';
+        }
+
+        function renderObservation(observation) {
+          currentObservation = observation;
           const analysis = observation.analysis || {};
 
           document.getElementById('observationName').textContent = observation.display_name || '解析待ち';
@@ -184,6 +375,8 @@
           if (observation.plant_id) {
             plantLink.hidden = false;
             plantLink.href = `./plant.html?id=${encodeURIComponent(observation.plant_id)}`;
+          } else {
+            plantLink.hidden = true;
           }
 
           const photoStrip = document.getElementById('observationPhotoStrip');
@@ -198,25 +391,11 @@
             photoStrip.appendChild(button);
           });
 
-          const candidateList = document.getElementById('candidateList');
-          const candidates = analysis.candidates || [];
-          candidateList.innerHTML = '';
-          if (!candidates.length) {
-            candidateList.innerHTML = '<p class="empty">候補はありません。</p>';
-          } else {
-            candidates.forEach((candidate) => {
-              const item = document.createElement('div');
-              item.className = 'candidate-item';
-              item.innerHTML = `
-                <div>
-                  <strong>${escapeHtml(candidate.common_name_ja || candidate.name || '候補名未確定')}</strong>
-                  <small>${escapeHtml(candidate.scientific_name || '学名未確定')}</small>
-                </div>
-                <span>${typeof candidate.confidence === 'number' ? Math.round(candidate.confidence * 100) : '?'}%</span>
-                <p>${escapeHtml(candidate.reason || '')}</p>
-              `;
-              candidateList.appendChild(item);
-            });
+          renderCandidates('candidateList', analysis.candidates || []);
+          const aiCandidates = analysis.ai_candidates || [];
+          document.getElementById('aiCandidatesBlock').hidden = !aiCandidates.length;
+          if (aiCandidates.length) {
+            renderCandidates('aiCandidateList', aiCandidates, true);
           }
 
           const featureList = document.getElementById('featureList');
@@ -232,10 +411,197 @@
             });
           }
 
+          const errorSection = document.getElementById('errorSection');
+          const errorText = document.getElementById('errorText');
+          if (observation.error_message) {
+            errorSection.hidden = false;
+            errorText.textContent = observation.error_message;
+          } else {
+            errorSection.hidden = true;
+            errorText.textContent = '';
+          }
+
+          renderActions(observation);
+          renderTiming(observation);
+          bindCandidateFillButtons();
           setStatus('');
+        }
+
+        async function loadObservation() {
+          const observation = await appConfig.fetchJson(`/api/observations/${encodeURIComponent(observationId)}`, { cache: 'no-store' });
+          renderObservation(observation);
+          return observation;
+        }
+
+        function startPolling() {
+          if (pollingInterval) {
+            window.clearInterval(pollingInterval);
+            pollingInterval = null;
+          }
+          if (!currentObservation || !isPendingStatus(currentObservation)) {
+            return;
+          }
+          pollingInterval = window.setInterval(async () => {
+            try {
+              const data = await appConfig.fetchJson(`/api/observations/${encodeURIComponent(observationId)}`, { cache: 'no-store' });
+              currentObservation = data;
+              const timerText = document.getElementById('analysisTimer');
+              if (!document.getElementById('activeTimingPanel').hidden) {
+                timerText.textContent = `${progressLabel(data)}${identityLabel(data)}`;
+              }
+              if (!isPendingStatus(data)) {
+                window.clearInterval(pollingInterval);
+                pollingInterval = null;
+                renderObservation(data);
+              }
+            } catch (error) {
+              setStatus(`接続先PCに接続できません。PC起動後に再試行してください。(${error.message})`, true);
+            }
+          }, 5000);
+        }
+
+        async function saveCorrection() {
+          const apiKey = getPassword();
+          if (!apiKey) {
+            setActionMessage('correctionStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append('common_name_ja', document.getElementById('correctCommonName').value);
+          formData.append('scientific_name', document.getElementById('correctScientificName').value);
+          formData.append('note', document.getElementById('correctNote').value);
+          formData.append('location_label', document.getElementById('correctLocationLabel').value);
+
+          const button = document.getElementById('correctionBtn');
+          button.disabled = true;
+          setActionMessage('correctionStatus', '保存中...');
+
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/observations/${encodeURIComponent(observationId)}/correction`), {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey,
+              },
+              body: formData,
+            });
+            const detail = await response.json();
+            if (!response.ok) {
+              throw new Error(detail.detail || '保存に失敗しました。');
+            }
+            setActionMessage('correctionStatus', '保存しました。更新しています。', 'is-success');
+            await loadObservation();
+            startPolling();
+          } catch (error) {
+            setActionMessage('correctionStatus', `エラー: ${error.message}`, 'is-error');
+          } finally {
+            button.disabled = false;
+          }
+        }
+
+        async function reanalyzeObservation() {
+          const apiKey = getPassword();
+          if (!apiKey) {
+            setActionMessage('reanalyzeStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+
+          const button = document.getElementById('reanalyzeBtn');
+          button.disabled = true;
+          setActionMessage('reanalyzeStatus', 'リクエスト送信中...');
+
+          try {
+            const formData = new FormData();
+            formData.append('gemini_model', getGeminiModel());
+            const response = await fetch(appConfig.apiUrl(`/api/observations/${encodeURIComponent(observationId)}/reanalyze`), {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey,
+              },
+              body: formData,
+            });
+            const detail = await response.json();
+            if (!response.ok) {
+              if (response.status === 401) {
+                appConfig.setStoredPassword('');
+              }
+              throw new Error(detail.detail || '再解析に失敗しました。');
+            }
+            setActionMessage('reanalyzeStatus', '再解析を開始しました。完了したら更新します。', 'is-success');
+            await loadObservation();
+            startPolling();
+          } catch (error) {
+            setActionMessage('reanalyzeStatus', `エラー: ${error.message}`, 'is-error');
+          } finally {
+            button.disabled = false;
+          }
+        }
+
+        async function deleteObservation() {
+          const apiKey = getPassword();
+          if (!apiKey) {
+            setActionMessage('deleteStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+          if (!window.confirm('この観察記録と写真を削除します。元に戻せません。削除しますか？')) {
+            return;
+          }
+
+          const button = document.getElementById('deleteBtn');
+          button.disabled = true;
+          setActionMessage('deleteStatus', '削除中...');
+
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/observations/${encodeURIComponent(observationId)}`), {
+              method: 'DELETE',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey,
+              },
+            });
+            const detail = await response.json();
+            if (!response.ok) {
+              throw new Error(detail.detail || '削除に失敗しました。');
+            }
+            setActionMessage('deleteStatus', '削除しました。一覧へ戻ります。', 'is-success');
+            window.setTimeout(() => {
+              window.location.href = './observations.html';
+            }, 500);
+          } catch (error) {
+            setActionMessage('deleteStatus', `エラー: ${error.message}`, 'is-error');
+            button.disabled = false;
+          }
+        }
+
+        document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', closeImage));
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && imageModal.classList.contains('is-open')) {
+            closeImage();
+          }
+        });
+
+        if (!appConfig || !appConfig.getApiBaseUrl()) {
+          document.getElementById('observationName').textContent = '接続先未設定';
+          setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
+          return;
+        }
+        if (!observationId) {
+          document.getElementById('observationName').textContent = '観察IDがありません';
+          setStatus('一覧から観察記録を選び直してください。', true);
+          return;
+        }
+
+        document.getElementById('correctionBtn').addEventListener('click', saveCorrection);
+        document.getElementById('reanalyzeBtn').addEventListener('click', reanalyzeObservation);
+        document.getElementById('deleteBtn').addEventListener('click', deleteObservation);
+
+        setStatus('観察記録を読み込んでいます...');
+
+        try {
+          await loadObservation();
+          startPolling();
         } catch (error) {
           document.getElementById('observationName').textContent = '読み込み失敗';
-          setStatus(`観察記録を読み込めませんでした: ${error.message}`, true);
+          setStatus(`接続先PCに接続できません。PC起動後に再試行してください。(${error.message})`, true);
         }
       });
     </script>
