@@ -1272,6 +1272,27 @@ pre {
   cursor: pointer;
 }
 
+.offline-banner {
+  margin-top: 8px;
+  border: 1px solid rgba(198, 84, 60, 0.28);
+  background: #fff7f3;
+}
+
+.offline-banner-body {
+  display: grid;
+  gap: 4px;
+}
+
+.offline-banner-body strong {
+  color: var(--coral);
+  font-size: 11px;
+}
+
+.offline-banner-body p {
+  margin: 0;
+  color: var(--ink);
+}
+
 @media (max-width: 820px) {
   .page-hero,
   .dashboard,

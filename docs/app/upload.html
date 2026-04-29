@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>植物を追加 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v4">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v5">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v4">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v5">
   </head>
   <body>
     <header class="site-header">
@@ -88,8 +88,8 @@
       </section>
     </main>
 
-    <script src="./static/offline-drafts.js?v=pages-v4" defer></script>
-    <script src="./static/app.js?v=pages-v4" defer></script>
+    <script src="./static/offline-drafts.js?v=pages-v5" defer></script>
+    <script src="./static/app.js?v=pages-v5" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const form = document.getElementById('uploadForm');
@@ -131,6 +131,7 @@
             renderLocationLabels(bootstrap.location_labels || []);
           } catch (error) {
             uploadServerNameLabel.textContent = '接続失敗';
+            setStatus('接続先PCに接続できません。PC停止中は「あとで送信する」で端末保存してください。', true);
           }
         }
 
@@ -426,7 +427,7 @@
             stopElapsedTimer();
             uploadButton.disabled = false;
             saveDraftButton.disabled = false;
-            setStatus(`エラー: ${error.message}`, true);
+            setStatus(`エラー: ${error.message} PC停止中は「あとで送信する」で端末保存できます。`, true);
           }
         });
 
@@ -482,7 +483,7 @@
               stopElapsedTimer();
               uploadButton.disabled = false;
               saveDraftButton.disabled = false;
-              setStatus(`状態確認に失敗しました: ${error.message}`, true);
+              setStatus(`状態確認に失敗しました: ${error.message} 接続が戻るまで未送信保存を優先してください。`, true);
             }
           }, 5000);
         }

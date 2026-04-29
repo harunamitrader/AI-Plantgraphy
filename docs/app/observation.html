@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>観察詳細 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v4">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v5">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v4">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v5">
   </head>
   <body>
     <header class="site-header">
@@ -36,6 +36,7 @@
           </div>
         </div>
       </section>
+      <section class="panel offline-banner" id="offlineBanner" hidden></section>
 
       <section class="photo-strip panel" id="observationPhotoStrip"></section>
 
@@ -167,7 +168,7 @@
       </div>
     </main>
 
-    <script src="./static/app.js?v=pages-v4" defer></script>
+    <script src="./static/app.js?v=pages-v5" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -175,6 +176,7 @@
         const status = document.getElementById('observationStatusText');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
+        const offlineBanner = document.getElementById('offlineBanner');
         let currentObservation = null;
         let activeTimerInterval = null;
         let pollingInterval = null;
@@ -581,6 +583,7 @@
 
         if (!appConfig || !appConfig.getApiBaseUrl()) {
           document.getElementById('observationName').textContent = '接続先未設定';
+          appConfig && appConfig.showOfflineBanner(offlineBanner, '先に設定ページで自分のPCの接続先URLを保存してください。');
           setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
           return;
         }
@@ -598,9 +601,11 @@
 
         try {
           await loadObservation();
+          appConfig.hideOfflineBanner(offlineBanner);
           startPolling();
         } catch (error) {
           document.getElementById('observationName').textContent = '読み込み失敗';
+          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 再解析、削除、修正は接続中のみ実行できます。`);
           setStatus(`接続先PCに接続できません。PC起動後に再試行してください。(${error.message})`, true);
         }
       });

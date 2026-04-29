@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>観察記録 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v4">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v5">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v4">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v5">
   </head>
   <body>
     <header class="site-header">
@@ -31,6 +31,7 @@
           <p>接続先PCに保存されている観察記録を、この画面から一覧と詳細で確認できます。</p>
         </div>
       </section>
+      <section class="panel offline-banner" id="offlineBanner" hidden></section>
 
       <section class="panel">
         <div class="section-title">
@@ -50,7 +51,7 @@
       </section>
     </main>
 
-    <script src="./static/app.js?v=pages-v4" defer></script>
+    <script src="./static/app.js?v=pages-v5" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -59,6 +60,7 @@
         const recordCount = document.getElementById('recordCount');
         const recordSearch = document.getElementById('recordSearch');
         const recordEmpty = document.getElementById('recordEmpty');
+        const offlineBanner = document.getElementById('offlineBanner');
         function setStatus(message, isError = false) {
           status.textContent = message;
           status.className = isError ? 'action-status is-error' : 'action-status';
@@ -123,6 +125,7 @@
         }
 
         if (!appConfig || !appConfig.getApiBaseUrl()) {
+          appConfig && appConfig.showOfflineBanner(offlineBanner, '先に設定ページで自分のPCの接続先URLを保存してください。');
           setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
           return;
         }
@@ -130,9 +133,11 @@
         setStatus('観察記録を読み込んでいます...');
         try {
           const data = await appConfig.fetchJson('/api/observations', { cache: 'no-store' });
+          appConfig.hideOfflineBanner(offlineBanner);
           renderObservations(data.observations || []);
           setStatus('');
         } catch (error) {
+          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 観察一覧の最新状態は接続中のみ確認できます。`);
           setStatus(`観察記録を読み込めませんでした: ${error.message}`, true);
         }
       });

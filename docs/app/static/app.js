@@ -187,6 +187,31 @@
     return fetchJson('/api/bootstrap', { cache: 'no-store' });
   }
 
+  function defaultOfflineMessage() {
+    return '接続先PCに接続できません。PC起動後に再試行してください。';
+  }
+
+  function showOfflineBanner(target, message) {
+    if (!target) {
+      return;
+    }
+    target.hidden = false;
+    target.innerHTML = `
+      <div class="offline-banner-body">
+        <strong>サーバー未接続</strong>
+        <p>${message || defaultOfflineMessage()}</p>
+      </div>
+    `;
+  }
+
+  function hideOfflineBanner(target) {
+    if (!target) {
+      return;
+    }
+    target.hidden = true;
+    target.innerHTML = '';
+  }
+
   if ('serviceWorker' in navigator && window.isSecureContext) {
     window.addEventListener('load', () => {
       const scopePath = getAppRootPath();
@@ -228,5 +253,8 @@
     setStoredGeminiModel,
     fetchJson,
     fetchBootstrap,
+    defaultOfflineMessage,
+    showOfflineBanner,
+    hideOfflineBanner,
   };
 })();
