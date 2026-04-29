@@ -204,9 +204,9 @@
             setStatus('保存済みの植物詳細を表示しています。');
             return;
           }
-          plantName.textContent = '読み込み失敗';
-          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 植物詳細と写真は接続中のみ取得できます。`);
-          setStatus(`植物情報を読み込めませんでした: ${error.message}`, true);
+          plantName.textContent = 'オフライン未保存';
+          appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
+          setStatus('このページはまだオフライン保存されていません。', true);
         }
       });
     </script>

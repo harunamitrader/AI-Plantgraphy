@@ -147,8 +147,8 @@
             setStatus('保存済みの観察一覧を表示しています。');
             return;
           }
-          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 観察一覧の最新状態は接続中のみ確認できます。`);
-          setStatus(`観察記録を読み込めませんでした: ${error.message}`, true);
+          appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
+          setStatus('このページはまだオフライン保存されていません。', true);
         }
       });
     </script>

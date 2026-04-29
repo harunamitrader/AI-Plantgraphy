@@ -144,8 +144,8 @@
             setStatus('保存済みの確認待ち一覧を表示しています。');
             return;
           }
-          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 確認待ち一覧の更新は接続中のみ行えます。`);
-          setStatus(`確認待ちを読み込めませんでした: ${error.message}`, true);
+          appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
+          setStatus('このページはまだオフライン保存されていません。', true);
         }
       });
     </script>

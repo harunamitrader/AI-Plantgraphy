@@ -141,8 +141,8 @@
             setStatus('保存済みの図鑑を表示しています。');
             return;
           }
-          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 図鑑の最新一覧は接続中のみ更新できます。`);
-          setStatus(`植物図鑑を読み込めませんでした: ${error.message}`, true);
+          appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
+          setStatus('このページはまだオフライン保存されていません。', true);
         }
       });
     </script>

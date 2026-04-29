@@ -633,9 +633,9 @@
             setStatus('保存済みの観察詳細を表示しています。');
             return;
           }
-          document.getElementById('observationName').textContent = '読み込み失敗';
-          appConfig.showOfflineBanner(offlineBanner, `${appConfig.defaultOfflineMessage()} 再解析、削除、修正は接続中のみ実行できます。`);
-          setStatus(`接続先PCに接続できません。PC起動後に再試行してください。(${error.message})`, true);
+          document.getElementById('observationName').textContent = 'オフライン未保存';
+          appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
+          setStatus('このページはまだオフライン保存されていません。', true);
         }
       });
     </script>
