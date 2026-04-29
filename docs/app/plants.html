@@ -28,8 +28,7 @@
         <div>
           <p class="eyebrow">Library</p>
           <h1>図鑑</h1>
-          <p>接続先PCの植物図鑑を読み込みます。詳細はPC側の植物ページで開きます。</p>
-          <p class="field-help"><a id="plantsOnlineLink" href="./settings.html">PC側の図鑑ページを開く</a></p>
+          <p>接続先PCに保存されている植物図鑑を、この画面からそのまま閲覧できます。</p>
         </div>
       </section>
 
@@ -60,11 +59,6 @@
         const plantCount = document.getElementById('plantCount');
         const plantSearch = document.getElementById('plantSearch');
         const plantEmpty = document.getElementById('plantEmpty');
-        const onlineLink = document.getElementById('plantsOnlineLink');
-        if (appConfig && appConfig.getApiBaseUrl()) {
-          onlineLink.href = appConfig.serverPageUrl('plants');
-        }
-
         function setStatus(message, isError = false) {
           status.textContent = message;
           status.className = isError ? 'action-status is-error' : 'action-status';

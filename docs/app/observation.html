@@ -32,7 +32,6 @@
           <div class="hero-actions">
             <span class="status-pill" id="observationStatusPill">読込中</span>
             <span class="status-pill accent" id="observationConfidencePill">信頼度 不明</span>
-            <a class="btn btn-secondary" id="observationOnlineLink" href="./settings.html">PC側の観察ページ</a>
             <a class="btn btn-secondary" id="observationPlantLink" href="./plants.html" hidden>図鑑で見る</a>
           </div>
         </div>
@@ -159,7 +158,6 @@
           return;
         }
 
-        document.getElementById('observationOnlineLink').href = appConfig.observationUrl(observationId);
         setStatus('観察記録を読み込んでいます...');
 
         try {

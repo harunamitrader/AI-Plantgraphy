@@ -29,7 +29,7 @@
           <p class="eyebrow">Plant</p>
           <h1 id="plantName">植物を読み込み中...</h1>
           <p id="plantScientificName">学名未確定</p>
-          <p class="field-help"><a id="plantOnlineLink" href="./settings.html">PC側の植物ページを開く</a></p>
+          <p class="field-help">図鑑情報は接続先PCのデータをこの画面に読み込んで表示しています。</p>
         </div>
       </section>
 
@@ -88,7 +88,6 @@
         const plantObservationCount = document.getElementById('plantObservationCount');
         const plantObservationList = document.getElementById('plantObservationList');
         const plantPhotoStrip = document.getElementById('plantPhotoStrip');
-        const plantOnlineLink = document.getElementById('plantOnlineLink');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
 
@@ -138,7 +137,6 @@
           return;
         }
 
-        plantOnlineLink.href = appConfig.plantUrl(plantId);
         setStatus('植物情報を読み込んでいます...');
 
         try {

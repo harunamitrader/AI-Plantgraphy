@@ -28,8 +28,7 @@
         <div>
           <p class="eyebrow">Review queue</p>
           <h1>確認待ち</h1>
-          <p>低信頼度、解析失敗、解析中の記録を読み込みます。詳細はPC側の観察ページで開きます。</p>
-          <p class="field-help"><a id="reviewOnlineLink" href="./settings.html">PC側の確認待ちを開く</a></p>
+          <p>低信頼度、解析失敗、解析中の記録をこの画面で見直します。</p>
         </div>
       </section>
 
@@ -60,11 +59,6 @@
         const reviewCount = document.getElementById('reviewCount');
         const reviewSearch = document.getElementById('reviewSearch');
         const reviewEmpty = document.getElementById('reviewEmpty');
-        const onlineLink = document.getElementById('reviewOnlineLink');
-        if (appConfig && appConfig.getApiBaseUrl()) {
-          onlineLink.href = appConfig.serverPageUrl('review');
-        }
-
         function setStatus(message, isError = false) {
           status.textContent = message;
           status.className = isError ? 'action-status is-error' : 'action-status';

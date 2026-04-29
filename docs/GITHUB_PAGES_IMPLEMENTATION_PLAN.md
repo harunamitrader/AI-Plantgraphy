@@ -1,105 +1,185 @@
-# AI Plantgraphy GitHub Pages 分離 実装計画
+# AI Plantgraphy GitHub Pages 統一フロント 実装計画
 
-作成日: 2026-04-27  
+更新日: 2026-04-29  
 対象: `C:\Users\sgmxk\Desktop\AI\repos\github\harunamitrader\AI-Plantgraphy`
 
 ## 目的
 
-GitHub Pages 上に共用フロントを公開しつつ、各ユーザーが自分の自宅PC API だけを送信先に設定して利用できるようにする。
+AI Plantgraphy のユーザー向け画面を GitHub Pages 側に統一し、各ユーザーの自宅 PC は Tailscale HTTPS 経由のバックエンドとしてだけ使う構成へ移行する。
 
-達成条件:
+この計画で達成したいこと:
 
-1. GitHub Pages 上の PWA が PC 停止中でも起動できる
-2. 写真とメタ情報を端末保存できる
-3. PC 復帰後に手動送信できる
-4. 他ユーザーの写真や情報が、誤って開発者の PC に送信されない
+1. ユーザーが普段使う URL を GitHub Pages 側 1 つに統一する
+2. PC 停止中でも GitHub Pages 側の PWA を開いて写真の下書き保存ができる
+3. PC 起動中は GitHub Pages 側から HTTPS の API を通して図鑑・観察・画像・解析結果を読み書きできる
+4. 送信先 URL の固定埋め込みを避け、他ユーザーの写真や情報が誤って開発者 PC に送られないようにする
+5. 初回セットアップ手順を非エンジニアにもわかりやすく整える
 
-## 前提構成
+## 最終構成
 
-- GitHub Pages:
-  - 静的 HTML / CSS / JS
+### フロント
+
+- GitHub Pages
+  - `https://harunamitrader.github.io/AI-Plantgraphy/app/`
   - PWA
   - IndexedDB 下書き保存
-- 各ユーザーの自宅PC:
+  - 図鑑 / 観察 / 追加 / 未送信 / 確認待ち / 設定
+
+### バックエンド
+
+- 各ユーザーの自宅 PC
   - FastAPI API
   - Gemini CLI
-  - SQLite / images
-  - Tailscale HTTPS
-- 接続先URLとアプリパスワード:
-  - 各端末のローカル保存のみ
-  - GitHub Pages に固定値を埋め込まない
+  - SQLite
+  - 画像保存
+  - Tailscale HTTPS URL
 
-## 実装方針
+### 接続方式
 
-### Phase 1: 共用フロント化の安全ガード
+- フロント: GitHub Pages の HTTPS
+- バックエンド: Tailscale HTTPS
+- アプリ内設定:
+  - 接続先 URL
+  - アプリパスワード
+  - Gemini モデル
 
-[手順]
-- API ベース URL の固定値を削除する
-- GitHub Pages 上では接続先 URL 未設定のまま送信できないようにする
-- 接続先 URL を `localStorage` に保存する
-- 送信前に接続先 URL と接続先 PC 名を表示する
+## 設計原則
 
-[検証]
-- 新規ブラウザ環境で起動しても接続先が空である
-- 接続先未設定ではアップロード送信できない
-- 開発者の PC URL が初期表示されない
+1. GitHub Pages 側に送信先 URL の初期値を埋め込まない
+2. 接続先 URL とアプリパスワードは各端末ローカル保存のみ
+3. GitHub Pages 側の画面で、送信先 URL と接続先 PC 名を常に確認できるようにする
+4. PC 側 HTML は残してもよいが、ユーザー向けの主導線には使わない
+5. 画像 URL や詳細 URL は GitHub Pages 側で解決できる相対パスまたは接続先基準 URL を返す
 
-### Phase 2: API の自己識別情報
+## 現在の到達点
 
-[手順]
-- FastAPI に `GET /api/bootstrap` を追加する
-- `server_name`, `server_id`, `base_url`, `gemini_model_choices` を返す
-- 設定画面で接続確認結果として PC 名を表示する
+以下は着手済み:
 
-[検証]
-- API 接続確認で PC 名が取得できる
-- 追加ページや設定ページに送信先 PC 名を表示できる
+- `docs/app` に GitHub Pages 用の静的フロントがある
+- `settings / upload / pending-local / plants / plant / observations / observation / review` の静的ページがある
+- `GET /api/bootstrap` があり、接続先 PC 名やモデル候補を返せる
+- GitHub Pages 側から PC API を叩くための CORS は導入済み
+- 接続先 URL 未設定時の安全ガードは導入済み
+- 下書き保存と手動送信は GitHub Pages 側で動く
 
-### Phase 3: API ベース URL 分離
+未整理または追加対応が必要な点:
 
-[手順]
-- `fetch('/api/...')` を共通ヘルパー経由に切り替える
-- `apiUrl(path)` で絶対 URL を組み立てる
-- `upload`, `pending-local`, `settings` の 3 画面を優先して移行する
+- GitHub Pages 側を唯一の正面 UI として見せる導線整理
+- PC 側ページリンクの削減
+- 画像・詳細・一覧の相対 URL ルール統一
+- 初回セットアップ案内の整理
+- README / 仕様書 / 画面内文言の統一
 
-[検証]
-- 現行のサーバー配信下でも通常動作する
-- 任意の API ベース URL を設定して送信できる
+## 実装計画
 
-### Phase 4: GitHub Pages MVP
-
-[手順]
-- `upload`, `pending-local`, `settings` を静的HTMLとして切り出す
-- Pages 配下向けに manifest / service worker / asset path を調整する
-- IndexedDB 下書き保存と手動送信を維持する
-
-[検証]
-- GitHub Pages URL から 3 画面を開ける
-- PC 停止中でも `追加` と `未送信` と `設定` が使える
-- PC 復帰後に手動送信できる
-
-### Phase 5: 他ページの移行
+### Phase 1: 正面 UI を GitHub Pages 側へ統一
 
 [手順]
-- `index`, `plants`, `observations`, `review`, `observation_detail`, `plant_detail` を順次静的化する
-- API から一覧/詳細を描画する
+- GitHub Pages 側のヘッダーとナビを正面 UI として整える
+- `ホーム / 図鑑 / 観察 / 追加 / 未送信 / 確認待ち / 設定` をすべて GitHub Pages 側で回遊できるようにする
+- GitHub Pages 側から PC 側 HTML を直接開く補助導線は削除または非表示にする
+- PC 側 HTML は保守用として残しても、通常導線からは外す
 
 [検証]
-- 図鑑、観察一覧、詳細ページが静的フロントから閲覧できる
+- GitHub Pages 側だけで主要メニューを一周できる
+- PC 側 HTML を知らなくても通常利用できる
 
-## 今回の着手範囲
+### Phase 2: API と画像 URL の統一
 
-今回の実装では以下まで進める。
+[手順]
+- 一覧 API と詳細 API が返す `image_urls`, `representative_image_url`, `photo_urls` を相対パス基準で統一する
+- GitHub Pages 側の JS で、相対パスを接続先 URL に解決する処理を共通化する
+- 一覧カード・詳細カード・モーダル表示のすべてで同じ URL 解決を使う
+- `127.0.0.1` や `base_url` 固定値がクライアントへ漏れないようにする
 
-- この計画書の保存
-- `GET /api/bootstrap` の追加
-- API ベース URL 共通ヘルパーの追加
-- `upload`, `pending-local`, `settings` の fetch を API ベース URL 対応へ変更
-- 接続先 URL / 接続先 PC 名の表示と安全ガード追加
+[検証]
+- GitHub Pages 側の図鑑一覧で既存写真が表示される
+- GitHub Pages 側の植物詳細・観察詳細で既存写真が表示される
+- スマホ実機で画像クリック拡大が動く
 
-## 後続タスク
+### Phase 3: データ表示の整合性を取る
 
-- CORS を GitHub Pages origin 対応にする
-- Pages 向け静的HTMLの切り出し
-- PWA manifest の Pages パス対応
-- `index`, `plants`, `observations`, `review` などの静的化
+[手順]
+- GitHub Pages 側の植物詳細・観察詳細が、PC 側 DB にあるデータだけをそのまま表示するようにする
+- 未保存のプロフィール文は「未登録」扱いで表示し、自動補完は行わない
+- GitHub Pages 側で表示する項目名と PC 側の元データ構造を揃える
+- 観察レコードと植物レコードの責務を再確認する
+
+[検証]
+- 既存データがある植物では説明文がそのまま表示される
+- 既存データがない植物では、誤って自動生成されず空欄または未登録表示になる
+
+### Phase 4: オフライン下書き機能の実利用調整
+
+[手順]
+- `追加` 画面で写真・メモ・場所ラベル・モデルを IndexedDB へ保存する流れを最終確認する
+- `未送信` 一覧で個別送信・一括送信・削除を調整する
+- 下書き作成時の接続先 URL と現在の接続先 URL が不一致なら送信を止める
+- GitHub Pages 側 PWA と通常ブラウザの両方で確認する
+
+[検証]
+- PC 停止中でも `追加` と `未送信` が使える
+- PC 復帰後に HTTPS 接続先へ手動送信できる
+- 他人の接続先 URL に変わっている場合は送信できない
+
+### Phase 5: HTTPS 前提のセットアップ導線整理
+
+[手順]
+- ドキュメントと設定画面で、PC 側は Tailscale HTTPS が必要であることを明記する
+- HTTP ではなく HTTPS を使う理由を短く説明する
+- 接続確認時に、接続先 URL と PC 名が正しければ利用開始できることを明示する
+- 初回セットアップを「PC 側準備」「スマホ側設定」「ホーム画面追加」の 3 段階に分ける
+
+[検証]
+- セットアップ文書だけ読んでも、必要な作業順がわかる
+- 非エンジニアでも「何をどこに入れるか」が迷いにくい
+
+### Phase 6: ドキュメント統一
+
+[手順]
+- `README.md` を GitHub Pages 正面構成に合わせて更新する
+- `docs/SPECIFICATION.md` に新構成の利用フローと技術構成を追記する
+- `docs/GITHUB_PAGES_SETUP.md` を初回セットアップの主文書として整える
+- 画面内の文言も `接続先URL`, `接続先PC`, `アプリパスワード` などで統一する
+
+[検証]
+- README と仕様書と画面文言に矛盾がない
+- GitHub Pages 側を本体 UI として説明している
+
+### Phase 7: 最終確認
+
+[手順]
+- PC 起動中:
+  - GitHub Pages 側で一覧・詳細・画像・送信が使えるか確認する
+- PC 停止中:
+  - GitHub Pages 側 PWA が起動し、下書き保存できるか確認する
+- PC 復帰後:
+  - 未送信から手動送信できるか確認する
+- 主要ケースを実機で再確認する
+
+[検証]
+- GitHub Pages 側だけで通常利用フローが完結する
+- PC 側 HTML を使わなくても困らない
+
+## 実装時の注意
+
+- 自動生成によるプロフィール補完は入れない
+- 既存 DB にない情報は、勝手に埋めずそのまま扱う
+- 送信先 URL の初期値は常に空のままにする
+- 開発者 PC 向け URL やパスワードをリポジトリへ埋め込まない
+
+## 直近の優先順
+
+1. GitHub Pages 側から見た画像と詳細表示の整合性を取る
+2. PC 側 HTML への導線を整理し、GitHub Pages 側を本体 UI に寄せる
+3. 初回セットアップ文書を HTTPS 前提でわかりやすく書き直す
+4. README / 仕様書へ反映する
+
+## 完了条件
+
+以下が揃ったら、この移行は完了とする。
+
+1. GitHub Pages 側の URL だけを案内すればユーザーが使い始められる
+2. 各ユーザーは自分の Tailscale HTTPS URL とアプリパスワードだけ設定すればよい
+3. 図鑑 / 観察 / 追加 / 未送信 / 確認待ち / 設定 が GitHub Pages 側だけで使える
+4. PC 側は API / 画像配信 / Gemini CLI / DB のバックエンドとしてのみ機能する
