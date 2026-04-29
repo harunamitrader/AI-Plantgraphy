@@ -96,6 +96,22 @@ a {
   font-weight: 800;
 }
 
+.brand-copy {
+  display: grid;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.brand-title {
+  font-weight: 800;
+}
+
+.brand-subtitle {
+  color: var(--leaf);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .brand img {
   width: 32px !important;
   height: 32px !important;
@@ -1078,20 +1094,6 @@ pre {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 11px;
-}
-
-.admin-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #f3fff9;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
 }
 
 .preview-grid {

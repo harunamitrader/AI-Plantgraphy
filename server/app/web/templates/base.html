@@ -13,7 +13,13 @@
   <body class="pc-admin">
     {% set current_path = request.url.path %}
     <header class="site-header">
-      <a class="brand" href="/"><img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">AI Plantgraphy <span class="admin-pill">PC管理画面</span></a>
+      <a class="brand" href="/">
+        <img src="/static/brand/ai-plantgraphy-icon.png" alt="" width="32" height="32">
+        <span class="brand-copy">
+          <span class="brand-title">AI Plantgraphy</span>
+          <span class="brand-subtitle">PC管理画面</span>
+        </span>
+      </a>
       <nav class="nav">
         <a href="/" class="{% if current_path == '/' %}is-current{% endif %}">ホーム</a>
         <a href="/plants" class="{% if current_path == '/plants' or current_path.startswith('/plants/') %}is-current{% endif %}">図鑑</a>
