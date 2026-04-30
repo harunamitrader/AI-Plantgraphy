@@ -23,9 +23,9 @@ AI Plantgraphy は、スマホで撮った植物写真をAIで解析し、自分
 | --- | --- |
 | <img src="docs/assets/screenshot/screenshot1.png" alt="ホーム画面" width="360"> | <img src="docs/assets/screenshot/screenshot7.png" alt="植物を追加する画面" width="360"> |
 
-| 観察詳細 | 図鑑 |
+| 植物詳細 | 図鑑 |
 | --- | --- |
-| <img src="docs/assets/screenshot/screenshot3.png" alt="観察詳細画面" width="360"> | <img src="docs/assets/screenshot/screenshot2.png" alt="図鑑画面" width="360"> |
+| <img src="docs/assets/screenshot/screenshot3.png" alt="植物詳細画面" width="360"> | <img src="docs/assets/screenshot/screenshot2.png" alt="図鑑画面" width="360"> |
 
 ## できること
 

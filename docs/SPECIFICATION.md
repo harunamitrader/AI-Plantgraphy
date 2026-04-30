@@ -109,9 +109,9 @@ flowchart LR
 | --- | --- |
 | ![ホーム画面](assets/screenshot/screenshot1.png) | ![植物を追加する画面](assets/screenshot/screenshot7.png) |
 
-| 観察詳細 | 図鑑 |
+| 植物詳細 | 図鑑 |
 | --- | --- |
-| ![観察詳細画面](assets/screenshot/screenshot3.png) | ![図鑑画面](assets/screenshot/screenshot2.png) |
+| ![植物詳細画面](assets/screenshot/screenshot3.png) | ![図鑑画面](assets/screenshot/screenshot2.png) |
 
 | 設定 |
 | --- |
