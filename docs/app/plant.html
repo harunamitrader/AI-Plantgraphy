@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>植物詳細 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v11">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v12">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v11">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v12">
   </head>
   <body>
     <header class="site-header">
@@ -55,6 +55,14 @@
       </section>
 
       <section class="panel">
+        <p class="eyebrow">Profile</p>
+        <h2>図鑑内容を再生成</h2>
+        <p>植物名と学名をもとに、基本的な特徴・見た目の特徴と魅力・手入れメモを再生成します。</p>
+        <button id="regenerateProfileBtn" class="btn btn-primary" type="button">図鑑内容を再生成する</button>
+        <p id="regenerateProfileStatus" class="action-status"></p>
+      </section>
+
+      <section class="panel">
         <div class="section-title">
           <div>
             <p class="eyebrow">Timeline</p>
@@ -75,8 +83,8 @@
       </div>
     </main>
 
-    <script src="./static/view-cache.js?v=pages-v11" defer></script>
-    <script src="./static/app.js?v=pages-v11" defer></script>
+    <script src="./static/view-cache.js?v=pages-v12" defer></script>
+    <script src="./static/app.js?v=pages-v12" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -90,6 +98,7 @@
         const plantObservationCount = document.getElementById('plantObservationCount');
         const plantObservationList = document.getElementById('plantObservationList');
         const plantPhotoStrip = document.getElementById('plantPhotoStrip');
+        const regenerateProfileBtn = document.getElementById('regenerateProfileBtn');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const offlineBanner = document.getElementById('offlineBanner');
@@ -98,6 +107,12 @@
         function setStatus(message, isError = false) {
           status.textContent = message;
           status.className = isError ? 'action-status is-error' : 'action-status';
+        }
+
+        function setActionMessage(id, message, className = '') {
+          const element = document.getElementById(id);
+          element.textContent = message;
+          element.className = className ? `action-status ${className}` : 'action-status';
         }
 
         function escapeHtml(value) {
@@ -191,10 +206,46 @@
           setStatus('');
         }
 
+        async function regenerateProfile() {
+          const apiKey = appConfig.getApiKey();
+          if (!apiKey) {
+            setActionMessage('regenerateProfileStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+          regenerateProfileBtn.disabled = true;
+          setActionMessage('regenerateProfileStatus', '図鑑内容を再生成しています...');
+          try {
+            const formData = new FormData();
+            const response = await fetch(appConfig.apiUrl(`/api/plants/${encodeURIComponent(plantId)}/regenerate-profile`), {
+              method: 'POST',
+              headers: { 'X-Plant-Dex-Api-Key': apiKey },
+              body: formData,
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(payload.detail || '再生成に失敗しました。');
+            }
+            if (payload?.plant) {
+              const cached = viewCache ? await viewCache.loadDetail('plant', plantId).catch(() => null) : null;
+              if (cached?.payload) {
+                cached.payload.plant = payload.plant;
+                viewCache && await viewCache.saveDetail('plant', plantId, cached.payload).catch(() => null);
+              }
+            }
+            setActionMessage('regenerateProfileStatus', '図鑑内容を再生成しました。ページを更新します。', 'is-success');
+            window.location.reload();
+          } catch (error) {
+            setActionMessage('regenerateProfileStatus', `エラー: ${error.message}`, 'is-error');
+          } finally {
+            regenerateProfileBtn.disabled = false;
+          }
+        }
+
         try {
           const data = await appConfig.fetchJson(`/api/plants/${encodeURIComponent(plantId)}`, { cache: 'no-store' });
           viewCache && await viewCache.saveDetail('plant', plantId, data).catch(() => null);
           appConfig.hideOfflineBanner(offlineBanner);
+          regenerateProfileBtn.disabled = false;
           renderPlantDetail(data);
         } catch (error) {
           const cached = viewCache ? await viewCache.loadDetail('plant', plantId).catch(() => null) : null;
@@ -202,12 +253,18 @@
             renderPlantDetail(cached.payload);
             appConfig.showOfflineBanner(offlineBanner, viewCache.offlineMessage('保存済みの植物詳細を表示しています。', cached.savedAt));
             setStatus('保存済みの植物詳細を表示しています。');
+            regenerateProfileBtn.disabled = true;
+            setActionMessage('regenerateProfileStatus', 'オフライン表示中は図鑑内容を再生成できません。', 'is-error');
             return;
           }
           plantName.textContent = 'オフライン未保存';
           appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
           setStatus('このページはまだオフライン保存されていません。', true);
+          regenerateProfileBtn.disabled = true;
+          setActionMessage('regenerateProfileStatus', '接続先PCに接続できないため再生成できません。', 'is-error');
         }
+
+        regenerateProfileBtn.addEventListener('click', regenerateProfile);
       });
     </script>
   </body>

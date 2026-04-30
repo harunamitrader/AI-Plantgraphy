@@ -50,6 +50,7 @@ PROFILE_PROMPT = """植物名をもとに、図鑑ページに載せる解説文
 
 制約:
 - basic_profile_text, visual_appeal_text, care_notes を必ず含めてください。
+- 3項目とも空文字や null は禁止です。短くてもよいので必ず内容を書いてください。
 - 各項目は120字以内です。
 - basic_profile_text は植物そのものの基本的な特徴を書いてください。欄の説明やシステム都合ではなく、その植物固有の情報を最低1つ含めてください。
 - visual_appeal_text は植物そのものの姿・雰囲気・観賞上の魅力を書いてください。写真に写っている内容に限定しないでください。
@@ -265,6 +266,14 @@ def generate_plant_profile(
 - 学名: {scientific}
 """
     profile = normalize_result(parse_json_output(run_gemini_prompt(prompt, gemini_model=gemini_model, use_yolo=False)))
+    profile = ensure_profile_texts(
+        {
+            **profile,
+            "common_name_ja": common_name_ja,
+            "scientific_name": scientific_name,
+        },
+        gemini_model=gemini_model,
+    )
     return {
         "basic_profile_text": profile.get("basic_profile_text"),
         "visual_appeal_text": profile.get("visual_appeal_text"),
@@ -279,9 +288,10 @@ def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
     name = result.get("common_name_ja") or "不明な植物"
     scientific_name = result.get("scientific_name") or "不明"
     prompt = (
-        f"{name}（{scientific_name}）について、JSONのみで返答してください: "
-        '{"basic_profile_text":"120字以内の図鑑的特徴",'
-        '"visual_appeal_text":"120字以内の見た目の魅力"}'
+        f"対象植物は {name}（{scientific_name}）です。別の植物の説明は禁止です。"
+        "植物の再同定はせず、この植物についてだけ書いてください。"
+        "返答はJSONのみで、basic_profile_text と visual_appeal_text の両方を必ず120字以内の文字列で返してください。"
+        '{"basic_profile_text":"この植物の基本的な特徴","visual_appeal_text":"この植物の見た目の特徴と魅力"}'
     )
     try:
         profile = normalize_result(

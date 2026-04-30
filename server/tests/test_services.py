@@ -2,6 +2,7 @@ import unittest
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from zipfile import ZipFile
 
 from fastapi import UploadFile
@@ -13,7 +14,12 @@ from server.app.config import gemini_model_choices, get_settings
 from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip, tailscale_https_urls_from_status
-from server.app.services.gemini_cli import needs_gemini_auth, normalize_result, strip_model_args
+from server.app.services.gemini_cli import (
+    generate_plant_profile,
+    needs_gemini_auth,
+    normalize_result,
+    strip_model_args,
+)
 from server.app.services.image_store import MAX_IMAGE_EDGE, save_observation_images, looks_like_supported_image
 
 
@@ -319,6 +325,55 @@ class ServiceTests(unittest.TestCase):
             ["gemini", "-p", "x"],
         )
 
+    def test_plant_needs_profile_requires_all_three_fields(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-profile")
+            db.create_observation(
+                observation_id="obs-profile",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            plant_id = db.save_analysis_result(
+                "obs-profile",
+                {
+                    "common_name_ja": "プロフィール不足植物",
+                    "scientific_name": "Profile test",
+                    "confidence": 0.9,
+                    "care_notes": "手入れだけある状態です。",
+                    "candidates": [],
+                },
+            )
+            self.assertTrue(db.plant_needs_profile(plant_id))
+            db.update_plant_profile(
+                plant_id,
+                {
+                    "basic_profile_text": "基本情報あり",
+                    "visual_appeal_text": "見た目情報あり",
+                    "care_notes": "手入れあり",
+                },
+            )
+            self.assertFalse(db.plant_needs_profile(plant_id))
+
+    def test_generate_plant_profile_uses_fallback_for_missing_basic_and_visual(self):
+        responses = iter(
+            [
+                '{"care_notes":"日当たりの良い場所を好みます。"}',
+                '{"basic_profile_text":"常緑針葉樹で低木状にまとまりやすい。","visual_appeal_text":"密な緑葉が整った球形をつくりやすい。"}',
+            ]
+        )
+
+        with patch("server.app.services.gemini_cli.run_gemini_prompt", side_effect=lambda *args, **kwargs: next(responses)):
+            profile = generate_plant_profile("キャラボク", "Taxus cuspidata var. nana")
+
+        self.assertEqual(profile["care_notes"], "日当たりの良い場所を好みます。")
+        self.assertTrue(profile["basic_profile_text"])
+        self.assertTrue(profile["visual_appeal_text"])
+
     def test_location_labels_can_be_added_and_removed(self):
         with TemporaryDirectory() as tmp:
             self._use_temp_data_dir(tmp)
@@ -337,6 +392,43 @@ class ServiceTests(unittest.TestCase):
             )
             self.assertEqual(response.status_code, 200)
             self.assertNotIn("北庭", response.json()["location_labels"])
+
+    def test_regenerate_plant_profile_api_updates_profile(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-plant-profile")
+            db.create_observation(
+                observation_id="obs-plant-profile",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            plant_id = db.save_analysis_result(
+                "obs-plant-profile",
+                {
+                    "common_name_ja": "ユズ",
+                    "scientific_name": "Citrus junos",
+                    "confidence": 0.9,
+                    "candidates": [],
+                },
+            )
+            client = TestClient(app)
+            with patch("server.app.main.generate_plant_profile", return_value={
+                "basic_profile_text": "香りの強い柑橘です。",
+                "visual_appeal_text": "黄色い実とつやのある葉が魅力です。",
+                "care_notes": "日当たりを好みます。",
+            }):
+                response = client.post(
+                    f"/api/plants/{plant_id}/regenerate-profile",
+                    headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+                )
+            self.assertEqual(response.status_code, 200)
+            updated = db.get_plant(plant_id)
+            self.assertEqual(updated["basic_profile_text"], "香りの強い柑橘です。")
+            self.assertEqual(updated["visual_appeal_text"], "黄色い実とつやのある葉が魅力です。")
 
     def test_activity_log_writes_file(self):
         with TemporaryDirectory() as tmp:

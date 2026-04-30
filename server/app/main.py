@@ -16,7 +16,12 @@ from .services.app_settings import add_location_label, get_location_labels, remo
 from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
 from .services.export_store import create_export_zip
-from .services.gemini_cli import analyze_images, normalize_confidence, normalize_result
+from .services.gemini_cli import (
+    analyze_images,
+    generate_plant_profile,
+    normalize_confidence,
+    normalize_result,
+)
 from .services.image_store import save_observation_images
 from .services.diagnostics import build_diagnostics
 from .services.observation_cleanup import remove_observation_images
@@ -146,6 +151,33 @@ def api_plant_detail(plant_id: str) -> dict:
         "observations": [present_observation(row) for row in db.list_observations_for_plant(plant_id)],
         "photo_urls": [media_url(path) for path in db.list_recent_image_paths_for_plant(plant_id)],
     }
+
+
+@app.post("/api/plants/{plant_id}/regenerate-profile", dependencies=[Depends(require_api_key)])
+def api_regenerate_plant_profile(
+    plant_id: str,
+    gemini_model: str | None = Form(default=None),
+) -> dict:
+    plant = db.get_plant(plant_id)
+    if plant is None:
+        raise HTTPException(status_code=404, detail="植物が見つかりません。")
+
+    try:
+        profile = generate_plant_profile(
+            plant["display_name"],
+            plant["scientific_name"],
+            gemini_model=gemini_model,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
+
+    if not (db.clean_text(profile.get("basic_profile_text")) and db.clean_text(profile.get("visual_appeal_text"))):
+        raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
+
+    db.update_plant_profile(plant_id, profile)
+    updated = db.get_plant(plant_id)
+    write_log(f"plant_profile_regenerated plant_id={plant_id}")
+    return {"status": "updated", "plant": present_plant(updated) if updated else None}
 
 
 @app.get("/api/observations")
