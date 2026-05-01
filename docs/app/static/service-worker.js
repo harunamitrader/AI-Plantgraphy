@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-plantgraphy-pages-v13';
+const CACHE_NAME = 'ai-plantgraphy-pages-v14';
 const CORE_ASSET_PATHS = [
   '',
   'index.html',
@@ -10,11 +10,11 @@ const CORE_ASSET_PATHS = [
   'pending-local.html',
   'review.html',
   'settings.html',
-  'static/style.css?v=pages-v13',
-  'static/app.js?v=pages-v13',
-  'static/offline-drafts.js?v=pages-v13',
-  'static/view-cache.js?v=pages-v13',
-  'manifest.webmanifest?v=pages-v13',
+  'static/style.css?v=pages-v14',
+  'static/app.js?v=pages-v14',
+  'static/offline-drafts.js?v=pages-v14',
+  'static/view-cache.js?v=pages-v14',
+  'manifest.webmanifest?v=pages-v14',
   'static/brand/ai-plantgraphy-icon.png',
   'static/brand/ai-plantgraphy-header.jpg',
   'static/icons/icon-192.png',
@@ -143,3 +143,4 @@ async function refreshPageCache(url) {
     // keep current cache
   }
 }
+

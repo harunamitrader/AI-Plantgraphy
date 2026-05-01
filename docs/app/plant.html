@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>植物詳細 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v13">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v14">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v13">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v14">
   </head>
   <body>
     <header class="site-header">
@@ -60,6 +60,7 @@
         <p>植物名と学名をもとに、基本的な特徴・見た目の特徴と魅力・手入れメモを再生成します。</p>
         <button id="regenerateProfileBtn" class="btn btn-primary" type="button">図鑑内容を再生成する</button>
         <p id="regenerateProfileStatus" class="action-status"></p>
+        <p id="regenerateProfileTimer" class="field-help" hidden>経過 0秒</p>
       </section>
 
       <section class="panel">
@@ -83,8 +84,8 @@
       </div>
     </main>
 
-    <script src="./static/view-cache.js?v=pages-v13" defer></script>
-    <script src="./static/app.js?v=pages-v13" defer></script>
+    <script src="./static/view-cache.js?v=pages-v14" defer></script>
+    <script src="./static/app.js?v=pages-v14" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const appConfig = window.AIPlantgraphyApp;
@@ -99,10 +100,12 @@
         const plantObservationList = document.getElementById('plantObservationList');
         const plantPhotoStrip = document.getElementById('plantPhotoStrip');
         const regenerateProfileBtn = document.getElementById('regenerateProfileBtn');
+        const regenerateProfileTimer = document.getElementById('regenerateProfileTimer');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const offlineBanner = document.getElementById('offlineBanner');
         const viewCache = window.AIPlantgraphyViewCache;
+        let regenerateTimer = null;
 
         function setStatus(message, isError = false) {
           status.textContent = message;
@@ -113,6 +116,35 @@
           const element = document.getElementById(id);
           element.textContent = message;
           element.className = className ? `action-status ${className}` : 'action-status';
+        }
+
+        function stopRegenerateTimer() {
+          if (regenerateTimer) {
+            window.clearInterval(regenerateTimer);
+            regenerateTimer = null;
+          }
+        }
+
+        function startRegenerateTimer() {
+          stopRegenerateTimer();
+          const startedAt = Date.now();
+          regenerateProfileTimer.hidden = false;
+          regenerateProfileTimer.textContent = '経過 0秒';
+          regenerateTimer = window.setInterval(() => {
+            const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            regenerateProfileTimer.textContent = `経過 ${seconds}秒`;
+          }, 1000);
+        }
+
+        function applyPlantSummary(plant) {
+          if (!plant) {
+            return;
+          }
+          plantName.textContent = plant.display_name || '名称未設定';
+          plantScientificName.textContent = plant.scientific_name || '学名未確定';
+          plantProfileText.textContent = plant.basic_profile_display || '基本的な特徴はまだありません。';
+          plantAppearanceText.textContent = plant.visual_appeal_display || '見た目の特徴と魅力はまだありません。';
+          plantCareText.textContent = plant.care_notes_display || '手入れメモはまだありません。';
         }
 
         function escapeHtml(value) {
@@ -164,11 +196,7 @@
           const observations = data.observations || [];
           const photoUrls = data.photo_urls || [];
 
-          plantName.textContent = plant.display_name || '名称未設定';
-          plantScientificName.textContent = plant.scientific_name || '学名未確定';
-          plantProfileText.textContent = plant.basic_profile_display || '基本的な特徴はまだありません。';
-          plantAppearanceText.textContent = plant.visual_appeal_display || '見た目の特徴と魅力はまだありません。';
-          plantCareText.textContent = plant.care_notes_display || '手入れメモはまだありません。';
+          applyPlantSummary(plant);
 
           plantPhotoStrip.innerHTML = '';
           photoUrls.forEach((url, index) => {
@@ -213,7 +241,8 @@
             return;
           }
           regenerateProfileBtn.disabled = true;
-          setActionMessage('regenerateProfileStatus', '図鑑内容を再生成しています...');
+          setActionMessage('regenerateProfileStatus', '図鑑内容を再生成しています...', 'is-progress');
+          startRegenerateTimer();
           try {
             const formData = new FormData();
             const response = await fetch(appConfig.apiUrl(`/api/plants/${encodeURIComponent(plantId)}/regenerate-profile`), {
@@ -231,10 +260,15 @@
                 cached.payload.plant = payload.plant;
                 viewCache && await viewCache.saveDetail('plant', plantId, cached.payload).catch(() => null);
               }
+              applyPlantSummary(payload.plant);
             }
-            setActionMessage('regenerateProfileStatus', '図鑑内容を再生成しました。ページを更新します。', 'is-success');
-            window.location.reload();
+            stopRegenerateTimer();
+            regenerateProfileTimer.hidden = false;
+            regenerateProfileTimer.textContent = `完了 ${typeof payload?.seconds === 'number' ? payload.seconds : '?'}秒`;
+            setActionMessage('regenerateProfileStatus', '図鑑内容を再生成しました。', 'is-success');
           } catch (error) {
+            stopRegenerateTimer();
+            regenerateProfileTimer.hidden = true;
             setActionMessage('regenerateProfileStatus', `エラー: ${error.message}`, 'is-error');
           } finally {
             regenerateProfileBtn.disabled = false;
@@ -254,6 +288,7 @@
             appConfig.showOfflineBanner(offlineBanner, viewCache.offlineMessage('保存済みの植物詳細を表示しています。', cached.savedAt));
             setStatus('保存済みの植物詳細を表示しています。');
             regenerateProfileBtn.disabled = true;
+            regenerateProfileTimer.hidden = true;
             setActionMessage('regenerateProfileStatus', 'オフライン表示中は図鑑内容を再生成できません。', 'is-error');
             return;
           }
@@ -261,6 +296,7 @@
           appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
           setStatus('このページはまだオフライン保存されていません。', true);
           regenerateProfileBtn.disabled = true;
+          regenerateProfileTimer.hidden = true;
           setActionMessage('regenerateProfileStatus', '接続先PCに接続できないため再生成できません。', 'is-error');
         }
 
@@ -269,3 +305,4 @@
     </script>
   </body>
 </html>
+

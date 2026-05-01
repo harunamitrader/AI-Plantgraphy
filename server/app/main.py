@@ -162,6 +162,7 @@ def api_regenerate_plant_profile(
     if plant is None:
         raise HTTPException(status_code=404, detail="植物が見つかりません。")
 
+    started_at = time.perf_counter()
     try:
         profile = generate_plant_profile(
             plant["display_name"],
@@ -176,8 +177,9 @@ def api_regenerate_plant_profile(
 
     db.update_plant_profile(plant_id, profile)
     updated = db.get_plant(plant_id)
-    write_log(f"plant_profile_regenerated plant_id={plant_id}")
-    return {"status": "updated", "plant": present_plant(updated) if updated else None}
+    elapsed = elapsed_seconds(started_at)
+    write_log(f"plant_profile_regenerated plant_id={plant_id} seconds={elapsed}")
+    return {"status": "updated", "seconds": elapsed, "plant": present_plant(updated) if updated else None}
 
 
 @app.get("/api/observations")
@@ -535,10 +537,12 @@ def save_identity_preview(observation_id: str, identity: dict) -> None:
 
 def set_analysis_progress(observation_id: str, phase: str, label: str, percent: int) -> None:
     with ANALYSIS_PROGRESS_LOCK:
+        previous = ANALYSIS_PROGRESS.get(observation_id) or {}
         ANALYSIS_PROGRESS[observation_id] = {
             "phase": phase,
             "label": label,
             "percent": percent,
+            "started_at": previous.get("started_at") or time.time(),
             "updated_at": time.time(),
         }
 
