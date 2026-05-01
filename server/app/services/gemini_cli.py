@@ -59,9 +59,9 @@ PROFILE_PROMPT = """植物名をもとに、図鑑ページに載せる解説文
 
 JSONスキーマ:
 {
-  "basic_profile_text": "基本的な特徴",
-  "visual_appeal_text": "見た目の特徴と魅力",
-  "care_notes": "手入れメモ"
+  "basic_profile_text": "常緑で葉が密に茂る低木です。",
+  "visual_appeal_text": "整った樹形と落ち着いた葉色が観賞ポイントです。",
+  "care_notes": "水はけの良い場所で育て、蒸れを避けて管理します。"
 }
 """
 
@@ -407,7 +407,12 @@ def normalize_result(result: dict) -> dict:
     name = result.get("common_name_ja") or "この植物"
     if "visual_appeal_text" not in result:
         result.pop("visual_appeal_text", None)
-    result["care_notes"] = truncate_text(str(result.get("care_notes") or ""), 120)
+
+    care_text = str(result.get("care_notes") or "").strip()
+    if care_text and not is_placeholder_text(care_text):
+        result["care_notes"] = truncate_text(care_text, 120)
+    else:
+        result["care_notes"] = ""
     result["uncertainty_notes"] = truncate_text(str(result.get("uncertainty_notes") or ""), 120)
     result["visible_features"] = normalize_visible_features(result.get("visible_features"))
     result["confidence"] = normalize_confidence(result.get("confidence"))
@@ -479,7 +484,23 @@ def truncate_text(text: str, limit: int) -> str:
 
 
 def is_placeholder_text(text: str) -> bool:
-    return "未生成です" in text
+    normalized = str(text or "").strip()
+    if not normalized:
+        return True
+    placeholders = {
+        "基本的な特徴",
+        "見た目の特徴と魅力",
+        "手入れメモ",
+        "基本情報",
+        "見た目情報",
+        "特徴",
+        "魅力",
+        "説明",
+        "プロフィール",
+    }
+    if normalized in placeholders:
+        return True
+    return "未生成です" in normalized
 
 
 def mock_result() -> dict:

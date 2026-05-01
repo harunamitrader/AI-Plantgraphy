@@ -374,6 +374,20 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(profile["basic_profile_text"])
         self.assertTrue(profile["visual_appeal_text"])
 
+    def test_normalize_result_rejects_placeholder_profile_texts(self):
+        result = normalize_result(
+            {
+                "basic_profile_text": "基本的な特徴",
+                "visual_appeal_text": "見た目の特徴と魅力",
+                "care_notes": "手入れメモ",
+                "visible_features": [],
+                "candidates": [],
+            }
+        )
+        self.assertNotIn("basic_profile_text", result)
+        self.assertNotIn("visual_appeal_text", result)
+        self.assertEqual(result["care_notes"], "")
+
     def test_location_labels_can_be_added_and_removed(self):
         with TemporaryDirectory() as tmp:
             self._use_temp_data_dir(tmp)

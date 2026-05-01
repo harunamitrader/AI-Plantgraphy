@@ -170,9 +170,18 @@ def api_regenerate_plant_profile(
             gemini_model=gemini_model,
         )
     except Exception as exc:
+        write_log(
+            f"plant_profile_regenerate_failed plant_id={plant_id} "
+            f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
+            f"error={format_analysis_error(exc)[:500]}"
+        )
         raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
 
     if not (db.clean_text(profile.get("basic_profile_text")) and db.clean_text(profile.get("visual_appeal_text"))):
+        write_log(
+            f"plant_profile_regenerate_incomplete plant_id={plant_id} "
+            f"profile={json.dumps(profile, ensure_ascii=False)[:500]}"
+        )
         raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
 
     db.update_plant_profile(plant_id, profile)
