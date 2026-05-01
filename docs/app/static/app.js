@@ -247,6 +247,7 @@
     serverPageUrl,
     resolveServerUrl,
     bindOnlineLinks,
+    getApiKey: getStoredPassword,
     getStoredPassword,
     setStoredPassword,
     getStoredGeminiModel,
