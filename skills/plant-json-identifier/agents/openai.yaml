@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plant JSON Identifier"
+  short_description: "Return strict plant-identification JSON from image observations."
+  default_prompt: "Use this skill to identify a plant from one to three local images and return only the required JSON schema."

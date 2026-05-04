@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 .env
 data/
+.playwright-mcp/
+temp_query*.py
+scripts/temp_*.py
+docs/assets/tmp_obs/
+docs/codex-handoff-*.md
+
 temp_workspace/
 _tmp/
 dist/

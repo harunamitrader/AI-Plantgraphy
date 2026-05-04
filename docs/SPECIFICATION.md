@@ -133,15 +133,18 @@ flowchart LR
 4. サーバー側でも画像をJPEGへ変換し、長辺1280px以内、JPEG品質78で保存する。
 5. 観察記録をSQLiteの `observations` に `queued` として登録する。
 6. バックグラウンドタスクでGemini CLIを起動し、保存画像のパスを渡して種類同定を行う。
-7. GeminiのJSON出力を正規化し、候補信頼度の合計が1.0を超える場合は比率を保って正規化する。
-8. `scientific_name` または `common_name_ja` で既存の `plants` と照合し、同じ植物なら紐づける。
-9. 同じ植物がない場合は `plants` に新規作成する。
-10. その植物に図鑑解説が未生成の場合だけ、追加でGemini CLIへ植物名と学名を渡し、基本的な特徴、見た目の特徴と魅力、手入れメモを生成する。
-11. 観察の同定結果は `observations.raw_result_json` と `candidate_names` に保存し、植物そのものの解説は `plants` に保存する。
-12. GitHub Pages 側の静的HTMLとJavaScriptが、図鑑、観察記録、確認待ち、設定ページを API から描画する。
-13. PWA manifestとService Workerにより、スマホではホーム画面追加と基本的な静的アセットキャッシュに対応する。
-14. IndexedDB に一覧JSONと一度開いた詳細JSONを保存し、PC停止中でも保存済みの図鑑・観察データをオフライン表示できるようにする。
-15. オフライン表示中は `再解析` `削除` `修正して保存` などの更新操作を無効化する。
+7. Geminiの返答は、リポジトリ同梱の `skills/plant-json-identifier/references/output-contract.md` に定義したトップレベルJSON契約で検証する。
+8. 入れ子JSONや別キーJSONなどのスキーマ違反があれば、同じ画像に対して1回だけ厳格な再生成を試みる。
+9. それでも契約どおりにならない場合のみ、自由文や別スキーマからの救済正規化を適用する。
+10. GeminiのJSON出力を正規化し、候補信頼度の合計が1.0を超える場合は比率を保って正規化する。
+11. `scientific_name` または `common_name_ja` で既存の `plants` と照合し、同じ植物なら紐づける。
+12. 同じ植物がない場合は `plants` に新規作成する。
+13. その植物に図鑑解説が未生成で、かつ同定信頼度が閾値以上の場合だけ、追加でGemini CLIへ植物名と学名を渡し、基本的な特徴、見た目の特徴と魅力、手入れメモを生成する。
+14. 観察の同定結果は `observations.raw_result_json` と `candidate_names` に保存し、植物そのものの解説は `plants` に保存する。
+15. GitHub Pages 側の静的HTMLとJavaScriptが、図鑑、観察記録、確認待ち、設定ページを API から描画する。
+16. PWA manifestとService Workerにより、スマホではホーム画面追加と基本的な静的アセットキャッシュに対応する。
+17. IndexedDB に一覧JSONと一度開いた詳細JSONを保存し、PC停止中でも保存済みの図鑑・観察データをオフライン表示できるようにする。
+18. オフライン表示中は `再解析` `削除` `修正して保存` などの更新操作を無効化する。
 
 ### 5.3 主なコンポーネント
 
@@ -272,6 +275,8 @@ AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
 - アップロード時と再解析時に、スマホ画面から使用モデルを選択できる。
 - 選択肢は `PLANT_DEX_GEMINI_MODEL_OPTIONS` で管理し、初期値は `auto-gemini-3`, `auto-gemini-2.5`, `gemini-3.1-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite` とする。
 - GeminiにはJSON形式で出力するよう指示する。
+- Geminiの植物同定用プロンプトは、リポジトリ同梱の `skills/plant-json-identifier` にある出力契約と同期する。
+- Geminiが `common_name` `plant_name` `plant_identification` `observation_details` などの別スキーマを返した場合は、まずスキーマ違反として再試行し、その後に必要最小限の正規化を行う。
 - 解析処理にはタイムアウトを設定する。
 - 解析失敗時も観察記録は保存し、ステータスを `analysis_failed` とする。
 
@@ -745,6 +750,11 @@ AI-Plantgraphy\
     logs\
     plants.sqlite
   scripts\
+  skills\
+    plant-json-identifier\
+      SKILL.md
+      references\
+        output-contract.md
 ```
 
 ## 17. 起動と接続の仕組み

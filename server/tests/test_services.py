@@ -1,6 +1,7 @@
 import unittest
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from zipfile import ZipFile
@@ -15,10 +16,17 @@ from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
 from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip, tailscale_https_urls_from_status
 from server.app.services.gemini_cli import (
+    analyze_images,
+    build_identifier_prompt,
+    build_identifier_retry_prompt,
+    extract_forbidden_top_level_keys,
+    extract_gemini_response,
     generate_plant_profile,
     needs_gemini_auth,
     normalize_result,
+    parse_json_output,
     strip_model_args,
+    validate_identifier_payload,
 )
 from server.app.services.image_store import MAX_IMAGE_EDGE, save_observation_images, looks_like_supported_image
 
@@ -309,6 +317,64 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(needs_gemini_auth("Do you want to continue? [Y/n]:", ""))
         self.assertFalse(needs_gemini_auth('{"ok": true}', ""))
 
+    def test_extract_gemini_response_reads_response_field_from_json_wrapper(self):
+        output = (
+            'MCP issues detected. Run /mcp list for status.'
+            '{"session_id":"abc","response":"{\\"common_name_ja\\":\\"アヤメ\\",\\"confidence\\":0.9}","stats":{}}'
+            'YOLO mode is enabled.'
+        )
+        self.assertEqual(
+            extract_gemini_response(output, output_format="json"),
+            '{"common_name_ja":"アヤメ","confidence":0.9}',
+        )
+
+    def test_parse_json_output_handles_gemini_json_wrapper_response(self):
+        wrapped = extract_gemini_response(
+            'MCP issues detected. Run /mcp list for status.'
+            '{"session_id":"abc","response":"{\\"common_name_ja\\":\\"アヤメ\\",\\"scientific_name\\":\\"Iris sanguinea\\",\\"confidence\\":0.9,\\"candidates\\":[],\\"visible_features\\":[],\\"uncertainty_notes\\":\\"\\"}","stats":{}}',
+            output_format="json",
+        )
+        parsed = parse_json_output(wrapped)
+        self.assertEqual(parsed["common_name_ja"], "アヤメ")
+        self.assertEqual(parsed["scientific_name"], "Iris sanguinea")
+
+    def test_build_identifier_prompt_uses_skill_contract_fields(self):
+        with patch("server.app.services.gemini_cli.load_identifier_contract", return_value={
+            "required_json": '{"common_name_ja":null,"scientific_name":null,"confidence":0.0,"candidates":[],"visible_features":[],"uncertainty_notes":""}',
+            "forbidden_keys": ["common_name", "plant_name", "status"],
+        }):
+            prompt = build_identifier_prompt()
+
+        self.assertIn("common_name_ja を使う", prompt)
+        self.assertIn('{"common_name_ja":null,"scientific_name":null,"confidence":0.0,"candidates":[],"visible_features":[],"uncertainty_notes":""}', prompt)
+        self.assertIn("- common_name は使わない", prompt)
+        self.assertIn("- plant_name は使わない", prompt)
+        self.assertIn("- status は使わない", prompt)
+
+    def test_extract_forbidden_top_level_keys_strips_or_prefix(self):
+        text = "- No alternate top-level keys such as `common_name`, `plant_name`, `observation_summary`, `characteristics`, `care_advice`, or `status`"
+        self.assertEqual(
+            extract_forbidden_top_level_keys(text),
+            ["common_name", "plant_name", "observation_summary", "characteristics", "care_advice", "status"],
+        )
+
+    def test_validate_identifier_payload_rejects_nested_schema(self):
+        violations = validate_identifier_payload(
+            {
+                "plant_identification": {"common_name": "キャラボク"},
+                "observation_details": {"characteristics": ["密生"]},
+                "confidence": 0.0,
+            }
+        )
+        self.assertTrue(any("extra keys:" in item for item in violations))
+        self.assertTrue(any("missing keys:" in item for item in violations))
+
+    def test_build_identifier_retry_prompt_mentions_schema_violation(self):
+        prompt = build_identifier_retry_prompt(["extra keys: plant_identification, observation_details"])
+        self.assertIn("前回の返答はスキーマ違反でした。", prompt)
+        self.assertIn("plant_identification", prompt)
+        self.assertIn("common_name_ja, scientific_name, confidence, candidates, visible_features, uncertainty_notes", prompt)
+
     def test_gemini_model_choices_include_cli_models(self):
         values = [item["value"] for item in gemini_model_choices()]
         self.assertIn("gemini-3-flash-preview", values)
@@ -374,6 +440,67 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(profile["basic_profile_text"])
         self.assertTrue(profile["visual_appeal_text"])
 
+    def test_analyze_images_retries_with_text_to_json_coercion_when_first_response_is_prose(self):
+        responses = iter(
+            [
+                "この植物はジャーマンアイリス（Iris germanica）と推定されます。花は紫色で、剣状の葉が見えます。",
+                '{"common_name_ja":"ジャーマンアイリス","scientific_name":"Iris germanica","confidence":0.9,"candidates":[{"common_name_ja":"ジャーマンアイリス","scientific_name":"Iris germanica","confidence":0.9,"reason":"元テキストに最有力候補として明記されているため。"}],"visible_features":["紫色の花","剣状の葉"],"uncertainty_notes":""}',
+            ]
+        )
+        settings = SimpleNamespace(
+            gemini_enabled=True,
+            gemini_model="gemini-3-flash-preview",
+            gemini_command="gemini",
+            gemini_timeout_seconds=30,
+        )
+
+        with TemporaryDirectory() as tmp:
+            image_dir = Path(tmp)
+            paths = []
+            for index in range(1, 4):
+                path = image_dir / f"{index}.jpg"
+                path.write_bytes(b"fake")
+                paths.append(path)
+
+            with patch("server.app.services.gemini_cli.get_settings", return_value=settings):
+                with patch("server.app.services.gemini_cli.run_gemini_prompt", side_effect=lambda *args, **kwargs: next(responses)):
+                    result = analyze_images(paths, gemini_model="gemini-3-flash-preview")
+
+        self.assertEqual(result["common_name_ja"], "ジャーマンアイリス")
+        self.assertEqual(result["scientific_name"], "Iris germanica")
+        self.assertEqual(result["visible_features"], ["紫色の花", "剣状の葉"])
+
+    def test_analyze_images_retries_when_first_response_has_nested_json_schema(self):
+        responses = iter(
+            [
+                '{"plant_identification":{"common_name":"キャラボク","scientific_name":"Taxus cuspidata var. nana"},"observation_details":{"characteristics":["針葉樹で、葉は短く密生している"]},"common_name_ja":null,"scientific_name":null,"confidence":0.0,"candidates":[],"visible_features":[],"uncertainty_notes":""}',
+                '{"common_name_ja":"キャラボク","scientific_name":"Taxus cuspidata var. nana","confidence":0.82,"candidates":[{"common_name_ja":"キャラボク","scientific_name":"Taxus cuspidata var. nana","confidence":0.82,"reason":"葉が短く密生し、球形に整えられた姿が一致します。"}],"visible_features":["葉が短く密生","球形に剪定"],"uncertainty_notes":""}',
+            ]
+        )
+        settings = SimpleNamespace(
+            gemini_enabled=True,
+            gemini_model="gemini-3-flash-preview",
+            gemini_command="gemini",
+            gemini_timeout_seconds=30,
+        )
+
+        with TemporaryDirectory() as tmp:
+            image_dir = Path(tmp)
+            paths = []
+            for index in range(1, 4):
+                path = image_dir / f"{index}.jpg"
+                path.write_bytes(b"fake")
+                paths.append(path)
+
+            with patch("server.app.services.gemini_cli.get_settings", return_value=settings):
+                with patch("server.app.services.gemini_cli.run_gemini_prompt", side_effect=lambda *args, **kwargs: next(responses)) as mocked:
+                    result = analyze_images(paths, gemini_model="gemini-3-flash-preview")
+
+        self.assertEqual(mocked.call_count, 2)
+        self.assertEqual(result["common_name_ja"], "キャラボク")
+        self.assertEqual(result["scientific_name"], "Taxus cuspidata var. nana")
+        self.assertEqual(result["visible_features"], ["葉が短く密生", "球形に剪定"])
+
     def test_normalize_result_rejects_placeholder_profile_texts(self):
         result = normalize_result(
             {
@@ -387,6 +514,141 @@ class ServiceTests(unittest.TestCase):
         self.assertNotIn("basic_profile_text", result)
         self.assertNotIn("visual_appeal_text", result)
         self.assertEqual(result["care_notes"], "")
+
+    def test_normalize_result_maps_common_name_aliases(self):
+        result = normalize_result(
+            {
+                "common_name": "シクラメン",
+                "scientific_name": "Cyclamen persicum",
+                "confidence": 0.82,
+                "candidates": [],
+                "visible_features": [],
+                "uncertainty_notes": "",
+            }
+        )
+        self.assertEqual(result["common_name_ja"], "シクラメン")
+        self.assertEqual(result["scientific_name"], "Cyclamen persicum")
+
+    def test_normalize_result_uses_top_candidate_when_main_fields_are_inconsistent(self):
+        result = normalize_result(
+            {
+                "common_name_ja": "ジャーマンアイリス",
+                "scientific_name": "Hydrangea macrophylla",
+                "confidence": 0.0,
+                "candidates": [
+                    {
+                        "common_name_ja": "ジャーマンアイリス",
+                        "scientific_name": "Iris germanica",
+                        "confidence": 0.95,
+                        "reason": "一致",
+                    }
+                ],
+                "visible_features": [],
+                "uncertainty_notes": "",
+            }
+        )
+        self.assertEqual(result["scientific_name"], "Iris germanica")
+        self.assertEqual(result["confidence"], 0.95)
+
+    def test_normalize_result_fills_lightweight_model_alias_fields(self):
+        result = normalize_result(
+            {
+                "common_name": "パキラ",
+                "scientific_name": "Pachira aquatica",
+                "observation_summary": "鮮やかな緑色の葉が放射状に広がっており、非常に健康的な状態です。",
+                "observations": [
+                    {"part": "葉", "description": "5〜6枚の小葉が手のひら状に広がっています。"},
+                    {"part": "新芽", "description": "中央付近から新しい葉が展開しようとしています。"},
+                ],
+                "characteristics": {
+                    "flower_type": "手のひら状の複葉",
+                    "leaf_shape": "手のひら状",
+                    "growth_form": "常緑性の観葉植物",
+                },
+                "care_advice": "土の表面が乾いたらたっぷりと水を与えます。",
+                "confidence": 0.0,
+                "candidates": [],
+                "visible_features": [],
+                "uncertainty_notes": "",
+            }
+        )
+        self.assertEqual(result["common_name_ja"], "パキラ")
+        self.assertEqual(result["scientific_name"], "Pachira aquatica")
+        self.assertGreaterEqual(result["confidence"], 0.75)
+        self.assertTrue(result["candidates"])
+        self.assertTrue(result["basic_profile_text"])
+        self.assertTrue(result["visual_appeal_text"])
+        self.assertEqual(result["care_notes"], "土の表面が乾いたらたっぷりと水を与えます。")
+        self.assertTrue(result["visible_features"])
+        self.assertIn("手のひら状の複葉", result["visible_features"])
+
+    def test_normalize_result_reads_nested_identification_and_observation_details(self):
+        result = normalize_result(
+            {
+                "plant_identification": {
+                    "common_name": "キャラボク",
+                    "scientific_name": "Taxus cuspidata var. nana",
+                },
+                "observation_details": {
+                    "characteristics": [
+                        "針葉樹で、葉は短く密生している",
+                        "樹形は円形に剪定されている",
+                    ]
+                },
+                "common_name_ja": None,
+                "scientific_name": None,
+                "confidence": 0.0,
+                "candidates": [],
+                "visible_features": [],
+                "uncertainty_notes": "",
+            }
+        )
+        self.assertEqual(result["common_name_ja"], "キャラボク")
+        self.assertEqual(result["scientific_name"], "Taxus cuspidata var. nana")
+        self.assertGreaterEqual(result["confidence"], 0.78)
+        self.assertTrue(result["candidates"])
+        self.assertIn("針葉樹で、葉は短く密生している", result["visible_features"])
+
+    def test_normalize_result_splits_combined_name(self):
+        result = normalize_result(
+            {
+                "plant_name": "アヤメ (Iris sanguinea)",
+                "observation_details": {
+                    "characteristics": [
+                        "紫色",
+                        "剣状の細長い葉",
+                        "群生",
+                    ]
+                },
+                "confidence": 0.0,
+                "candidates": [],
+                "visible_features": [],
+                "uncertainty_notes": "",
+            }
+        )
+        self.assertEqual(result["common_name_ja"], "アヤメ")
+        self.assertEqual(result["scientific_name"], "Iris sanguinea")
+        self.assertTrue(result["candidates"])
+        self.assertEqual(result["uncertainty_notes"], "")
+
+    def test_normalize_result_adds_uncertainty_for_low_confidence_single_candidate(self):
+        result = normalize_result(
+            {
+                "plant_name": "アヤメ",
+                "confidence": 0.68,
+                "candidates": [
+                    {
+                        "common_name_ja": "アヤメ",
+                        "scientific_name": None,
+                        "confidence": 0.68,
+                        "reason": "候補",
+                    }
+                ],
+                "visible_features": ["紫色"],
+                "uncertainty_notes": "",
+            }
+        )
+        self.assertIn("他候補は十分に絞り込めませんでした。", result["uncertainty_notes"])
 
     def test_location_labels_can_be_added_and_removed(self):
         with TemporaryDirectory() as tmp:
