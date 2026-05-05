@@ -351,6 +351,93 @@ def delete_plant(plant_id: str) -> sqlite3.Row | None:
     return plant
 
 
+def upsert_manual_plant(
+    *,
+    common_name_ja: str | None,
+    scientific_name: str | None,
+    profile: dict | None = None,
+) -> str:
+    common_name = clean_text(common_name_ja)
+    scientific = clean_text(scientific_name)
+    if not (common_name or scientific):
+        raise ValueError("Plant name required")
+
+    display_name = common_name or scientific or "未確定の植物"
+    profile = profile or {}
+    timestamp = now_iso()
+
+    with connect() as conn:
+        row = None
+        if scientific:
+            row = conn.execute(
+                "SELECT * FROM plants WHERE scientific_name = ? LIMIT 1",
+                (scientific,),
+            ).fetchone()
+        if row is None and common_name:
+            row = conn.execute(
+                "SELECT * FROM plants WHERE common_name_ja = ? LIMIT 1",
+                (common_name,),
+            ).fetchone()
+
+        if row is not None:
+            plant_id = row["id"]
+            conn.execute(
+                """
+                UPDATE plants
+                SET display_name = COALESCE(NULLIF(?, ''), display_name),
+                    common_name_ja = COALESCE(?, common_name_ja),
+                    scientific_name = COALESCE(?, scientific_name),
+                    basic_profile_text = COALESCE(?, basic_profile_text),
+                    visual_appeal_text = COALESCE(?, visual_appeal_text),
+                    care_notes = COALESCE(?, care_notes),
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    display_name,
+                    common_name,
+                    scientific,
+                    truncate_text(clean_text(profile.get("basic_profile_text")), 120),
+                    truncate_text(clean_text(profile.get("visual_appeal_text")), 120),
+                    truncate_text(clean_text(profile.get("care_notes")), 120),
+                    timestamp,
+                    plant_id,
+                ),
+            )
+            return plant_id
+
+        plant_id = f"plant-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
+        conn.execute(
+            """
+            INSERT INTO plants (
+                id, display_name, common_name_ja, scientific_name, aliases_json,
+                description, basic_profile_text, visual_appeal_text, care_notes,
+                representative_image_path, first_observed_at,
+                last_observed_at, observation_count, user_corrected, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                plant_id,
+                display_name,
+                common_name,
+                scientific,
+                "[]",
+                None,
+                truncate_text(clean_text(profile.get("basic_profile_text")), 120),
+                truncate_text(clean_text(profile.get("visual_appeal_text")), 120),
+                truncate_text(clean_text(profile.get("care_notes")), 120),
+                None,
+                None,
+                None,
+                0,
+                1,
+                timestamp,
+                timestamp,
+            ),
+        )
+        return plant_id
+
+
 def restore_plant_from_observation(observation_id: str) -> str:
     observation = get_observation(observation_id)
     if observation is None:

@@ -288,6 +288,35 @@ class ServiceTests(unittest.TestCase):
             self.assertTrue(observation["plant_id"])
             self.assertIsNotNone(db.get_plant(observation["plant_id"]))
 
+    def test_create_manual_plant_generates_library_entry_without_observation(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            client = TestClient(app)
+            with patch(
+                "server.app.main.generate_plant_profile",
+                return_value={
+                    "basic_profile_text": "冬から春に花を楽しめる多年草です。",
+                    "visual_appeal_text": "反り返る花弁と模様のある葉が魅力です。",
+                    "care_notes": "風通しのよい明るい場所で管理します。",
+                },
+            ):
+                response = client.post(
+                    "/api/plants",
+                    headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+                    data={"common_name_ja": "シクラメン", "scientific_name": "Cyclamen persicum"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "created")
+            plant = payload["plant"]
+            self.assertEqual(plant["display_name"], "シクラメン")
+            self.assertEqual(plant["scientific_name"], "Cyclamen persicum")
+            stored = db.get_plant(plant["id"])
+            self.assertIsNotNone(stored)
+            self.assertEqual(stored["observation_count"], 0)
+            self.assertEqual(stored["care_notes"], "風通しのよい明るい場所で管理します。")
+
     def test_main_pages_render(self):
         client = TestClient(app)
         for path in ["/", "/plants", "/settings", "/connect", "/diagnostics", "/upload", "/pending-local", "/observations", "/review", "/export"]:

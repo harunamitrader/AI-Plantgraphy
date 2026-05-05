@@ -154,6 +154,50 @@ def api_plants() -> dict:
     }
 
 
+@app.post("/api/plants", dependencies=[Depends(require_api_key)])
+def api_create_plant(
+    common_name_ja: str = Form(default=""),
+    scientific_name: str | None = Form(default=None),
+    gemini_model: str | None = Form(default=None),
+) -> dict:
+    cleaned_common_name = db.clean_text(common_name_ja)
+    cleaned_scientific_name = db.clean_text(scientific_name)
+    if not (cleaned_common_name or cleaned_scientific_name):
+        raise HTTPException(status_code=400, detail="植物名または学名を入力してください。")
+
+    started_at = time.perf_counter()
+    try:
+        profile = generate_plant_profile(
+            cleaned_common_name,
+            cleaned_scientific_name,
+            gemini_model=gemini_model,
+        )
+    except Exception as exc:
+        write_log(
+            f"plant_create_failed name={(cleaned_common_name or cleaned_scientific_name or '')[:120]} "
+            f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
+            f"error={format_analysis_error(exc)[:500]}"
+        )
+        raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
+
+    if not (
+        db.clean_text(profile.get("basic_profile_text"))
+        and db.clean_text(profile.get("visual_appeal_text"))
+        and db.clean_text(profile.get("care_notes"))
+    ):
+        raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
+
+    plant_id = db.upsert_manual_plant(
+        common_name_ja=cleaned_common_name,
+        scientific_name=cleaned_scientific_name,
+        profile=profile,
+    )
+    plant = db.get_plant(plant_id)
+    elapsed = elapsed_seconds(started_at)
+    write_log(f"plant_created_manually plant_id={plant_id} seconds={elapsed}")
+    return {"status": "created", "seconds": elapsed, "plant": present_plant(plant) if plant else None}
+
+
 @app.get("/api/plants/{plant_id}")
 def api_plant_detail(plant_id: str) -> dict:
     plant = db.get_plant(plant_id)

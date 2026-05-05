@@ -36,6 +36,25 @@
       <section class="panel">
         <div class="section-title">
           <div>
+            <p class="eyebrow">Create</p>
+            <h2>名前から図鑑を生成</h2>
+          </div>
+        </div>
+        <p>観察がなくても、植物名や学名を入力して図鑑プロフィールを先に作れます。</p>
+        <div class="inventory-tools">
+          <label for="manualCommonName">植物名</label>
+          <input id="manualCommonName" class="search-input" type="text" autocomplete="off" placeholder="例: シクラメン">
+          <label for="manualScientificName">学名（任意）</label>
+          <input id="manualScientificName" class="search-input" type="text" autocomplete="off" placeholder="例: Cyclamen persicum">
+        </div>
+        <button id="createPlantBtn" class="btn btn-primary" type="button">図鑑を生成する</button>
+        <p class="field-help">アプリパスワードとGeminiモデルは <a href="./settings.html">設定</a> で変更できます。</p>
+        <p id="createPlantStatus" class="action-status"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
             <p class="eyebrow">Inventory</p>
             <h2>植物一覧</h2>
           </div>
@@ -61,6 +80,7 @@
         const plantCount = document.getElementById('plantCount');
         const plantSearch = document.getElementById('plantSearch');
         const plantEmpty = document.getElementById('plantEmpty');
+        const createPlantBtn = document.getElementById('createPlantBtn');
         const offlineBanner = document.getElementById('offlineBanner');
         const viewCache = window.AIPlantgraphyViewCache;
         function setStatus(message, isError = false) {
@@ -120,6 +140,59 @@
             .replaceAll('"', '&quot;');
         }
 
+        async function createPlantFromName() {
+          const apiKey = (appConfig.getStoredPassword() || '').trim();
+          if (!apiKey) {
+            setStatus('設定ページでアプリパスワードを保存してください。', true);
+            const target = document.getElementById('createPlantStatus');
+            target.textContent = '設定ページでアプリパスワードを保存してください。';
+            target.className = 'action-status is-error';
+            return;
+          }
+
+          const commonName = document.getElementById('manualCommonName').value.trim();
+          const scientificName = document.getElementById('manualScientificName').value.trim();
+          const statusTarget = document.getElementById('createPlantStatus');
+          if (!commonName && !scientificName) {
+            statusTarget.textContent = '植物名または学名を入力してください。';
+            statusTarget.className = 'action-status is-error';
+            return;
+          }
+
+          createPlantBtn.disabled = true;
+          statusTarget.textContent = '図鑑を生成しています...';
+          statusTarget.className = 'action-status';
+          try {
+            const formData = new FormData();
+            formData.append('common_name_ja', commonName);
+            formData.append('scientific_name', scientificName);
+            formData.append('gemini_model', appConfig.getStoredGeminiModel() || '');
+            const response = await fetch(appConfig.apiUrl('/api/plants'), {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey,
+              },
+              body: formData,
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(payload.detail || '図鑑の生成に失敗しました。');
+            }
+            statusTarget.textContent = '図鑑を生成しました。詳細ページへ移動します。';
+            statusTarget.className = 'action-status is-success';
+            if (payload?.plant?.id) {
+              window.setTimeout(() => {
+                window.location.href = `./plant.html?id=${encodeURIComponent(payload.plant.id)}`;
+              }, 400);
+            }
+          } catch (error) {
+            statusTarget.textContent = `エラー: ${error.message}`;
+            statusTarget.className = 'action-status is-error';
+          } finally {
+            createPlantBtn.disabled = false;
+          }
+        }
+
         if (!appConfig || !appConfig.getApiBaseUrl()) {
           appConfig && appConfig.showOfflineBanner(offlineBanner, '先に設定ページで自分のPCの接続先URLを保存してください。');
           setStatus('先に設定ページで自分のPCの接続先URLを保存してください。', true);
@@ -144,6 +217,8 @@
           appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
           setStatus('このページはまだオフライン保存されていません。', true);
         }
+
+        createPlantBtn.addEventListener('click', createPlantFromName);
       });
     </script>
   </body>
