@@ -158,15 +158,13 @@ def api_plants() -> dict:
 @app.post("/api/plants", dependencies=[Depends(require_api_key)])
 def api_create_plant(
     common_name_ja: str = Form(default=""),
-    scientific_name: str | None = Form(default=None),
     gemini_model: str | None = Form(default=None),
 ) -> dict:
     cleaned_common_name = db.clean_text(common_name_ja)
-    cleaned_scientific_name = db.clean_text(scientific_name)
-    if not (cleaned_common_name or cleaned_scientific_name):
-        raise HTTPException(status_code=400, detail="植物名または学名を入力してください。")
+    if not cleaned_common_name:
+        raise HTTPException(status_code=400, detail="植物名を入力してください。")
 
-    existing = db.find_existing_plant(cleaned_common_name, cleaned_scientific_name)
+    existing = db.find_existing_plant(cleaned_common_name, None)
     if existing is not None:
         write_log(f"plant_create_skipped_existing plant_id={existing['id']}")
         return {
@@ -177,29 +175,28 @@ def api_create_plant(
 
     started_at = time.perf_counter()
     resolved_common_name = cleaned_common_name
-    resolved_scientific_name = cleaned_scientific_name
+    resolved_scientific_name = None
     try:
-        if cleaned_common_name and not cleaned_scientific_name:
-            identity = resolve_plant_identity_from_name(
-                cleaned_common_name,
-                cleaned_scientific_name,
-                gemini_model=gemini_model,
-            )
-            resolved_scientific_name = db.clean_text(identity.get("scientific_name"))
-            if not resolved_scientific_name or normalize_confidence(identity.get("confidence")) < 0.75:
-                detail = "植物名だけでは学名を十分に特定できませんでした。学名も入力して再実行してください。"
-                uncertainty = db.clean_text(identity.get("uncertainty_notes"))
-                if uncertainty:
-                    detail = f"{detail} ({uncertainty})"
-                raise HTTPException(status_code=400, detail=detail)
-            existing = db.find_existing_plant(resolved_common_name, resolved_scientific_name)
-            if existing is not None:
-                write_log(f"plant_create_skipped_existing plant_id={existing['id']} via_identity=1")
-                return {
-                    "status": "exists",
-                    "detail": "既存の図鑑があります。",
-                    "plant": present_plant(existing),
-                }
+        identity = resolve_plant_identity_from_name(
+            cleaned_common_name,
+            None,
+            gemini_model=gemini_model,
+        )
+        resolved_scientific_name = db.clean_text(identity.get("scientific_name"))
+        if not resolved_scientific_name or normalize_confidence(identity.get("confidence")) < 0.75:
+            detail = "植物名だけでは学名を十分に特定できませんでした。別名や正式名でもう一度試してください。"
+            uncertainty = db.clean_text(identity.get("uncertainty_notes"))
+            if uncertainty:
+                detail = f"{detail} ({uncertainty})"
+            raise HTTPException(status_code=400, detail=detail)
+        existing = db.find_existing_plant(resolved_common_name, resolved_scientific_name)
+        if existing is not None:
+            write_log(f"plant_create_skipped_existing plant_id={existing['id']} via_identity=1")
+            return {
+                "status": "exists",
+                "detail": "既存の図鑑があります。",
+                "plant": present_plant(existing),
+            }
         profile = generate_plant_profile(
             resolved_common_name,
             resolved_scientific_name,
@@ -209,7 +206,7 @@ def api_create_plant(
         if isinstance(exc, HTTPException):
             raise
         write_log(
-            f"plant_create_failed name={(cleaned_common_name or cleaned_scientific_name or '')[:120]} "
+            f"plant_create_failed name={cleaned_common_name[:120]} "
             f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
             f"error={format_analysis_error(exc)[:500]}"
         )

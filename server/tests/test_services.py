@@ -326,6 +326,19 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(stored["observation_count"], 0)
             self.assertEqual(stored["care_notes"], "風通しのよい明るい場所で管理します。")
 
+    def test_create_manual_plant_requires_common_name(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            client = TestClient(app)
+            response = client.post(
+                "/api/plants",
+                headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+                data={},
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()["detail"], "植物名を入力してください。")
+
     def test_create_manual_plant_returns_existing_without_generating(self):
         with TemporaryDirectory() as tmp:
             self._use_temp_data_dir(tmp)
@@ -375,7 +388,7 @@ class ServiceTests(unittest.TestCase):
                 )
 
             self.assertEqual(response.status_code, 400)
-            self.assertIn("学名も入力して再実行してください", response.json()["detail"])
+            self.assertIn("別名や正式名でもう一度試してください", response.json()["detail"])
 
     def test_main_pages_render(self):
         client = TestClient(app)

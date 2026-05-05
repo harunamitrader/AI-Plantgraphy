@@ -16,15 +16,13 @@
         <h2>名前から図鑑を生成</h2>
       </div>
     </div>
-    <p>観察がなくても、植物名や学名を入力して図鑑プロフィールを先に作れます。</p>
+    <p>観察がなくても、植物名を入力して図鑑プロフィールを先に作れます。</p>
     <div class="inventory-tools">
       <label for="manualCommonName">植物名</label>
       <input id="manualCommonName" class="search-input" type="text" autocomplete="off" placeholder="例: シクラメン">
-      <label for="manualScientificName">学名（任意）</label>
-      <input id="manualScientificName" class="search-input" type="text" autocomplete="off" placeholder="例: Cyclamen persicum">
     </div>
     <button id="createPlantBtn" class="btn btn-primary" type="button">図鑑を生成する</button>
-    <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
+    <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。学名はAIが推定し、曖昧な場合は作成しません。</p>
     <p id="createPlantStatus" class="action-status"></p>
     <p id="createPlantTimer" class="field-help" hidden>経過 0秒</p>
   </section>
@@ -91,15 +89,14 @@
       document.getElementById('createPlantBtn').addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const commonName = document.getElementById('manualCommonName').value.trim();
-        const scientificName = document.getElementById('manualScientificName').value.trim();
         const status = document.getElementById('createPlantStatus');
         if (!apiKey) {
           status.textContent = '設定ページでアプリパスワードを保存してください。';
           status.className = 'action-status is-error';
           return;
         }
-        if (!commonName && !scientificName) {
-          status.textContent = '植物名または学名を入力してください。';
+        if (!commonName) {
+          status.textContent = '植物名を入力してください。';
           status.className = 'action-status is-error';
           return;
         }
@@ -112,7 +109,6 @@
         try {
           const formData = new FormData();
           formData.append('common_name_ja', commonName);
-          formData.append('scientific_name', scientificName);
           formData.append('gemini_model', localStorage.getItem('plant_dex_gemini_model') || '');
           const response = await fetch('/api/plants', {
             method: 'POST',
