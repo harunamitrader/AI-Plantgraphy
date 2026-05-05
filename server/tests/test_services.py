@@ -326,6 +326,35 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(stored["observation_count"], 0)
             self.assertEqual(stored["care_notes"], "風通しのよい明るい場所で管理します。")
 
+    def test_create_manual_plant_returns_existing_without_generating(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            plant_id = db.upsert_manual_plant(
+                common_name_ja="シクラメン",
+                scientific_name="Cyclamen persicum",
+                profile={
+                    "basic_profile_text": "既存の基本特徴",
+                    "visual_appeal_text": "既存の見た目",
+                    "care_notes": "既存の手入れ",
+                },
+            )
+            client = TestClient(app)
+            with patch("server.app.main.resolve_plant_identity_from_name") as mocked_identity, patch(
+                "server.app.main.generate_plant_profile"
+            ) as mocked_profile:
+                response = client.post(
+                    "/api/plants",
+                    headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+                    data={"common_name_ja": "シクラメン"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "exists")
+            self.assertEqual(payload["plant"]["id"], plant_id)
+            mocked_identity.assert_not_called()
+            mocked_profile.assert_not_called()
+
     def test_create_manual_plant_rejects_name_only_when_identity_is_uncertain(self):
         with TemporaryDirectory() as tmp:
             self._use_temp_data_dir(tmp)

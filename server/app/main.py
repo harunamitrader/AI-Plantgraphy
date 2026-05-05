@@ -166,6 +166,15 @@ def api_create_plant(
     if not (cleaned_common_name or cleaned_scientific_name):
         raise HTTPException(status_code=400, detail="植物名または学名を入力してください。")
 
+    existing = db.find_existing_plant(cleaned_common_name, cleaned_scientific_name)
+    if existing is not None:
+        write_log(f"plant_create_skipped_existing plant_id={existing['id']}")
+        return {
+            "status": "exists",
+            "detail": "既存の図鑑があります。",
+            "plant": present_plant(existing),
+        }
+
     started_at = time.perf_counter()
     resolved_common_name = cleaned_common_name
     resolved_scientific_name = cleaned_scientific_name
@@ -183,6 +192,14 @@ def api_create_plant(
                 if uncertainty:
                     detail = f"{detail} ({uncertainty})"
                 raise HTTPException(status_code=400, detail=detail)
+            existing = db.find_existing_plant(resolved_common_name, resolved_scientific_name)
+            if existing is not None:
+                write_log(f"plant_create_skipped_existing plant_id={existing['id']} via_identity=1")
+                return {
+                    "status": "exists",
+                    "detail": "既存の図鑑があります。",
+                    "plant": present_plant(existing),
+                }
         profile = generate_plant_profile(
             resolved_common_name,
             resolved_scientific_name,

@@ -351,6 +351,25 @@ def delete_plant(plant_id: str) -> sqlite3.Row | None:
     return plant
 
 
+def find_existing_plant(common_name_ja: str | None, scientific_name: str | None) -> sqlite3.Row | None:
+    common_name = clean_text(common_name_ja)
+    scientific = clean_text(scientific_name)
+    with connect() as conn:
+        if scientific:
+            row = conn.execute(
+                "SELECT * FROM plants WHERE scientific_name = ? LIMIT 1",
+                (scientific,),
+            ).fetchone()
+            if row is not None:
+                return row
+        if common_name:
+            return conn.execute(
+                "SELECT * FROM plants WHERE common_name_ja = ? LIMIT 1",
+                (common_name,),
+            ).fetchone()
+    return None
+
+
 def upsert_manual_plant(
     *,
     common_name_ja: str | None,
@@ -367,17 +386,7 @@ def upsert_manual_plant(
     timestamp = now_iso()
 
     with connect() as conn:
-        row = None
-        if scientific:
-            row = conn.execute(
-                "SELECT * FROM plants WHERE scientific_name = ? LIMIT 1",
-                (scientific,),
-            ).fetchone()
-        if row is None and common_name:
-            row = conn.execute(
-                "SELECT * FROM plants WHERE common_name_ja = ? LIMIT 1",
-                (common_name,),
-            ).fetchone()
+        row = find_existing_plant(common_name, scientific)
 
         if row is not None:
             plant_id = row["id"]

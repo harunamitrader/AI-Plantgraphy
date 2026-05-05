@@ -201,6 +201,15 @@
               throw new Error(payload.detail || '図鑑の生成に失敗しました。');
             }
             stopCreatePlantTimer();
+            if (payload?.status === 'exists' && payload?.plant?.id) {
+              statusTarget.textContent = payload.detail || '既存の図鑑があります。詳細ページへ移動します。';
+              statusTarget.className = 'action-status is-success';
+              createPlantTimer.hidden = true;
+              window.setTimeout(() => {
+                window.location.href = `./plant.html?id=${encodeURIComponent(payload.plant.id)}`;
+              }, 500);
+              return;
+            }
             statusTarget.textContent = '図鑑を生成しました。詳細ページへ移動します。';
             statusTarget.className = 'action-status is-success';
             createPlantTimer.hidden = false;
