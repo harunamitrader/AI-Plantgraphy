@@ -25,6 +25,7 @@ from server.app.services.gemini_cli import (
     needs_gemini_auth,
     normalize_result,
     parse_json_output,
+    resolve_plant_identity_from_name,
     strip_model_args,
     validate_identifier_payload,
 )
@@ -293,6 +294,14 @@ class ServiceTests(unittest.TestCase):
             self._use_temp_data_dir(tmp)
             client = TestClient(app)
             with patch(
+                "server.app.main.resolve_plant_identity_from_name",
+                return_value={
+                    "common_name_ja": "シクラメン",
+                    "scientific_name": "Cyclamen persicum",
+                    "confidence": 0.94,
+                    "uncertainty_notes": "",
+                },
+            ), patch(
                 "server.app.main.generate_plant_profile",
                 return_value={
                     "basic_profile_text": "冬から春に花を楽しめる多年草です。",
@@ -303,7 +312,7 @@ class ServiceTests(unittest.TestCase):
                 response = client.post(
                     "/api/plants",
                     headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
-                    data={"common_name_ja": "シクラメン", "scientific_name": "Cyclamen persicum"},
+                    data={"common_name_ja": "シクラメン"},
                 )
 
             self.assertEqual(response.status_code, 200)
@@ -316,6 +325,28 @@ class ServiceTests(unittest.TestCase):
             self.assertIsNotNone(stored)
             self.assertEqual(stored["observation_count"], 0)
             self.assertEqual(stored["care_notes"], "風通しのよい明るい場所で管理します。")
+
+    def test_create_manual_plant_rejects_name_only_when_identity_is_uncertain(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            client = TestClient(app)
+            with patch(
+                "server.app.main.resolve_plant_identity_from_name",
+                return_value={
+                    "common_name_ja": "サツキツツジ",
+                    "scientific_name": None,
+                    "confidence": 0.42,
+                    "uncertainty_notes": "園芸名が広く、画像なしでは断定しにくいです。",
+                },
+            ):
+                response = client.post(
+                    "/api/plants",
+                    headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+                    data={"common_name_ja": "サツキツツジ"},
+                )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("学名も入力して再実行してください", response.json()["detail"])
 
     def test_main_pages_render(self):
         client = TestClient(app)
@@ -556,6 +587,17 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(profile["basic_profile_text"], "群生しやすい多年草です。")
         self.assertEqual(profile["visual_appeal_text"], "花色が明るく花壇で目立ちます。")
         self.assertEqual(profile["care_notes"], "乾きすぎと蒸れを避け、土の表面が乾いたら水を与えます。")
+
+    def test_resolve_plant_identity_from_name_returns_scientific_name(self):
+        with patch(
+            "server.app.services.gemini_cli.run_gemini_prompt",
+            return_value='{"common_name_ja":"サツキツツジ","scientific_name":"Rhododendron indicum","confidence":0.91,"uncertainty_notes":""}',
+        ):
+            identity = resolve_plant_identity_from_name("サツキツツジ", None)
+
+        self.assertEqual(identity["common_name_ja"], "サツキツツジ")
+        self.assertEqual(identity["scientific_name"], "Rhododendron indicum")
+        self.assertEqual(identity["confidence"], 0.91)
 
     def test_analyze_images_retries_with_text_to_json_coercion_when_first_response_is_prose(self):
         responses = iter(

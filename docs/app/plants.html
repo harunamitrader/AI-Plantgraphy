@@ -50,6 +50,7 @@
         <button id="createPlantBtn" class="btn btn-primary" type="button">図鑑を生成する</button>
         <p class="field-help">アプリパスワードとGeminiモデルは <a href="./settings.html">設定</a> で変更できます。</p>
         <p id="createPlantStatus" class="action-status"></p>
+        <p id="createPlantTimer" class="field-help" hidden>経過 0秒</p>
       </section>
 
       <section class="panel">
@@ -81,11 +82,31 @@
         const plantSearch = document.getElementById('plantSearch');
         const plantEmpty = document.getElementById('plantEmpty');
         const createPlantBtn = document.getElementById('createPlantBtn');
+        const createPlantTimer = document.getElementById('createPlantTimer');
         const offlineBanner = document.getElementById('offlineBanner');
         const viewCache = window.AIPlantgraphyViewCache;
+        let createPlantInterval = null;
         function setStatus(message, isError = false) {
           status.textContent = message;
           status.className = isError ? 'action-status is-error' : 'action-status';
+        }
+
+        function stopCreatePlantTimer() {
+          if (createPlantInterval) {
+            window.clearInterval(createPlantInterval);
+            createPlantInterval = null;
+          }
+        }
+
+        function startCreatePlantTimer() {
+          stopCreatePlantTimer();
+          const startedAt = Date.now();
+          createPlantTimer.hidden = false;
+          createPlantTimer.textContent = '経過 0秒';
+          createPlantInterval = window.setInterval(() => {
+            const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            createPlantTimer.textContent = `経過 ${seconds}秒`;
+          }, 1000);
         }
 
         function renderPlants(plants) {
@@ -162,6 +183,7 @@
           createPlantBtn.disabled = true;
           statusTarget.textContent = '図鑑を生成しています...';
           statusTarget.className = 'action-status';
+          startCreatePlantTimer();
           try {
             const formData = new FormData();
             formData.append('common_name_ja', commonName);
@@ -178,16 +200,21 @@
             if (!response.ok) {
               throw new Error(payload.detail || '図鑑の生成に失敗しました。');
             }
+            stopCreatePlantTimer();
             statusTarget.textContent = '図鑑を生成しました。詳細ページへ移動します。';
             statusTarget.className = 'action-status is-success';
+            createPlantTimer.hidden = false;
+            createPlantTimer.textContent = `完了 ${typeof payload?.seconds === 'number' ? payload.seconds : '?'}秒`;
             if (payload?.plant?.id) {
               window.setTimeout(() => {
                 window.location.href = `./plant.html?id=${encodeURIComponent(payload.plant.id)}`;
               }, 400);
             }
           } catch (error) {
+            stopCreatePlantTimer();
             statusTarget.textContent = `エラー: ${error.message}`;
             statusTarget.className = 'action-status is-error';
+            createPlantTimer.hidden = true;
           } finally {
             createPlantBtn.disabled = false;
           }

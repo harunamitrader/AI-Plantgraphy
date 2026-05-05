@@ -520,6 +520,54 @@ def infer_confidence_from_plaintext(
     return 0.0
 
 
+def resolve_plant_identity_from_name(
+    common_name_ja: str | None,
+    scientific_name: str | None,
+    gemini_model: str | None = None,
+) -> dict:
+    cleaned_common_name = clean_optional_text(common_name_ja)
+    cleaned_scientific_name = clean_optional_text(scientific_name)
+    if cleaned_scientific_name:
+        return {
+            "common_name_ja": cleaned_common_name,
+            "scientific_name": cleaned_scientific_name,
+            "confidence": 1.0,
+            "uncertainty_notes": "",
+        }
+
+    prompt = f"""入力された植物名から学名を補完してください。返答はJSON 1個だけです。
+JSON以外の文章、説明、Markdown、コードフェンスは禁止です。
+
+必須JSON:
+{{"common_name_ja":null,"scientific_name":null,"confidence":0.0,"uncertainty_notes":""}}
+
+ルール:
+- 入力された植物名を最優先し、別植物名に置き換えない
+- scientific_name はラテン名。不明なら null
+- confidence は 0.0 から 1.0
+- uncertainty_notes は短く書く
+
+入力植物名:
+- 植物名: {cleaned_common_name or "不明"}
+"""
+    result = normalize_result(
+        parse_json_output(
+            run_gemini_prompt(
+                prompt,
+                gemini_model=gemini_model,
+                use_yolo=False,
+                output_format="json",
+            )
+        )
+    )
+    return {
+        "common_name_ja": cleaned_common_name or result.get("common_name_ja"),
+        "scientific_name": result.get("scientific_name"),
+        "confidence": result.get("confidence"),
+        "uncertainty_notes": result.get("uncertainty_notes") or "",
+    }
+
+
 def generate_plant_profile(
     common_name_ja: str | None,
     scientific_name: str | None,
@@ -552,6 +600,8 @@ def generate_plant_profile(
         gemini_model=gemini_model,
     )
     return {
+        "common_name_ja": common_name_ja,
+        "scientific_name": scientific_name,
         "basic_profile_text": profile.get("basic_profile_text"),
         "visual_appeal_text": profile.get("visual_appeal_text"),
         "care_notes": profile.get("care_notes"),

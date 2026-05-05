@@ -21,6 +21,7 @@ from .services.gemini_cli import (
     GeminiCliCancelled,
     analyze_images,
     generate_plant_profile,
+    resolve_plant_identity_from_name,
     normalize_confidence,
     normalize_result,
     terminate_process_tree,
@@ -166,13 +167,30 @@ def api_create_plant(
         raise HTTPException(status_code=400, detail="植物名または学名を入力してください。")
 
     started_at = time.perf_counter()
+    resolved_common_name = cleaned_common_name
+    resolved_scientific_name = cleaned_scientific_name
     try:
+        if cleaned_common_name and not cleaned_scientific_name:
+            identity = resolve_plant_identity_from_name(
+                cleaned_common_name,
+                cleaned_scientific_name,
+                gemini_model=gemini_model,
+            )
+            resolved_scientific_name = db.clean_text(identity.get("scientific_name"))
+            if not resolved_scientific_name or normalize_confidence(identity.get("confidence")) < 0.75:
+                detail = "植物名だけでは学名を十分に特定できませんでした。学名も入力して再実行してください。"
+                uncertainty = db.clean_text(identity.get("uncertainty_notes"))
+                if uncertainty:
+                    detail = f"{detail} ({uncertainty})"
+                raise HTTPException(status_code=400, detail=detail)
         profile = generate_plant_profile(
-            cleaned_common_name,
-            cleaned_scientific_name,
+            resolved_common_name,
+            resolved_scientific_name,
             gemini_model=gemini_model,
         )
     except Exception as exc:
+        if isinstance(exc, HTTPException):
+            raise
         write_log(
             f"plant_create_failed name={(cleaned_common_name or cleaned_scientific_name or '')[:120]} "
             f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
@@ -188,8 +206,8 @@ def api_create_plant(
         raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
 
     plant_id = db.upsert_manual_plant(
-        common_name_ja=cleaned_common_name,
-        scientific_name=cleaned_scientific_name,
+        common_name_ja=resolved_common_name,
+        scientific_name=resolved_scientific_name,
         profile=profile,
     )
     plant = db.get_plant(plant_id)

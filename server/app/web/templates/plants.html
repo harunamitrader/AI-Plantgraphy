@@ -26,6 +26,7 @@
     <button id="createPlantBtn" class="btn btn-primary" type="button">図鑑を生成する</button>
     <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
     <p id="createPlantStatus" class="action-status"></p>
+    <p id="createPlantTimer" class="field-help" hidden>経過 0秒</p>
   </section>
 
   <section class="panel">
@@ -66,6 +67,27 @@
   </section>
 
   <script>
+      const createPlantTimer = document.getElementById('createPlantTimer');
+      let createPlantInterval = null;
+
+      function stopCreatePlantTimer() {
+        if (createPlantInterval) {
+          window.clearInterval(createPlantInterval);
+          createPlantInterval = null;
+        }
+      }
+
+      function startCreatePlantTimer() {
+        stopCreatePlantTimer();
+        const startedAt = Date.now();
+        createPlantTimer.hidden = false;
+        createPlantTimer.textContent = '経過 0秒';
+        createPlantInterval = window.setInterval(() => {
+          const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+          createPlantTimer.textContent = `経過 ${seconds}秒`;
+        }, 1000);
+      }
+
       document.getElementById('createPlantBtn').addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const commonName = document.getElementById('manualCommonName').value.trim();
@@ -86,6 +108,7 @@
         button.disabled = true;
         status.textContent = '図鑑を生成しています...';
         status.className = 'action-status';
+        startCreatePlantTimer();
         try {
           const formData = new FormData();
           formData.append('common_name_ja', commonName);
@@ -102,16 +125,21 @@
           if (!response.ok) {
             throw new Error(payload.detail || '図鑑の生成に失敗しました。');
           }
+          stopCreatePlantTimer();
           status.textContent = '図鑑を生成しました。詳細ページへ移動します。';
           status.className = 'action-status is-success';
+          createPlantTimer.hidden = false;
+          createPlantTimer.textContent = `完了 ${typeof payload?.seconds === 'number' ? payload.seconds : '?'}秒`;
           if (payload?.plant?.id) {
             window.setTimeout(() => {
               window.location.href = `/plants/${payload.plant.id}`;
             }, 400);
           }
         } catch (error) {
+          stopCreatePlantTimer();
           status.textContent = `エラー: ${error.message}`;
           status.className = 'action-status is-error';
+          createPlantTimer.hidden = true;
           button.disabled = false;
         }
       });
