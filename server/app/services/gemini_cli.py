@@ -18,6 +18,10 @@ PLANT_IDENTIFIER_CONTRACT_PATH = PLANT_IDENTIFIER_SKILL_DIR / "references" / "ou
 DEFAULT_IDENTIFIER_SCHEMA = '{"common_name_ja":null,"scientific_name":null,"confidence":0.0,"candidates":[],"visible_features":[],"uncertainty_notes":""}'
 
 
+class GeminiCliCancelled(RuntimeError):
+    pass
+
+
 PROFILE_PROMPT = """植物名から図鑑用の短い解説をJSON 1個だけで返してください。
 JSON以外の文章、説明、Markdown、コードフェンスは禁止です。
 
@@ -120,6 +124,8 @@ def analyze_images(
     gemini_model: str | None = None,
     progress_callback: Callable[[str], None] | None = None,
     identity_callback: Callable[[dict], None] | None = None,
+    process_started_callback: Callable[[int], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict:
     total_started_at = time.perf_counter()
     settings = get_settings()
@@ -153,6 +159,8 @@ def analyze_images(
             ],
             trailing_args=image_args,
             output_format="json",
+            process_started_callback=process_started_callback,
+            cancel_requested=cancel_requested,
         )
         cli_seconds = elapsed_seconds(cli_started_at)
         parse_started_at = time.perf_counter()
@@ -169,6 +177,8 @@ def analyze_images(
                     ],
                     trailing_args=image_args,
                     output_format="json",
+                    process_started_callback=process_started_callback,
+                    cancel_requested=cancel_requested,
                 )
                 retry_parsed = parse_json_output(retry_output)
                 retry_violations = validate_identifier_payload(retry_parsed)
@@ -219,6 +229,8 @@ def run_gemini_prompt(
     trailing_args: list[str] | None = None,
     use_yolo: bool = True,
     output_format: str = "text",
+    process_started_callback: Callable[[int], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> str:
     settings = get_settings()
     command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
@@ -252,8 +264,28 @@ def run_gemini_prompt(
         encoding="utf-8",
         errors="replace",
     )
+    if process_started_callback:
+        process_started_callback(process.pid)
     try:
-        stdout, stderr = process.communicate(timeout=settings.gemini_timeout_seconds)
+        wait_started_at = time.perf_counter()
+        stdout = ""
+        stderr = ""
+        while True:
+            if cancel_requested and cancel_requested():
+                terminate_process_tree(process.pid)
+                try:
+                    stdout, stderr = process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    stdout, stderr = "", ""
+                raise GeminiCliCancelled("Gemini CLI was cancelled.")
+            remaining = settings.gemini_timeout_seconds - (time.perf_counter() - wait_started_at)
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, settings.gemini_timeout_seconds)
+            try:
+                stdout, stderr = process.communicate(timeout=min(1, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                continue
     except subprocess.TimeoutExpired as exc:
         terminate_process_tree(process.pid)
         try:
@@ -527,16 +559,32 @@ def generate_plant_profile(
 
 
 def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
-    if result.get("basic_profile_text") and result.get("visual_appeal_text"):
+    if result.get("basic_profile_text") and result.get("visual_appeal_text") and result.get("care_notes"):
         return result
 
     name = result.get("common_name_ja") or "不明な植物"
     scientific_name = result.get("scientific_name") or "不明"
+    missing_fields = []
+    if not result.get("basic_profile_text"):
+        missing_fields.append("basic_profile_text")
+    if not result.get("visual_appeal_text"):
+        missing_fields.append("visual_appeal_text")
+    if not result.get("care_notes"):
+        missing_fields.append("care_notes")
+    required_keys = ", ".join(missing_fields)
+    example_json = {
+        field: {
+            "basic_profile_text": "この植物の基本的な特徴",
+            "visual_appeal_text": "この植物の見た目の特徴と魅力",
+            "care_notes": "この植物の一般的な育て方や管理の要点",
+        }[field]
+        for field in missing_fields
+    }
     prompt = (
         f"対象植物は {name}（{scientific_name}）です。別の植物の説明は禁止です。"
         "植物の再同定はせず、この植物についてだけ書いてください。"
-        "返答はJSONのみで、basic_profile_text と visual_appeal_text の両方を必ず120字以内の文字列で返してください。"
-        '{"basic_profile_text":"この植物の基本的な特徴","visual_appeal_text":"この植物の見た目の特徴と魅力"}'
+        f"返答はJSONのみで、{required_keys} を必ず120字以内の文字列で返してください。"
+        f"{json.dumps(example_json, ensure_ascii=False, separators=(',', ':'))}"
     )
     try:
         profile = normalize_result(
@@ -558,6 +606,8 @@ def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
         result["basic_profile_text"] = profile["basic_profile_text"]
     if not result.get("visual_appeal_text") and profile.get("visual_appeal_text"):
         result["visual_appeal_text"] = profile["visual_appeal_text"]
+    if not result.get("care_notes") and profile.get("care_notes"):
+        result["care_notes"] = profile["care_notes"]
     return result
 
 

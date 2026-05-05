@@ -10,7 +10,7 @@ from fastapi import UploadFile
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from server.app import config, db
+from server.app import config, db, main
 from server.app.config import gemini_model_choices, get_settings
 from server.app.main import app, format_analysis_error, parse_analysis
 from server.app.services import activity_log, diagnostics, export_store, observation_cleanup
@@ -33,6 +33,8 @@ from server.app.services.image_store import MAX_IMAGE_EDGE, save_observation_ima
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):
+        main.ANALYSIS_PROGRESS.clear()
+        main.ANALYSIS_RUNS.clear()
         self._originals = {
             "config_data_dir": config.DATA_DIR,
             "config_image_dir": config.IMAGE_DIR,
@@ -52,6 +54,8 @@ class ServiceTests(unittest.TestCase):
         }
 
     def tearDown(self):
+        main.ANALYSIS_PROGRESS.clear()
+        main.ANALYSIS_RUNS.clear()
         config.DATA_DIR = self._originals["config_data_dir"]
         config.IMAGE_DIR = self._originals["config_image_dir"]
         config.LOG_DIR = self._originals["config_log_dir"]
@@ -214,6 +218,75 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIsNone(db.get_observation("obs-delete"))
             self.assertFalse((config.IMAGE_DIR / "obs-delete").exists())
+
+    def test_delete_plant_keeps_observations_and_clears_relation(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-plant-delete")
+            db.create_observation(
+                observation_id="obs-plant-delete",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            plant_id = db.save_analysis_result(
+                "obs-plant-delete",
+                {
+                    "common_name_ja": "削除テスト植物",
+                    "scientific_name": "Delete plant",
+                    "confidence": 0.91,
+                    "candidates": [],
+                },
+            )
+            client = TestClient(app)
+            response = client.delete(
+                f"/api/plants/{plant_id}",
+                headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertIsNone(db.get_plant(plant_id))
+            observation = db.get_observation("obs-plant-delete")
+            self.assertIsNotNone(observation)
+            self.assertIsNone(observation["plant_id"])
+
+    def test_restore_plant_from_observation_recreates_relation(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-plant-restore")
+            db.create_observation(
+                observation_id="obs-plant-restore",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            original_plant_id = db.save_analysis_result(
+                "obs-plant-restore",
+                {
+                    "common_name_ja": "復元植物",
+                    "scientific_name": "Restore plant",
+                    "confidence": 0.82,
+                    "candidates": [],
+                },
+            )
+            db.delete_plant(original_plant_id)
+
+            client = TestClient(app)
+            response = client.post(
+                "/api/observations/obs-plant-restore/restore-plant",
+                headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+            )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "restored")
+            observation = db.get_observation("obs-plant-restore")
+            self.assertTrue(observation["plant_id"])
+            self.assertIsNotNone(db.get_plant(observation["plant_id"]))
 
     def test_main_pages_render(self):
         client = TestClient(app)
@@ -440,6 +513,21 @@ class ServiceTests(unittest.TestCase):
         self.assertTrue(profile["basic_profile_text"])
         self.assertTrue(profile["visual_appeal_text"])
 
+    def test_generate_plant_profile_uses_fallback_for_missing_care_notes(self):
+        responses = iter(
+            [
+                '{"basic_profile_text":"群生しやすい多年草です。","visual_appeal_text":"花色が明るく花壇で目立ちます。","care_notes":""}',
+                '{"care_notes":"乾きすぎと蒸れを避け、土の表面が乾いたら水を与えます。"}',
+            ]
+        )
+
+        with patch("server.app.services.gemini_cli.run_gemini_prompt", side_effect=lambda *args, **kwargs: next(responses)):
+            profile = generate_plant_profile("アヤメ", "Iris sanguinea")
+
+        self.assertEqual(profile["basic_profile_text"], "群生しやすい多年草です。")
+        self.assertEqual(profile["visual_appeal_text"], "花色が明るく花壇で目立ちます。")
+        self.assertEqual(profile["care_notes"], "乾きすぎと蒸れを避け、土の表面が乾いたら水を与えます。")
+
     def test_analyze_images_retries_with_text_to_json_coercion_when_first_response_is_prose(self):
         responses = iter(
             [
@@ -469,6 +557,63 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(result["common_name_ja"], "ジャーマンアイリス")
         self.assertEqual(result["scientific_name"], "Iris germanica")
         self.assertEqual(result["visible_features"], ["紫色の花", "剣状の葉"])
+
+    def test_force_stop_marks_stale_pending_observation_as_failed(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-force-stop")
+            db.create_observation(
+                observation_id="obs-force-stop",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            db.set_observation_status("obs-force-stop", "analyzing")
+            with db.connect() as conn:
+                conn.execute(
+                    "UPDATE observations SET updated_at = ? WHERE id = ?",
+                    ("2026-01-01T00:00:00+00:00", "obs-force-stop"),
+                )
+
+            client = TestClient(app)
+            response = client.post(
+                "/api/observations/obs-force-stop/force-stop",
+                headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+            )
+            self.assertEqual(response.status_code, 200)
+            observation = db.get_observation("obs-force-stop")
+            self.assertEqual(observation["status"], "analysis_failed")
+            self.assertEqual(observation["error_message"], main.FORCE_STOPPED_ANALYSIS_MESSAGE)
+
+    def test_observation_api_recovers_stale_analyzing_status(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-stale")
+            db.create_observation(
+                observation_id="obs-stale",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            db.set_observation_status("obs-stale", "analyzing")
+            with db.connect() as conn:
+                conn.execute(
+                    "UPDATE observations SET updated_at = ? WHERE id = ?",
+                    ("2026-01-01T00:00:00+00:00", "obs-stale"),
+                )
+
+            client = TestClient(app)
+            response = client.get("/api/observations/obs-stale")
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "analysis_failed")
+            self.assertEqual(payload["error_message"], main.STALE_ANALYSIS_MESSAGE)
 
     def test_analyze_images_retries_when_first_response_has_nested_json_schema(self):
         responses = iter(

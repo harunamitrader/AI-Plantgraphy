@@ -63,6 +63,16 @@
         <p id="regenerateProfileTimer" class="field-help" hidden>経過 0秒</p>
       </section>
 
+      <section class="panel danger-zone">
+        <div>
+          <p class="eyebrow">Delete</p>
+          <h2>この図鑑を削除</h2>
+          <p>図鑑カードだけを削除します。観察記録は残り、植物とのひも付けだけ外れます。</p>
+        </div>
+        <button id="deletePlantBtn" class="btn btn-danger" type="button">図鑑を削除する</button>
+        <p id="deletePlantStatus" class="action-status"></p>
+      </section>
+
       <section class="panel">
         <div class="section-title">
           <div>
@@ -101,6 +111,7 @@
         const plantPhotoStrip = document.getElementById('plantPhotoStrip');
         const regenerateProfileBtn = document.getElementById('regenerateProfileBtn');
         const regenerateProfileTimer = document.getElementById('regenerateProfileTimer');
+        const deletePlantBtn = document.getElementById('deletePlantBtn');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const offlineBanner = document.getElementById('offlineBanner');
@@ -275,6 +286,37 @@
           }
         }
 
+        async function deletePlant() {
+          const apiKey = (appConfig.getStoredPassword() || '').trim();
+          if (!apiKey) {
+            setActionMessage('deletePlantStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+          if (!window.confirm('この図鑑を削除します。観察記録は残りますが、この図鑑とのひも付けは外れます。削除しますか？')) {
+            return;
+          }
+
+          deletePlantBtn.disabled = true;
+          setActionMessage('deletePlantStatus', '削除中...');
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/plants/${encodeURIComponent(plantId)}`), {
+              method: 'DELETE',
+              headers: { 'X-Plant-Dex-Api-Key': apiKey },
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(payload.detail || '削除に失敗しました。');
+            }
+            setActionMessage('deletePlantStatus', '図鑑を削除しました。一覧へ戻ります。', 'is-success');
+            window.setTimeout(() => {
+              window.location.href = './plants.html';
+            }, 500);
+          } catch (error) {
+            setActionMessage('deletePlantStatus', `エラー: ${error.message}`, 'is-error');
+            deletePlantBtn.disabled = false;
+          }
+        }
+
         try {
           const data = await appConfig.fetchJson(`/api/plants/${encodeURIComponent(plantId)}`, { cache: 'no-store' });
           viewCache && await viewCache.saveDetail('plant', plantId, data).catch(() => null);
@@ -288,19 +330,24 @@
             appConfig.showOfflineBanner(offlineBanner, viewCache.offlineMessage('保存済みの植物詳細を表示しています。', cached.savedAt));
             setStatus('保存済みの植物詳細を表示しています。');
             regenerateProfileBtn.disabled = true;
+            deletePlantBtn.disabled = true;
             regenerateProfileTimer.hidden = true;
             setActionMessage('regenerateProfileStatus', 'オフライン表示中は図鑑内容を再生成できません。', 'is-error');
+            setActionMessage('deletePlantStatus', 'オフライン表示中は削除できません。', 'is-error');
             return;
           }
           plantName.textContent = 'オフライン未保存';
           appConfig.showOfflineBanner(offlineBanner, 'このページはまだオフライン保存されていません。');
           setStatus('このページはまだオフライン保存されていません。', true);
           regenerateProfileBtn.disabled = true;
+          deletePlantBtn.disabled = true;
           regenerateProfileTimer.hidden = true;
           setActionMessage('regenerateProfileStatus', '接続先PCに接続できないため再生成できません。', 'is-error');
+          setActionMessage('deletePlantStatus', '接続先PCに接続できないため削除できません。', 'is-error');
         }
 
         regenerateProfileBtn.addEventListener('click', regenerateProfile);
+        deletePlantBtn.addEventListener('click', deletePlant);
       });
     </script>
   </body>

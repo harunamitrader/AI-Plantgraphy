@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
@@ -17,10 +18,12 @@ from .services.connectivity import build_connectivity
 from .services.discord_notify import notify_analysis_failed, notify_analysis_finished
 from .services.export_store import create_export_zip
 from .services.gemini_cli import (
+    GeminiCliCancelled,
     analyze_images,
     generate_plant_profile,
     normalize_confidence,
     normalize_result,
+    terminate_process_tree,
 )
 from .services.image_store import save_observation_images
 from .services.diagnostics import build_diagnostics
@@ -47,6 +50,15 @@ app.mount("/media", StaticFiles(directory=IMAGE_DIR), name="media")
 
 ANALYSIS_PROGRESS: dict[str, dict] = {}
 ANALYSIS_PROGRESS_LOCK = Lock()
+ANALYSIS_RUNS: dict[str, dict] = {}
+ANALYSIS_RUNS_LOCK = Lock()
+
+STALE_ANALYSIS_MESSAGE = "解析が途中で止まったため失敗として終了しました。必要なら再解析してください。"
+FORCE_STOPPED_ANALYSIS_MESSAGE = "解析を強制停止しました。必要なら再解析してください。"
+
+
+class AnalysisCancelledError(RuntimeError):
+    pass
 
 
 @app.on_event("startup")
@@ -129,6 +141,7 @@ def api_observation(observation_id: str) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
+    observation = recover_stale_observation_if_needed(observation)
     data = present_observation(observation)
     data["analysis_progress"] = get_analysis_progress(observation_id, data.get("status"))
     return data
@@ -194,20 +207,26 @@ def api_regenerate_plant_profile(
 @app.get("/api/observations")
 def api_observations() -> dict:
     return {
-        "observations": [present_observation(row) for row in db.list_observations()],
+        "observations": [present_observation(recover_stale_observation_if_needed(row)) for row in db.list_observations()],
     }
 
 
 @app.get("/api/review")
 def api_review() -> dict:
     return {
-        "observations": [present_observation(row) for row in db.list_review_observations()],
+        "observations": [
+            present_observation(recover_stale_observation_if_needed(row))
+            for row in db.list_review_observations()
+        ],
     }
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
-    recent_observations = [present_observation(row) for row in db.list_recent_observations()]
+    recent_observations = [
+        present_observation(recover_stale_observation_if_needed(row))
+        for row in db.list_recent_observations()
+    ]
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -352,7 +371,10 @@ def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
         "plant_detail.html",
         {
             "plant": present_plant(plant),
-            "observations": [present_observation(row) for row in db.list_observations_for_plant(plant_id)],
+            "observations": [
+                present_observation(recover_stale_observation_if_needed(row))
+                for row in db.list_observations_for_plant(plant_id)
+            ],
             "photo_urls": [media_url(path) for path in db.list_recent_image_paths_for_plant(plant_id)],
         },
     )
@@ -364,7 +386,7 @@ def observations(request: Request) -> HTMLResponse:
         request,
         "observations.html",
         {
-            "observations": [present_observation(row) for row in db.list_observations()],
+            "observations": [present_observation(recover_stale_observation_if_needed(row)) for row in db.list_observations()],
         },
     )
 
@@ -374,6 +396,7 @@ def observation_detail(request: Request, observation_id: str) -> HTMLResponse:
     observation = db.get_observation(observation_id)
     if observation is None:
         raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
+    observation = recover_stale_observation_if_needed(observation)
     return templates.TemplateResponse(
         request,
         "observation_detail.html",
@@ -410,6 +433,48 @@ def reanalyze(
     return {"status": "queued", "observation_id": observation_id}
 
 
+@app.post("/api/observations/{observation_id}/force-stop", dependencies=[Depends(require_api_key)])
+def force_stop_observation(observation_id: str) -> dict:
+    observation = db.get_observation(observation_id)
+    if observation is None:
+        raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
+
+    if observation["status"] not in {"queued", "analyzing"}:
+        return {"status": observation["status"], "observation_id": observation_id}
+
+    stale = is_observation_stale(observation)
+    runtime = request_analysis_cancel(observation_id)
+    if stale and not runtime.get("pid"):
+        finish_analysis_run(observation_id)
+        db.set_observation_status(observation_id, "analysis_failed", FORCE_STOPPED_ANALYSIS_MESSAGE)
+        set_analysis_progress(observation_id, "failed", "停止済み", 100)
+        write_log(f"analysis_force_stopped id={observation_id} active_run=0")
+        return {"status": "analysis_failed", "observation_id": observation_id}
+
+    set_analysis_progress(observation_id, "stopping", "停止中", 99)
+    pid = runtime.get("pid")
+    if isinstance(pid, int) and pid > 0:
+        terminate_process_tree(pid)
+    write_log(f"analysis_force_stop_requested id={observation_id} active_run=1 pid={pid or 0}")
+    return {"status": "stopping", "observation_id": observation_id}
+
+
+@app.post("/api/observations/{observation_id}/restore-plant", dependencies=[Depends(require_api_key)])
+def restore_plant_from_observation(observation_id: str) -> dict:
+    observation = db.get_observation(observation_id)
+    if observation is None:
+        raise HTTPException(status_code=404, detail="観察記録が見つかりません。")
+    if observation["status"] not in {"analyzed", "needs_review", "analysis_failed"}:
+        raise HTTPException(status_code=400, detail="この観察はまだ図鑑を再生成できる状態ではありません。")
+    try:
+        plant_id = db.restore_plant_from_observation(observation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="この観察には図鑑を再生成できる解析結果がありません。") from exc
+    plant = db.get_plant(plant_id)
+    write_log(f"plant_restored_from_observation observation_id={observation_id} plant_id={plant_id}")
+    return {"status": "restored", "observation_id": observation_id, "plant_id": plant_id, "plant": present_plant(plant) if plant else None}
+
+
 @app.post("/api/observations/{observation_id}/correction", dependencies=[Depends(require_api_key)])
 def correct_observation(
     observation_id: str,
@@ -444,37 +509,55 @@ def delete_observation(observation_id: str) -> dict:
     return {"status": "deleted", "observation_id": observation_id}
 
 
+@app.delete("/api/plants/{plant_id}", dependencies=[Depends(require_api_key)])
+def delete_plant(plant_id: str) -> dict:
+    plant = db.delete_plant(plant_id)
+    if plant is None:
+        raise HTTPException(status_code=404, detail="植物が見つかりません。")
+    write_log(f"plant_deleted id={plant_id}")
+    return {"status": "deleted", "plant_id": plant_id}
+
+
 @app.get("/review", response_class=HTMLResponse)
 def review(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "review.html",
         {
-            "observations": [present_observation(row) for row in db.list_review_observations()],
+            "observations": [
+                present_observation(recover_stale_observation_if_needed(row))
+                for row in db.list_review_observations()
+            ],
         },
     )
 
 
 def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str | None = None) -> None:
     analysis_started_at = time.perf_counter()
+    begin_analysis_run(observation_id)
     try:
         model_label = gemini_model.strip() if gemini_model else ""
         write_log(f"analysis_started id={observation_id} model={model_label or 'default'}")
         db.set_observation_status(observation_id, "analyzing")
         set_analysis_progress(observation_id, "preparing", "画像準備中", 10)
+        raise_if_analysis_cancelled(observation_id)
         gemini_started_at = time.perf_counter()
         result = analyze_images(
             image_paths,
             gemini_model=gemini_model,
             progress_callback=lambda phase: set_analysis_phase(observation_id, phase),
             identity_callback=lambda identity: save_identity_preview(observation_id, identity),
+            process_started_callback=lambda pid: set_analysis_process_pid(observation_id, pid),
+            cancel_requested=lambda: is_analysis_cancel_requested(observation_id),
         )
+        raise_if_analysis_cancelled(observation_id)
         gemini_total_seconds = elapsed_seconds(gemini_started_at)
         result.setdefault("analysis_timing", {})
         result["analysis_timing"]["server_gemini_total_seconds"] = gemini_total_seconds
         result_path = image_paths[0].parent / "result.json"
         result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         set_analysis_progress(observation_id, "saving", "結果保存中", 92)
+        raise_if_analysis_cancelled(observation_id)
         db_started_at = time.perf_counter()
         plant_id = db.save_analysis_result(observation_id, result)
         db_seconds = elapsed_seconds(db_started_at)
@@ -485,6 +568,7 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
             and db.plant_needs_profile(plant_id)
         ):
             set_analysis_progress(observation_id, "writing_profile", "図鑑解説作成中", 95)
+            raise_if_analysis_cancelled(observation_id)
             profile_started_at = time.perf_counter()
             try:
                 profile = generate_plant_profile(
@@ -514,6 +598,12 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
                 result.get("confidence"),
                 f"{get_settings().base_url}/observations/{observation_id}",
             )
+    except (AnalysisCancelledError, GeminiCliCancelled) as exc:
+        total_seconds = elapsed_seconds(analysis_started_at)
+        message = FORCE_STOPPED_ANALYSIS_MESSAGE
+        db.set_observation_status(observation_id, "analysis_failed", message)
+        set_analysis_progress(observation_id, "failed", "停止済み", 100)
+        write_log(f"analysis_cancelled id={observation_id} total_seconds={total_seconds} error={message[:500]}")
     except Exception as exc:
         total_seconds = elapsed_seconds(analysis_started_at)
         message = format_analysis_error(exc)
@@ -525,6 +615,8 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
             message,
             f"{get_settings().base_url}/observations/{observation_id}",
         )
+    finally:
+        finish_analysis_run(observation_id)
 
 
 def elapsed_seconds(started_at: float) -> float:
@@ -548,6 +640,54 @@ def save_identity_preview(observation_id: str, identity: dict) -> None:
     write_log(f"analysis_identity_ready id={observation_id} name={name} confidence={confidence}")
 
 
+def begin_analysis_run(observation_id: str) -> None:
+    with ANALYSIS_RUNS_LOCK:
+        previous = ANALYSIS_RUNS.get(observation_id) or {}
+        ANALYSIS_RUNS[observation_id] = {
+            "cancel_requested": bool(previous.get("cancel_requested")),
+            "pid": previous.get("pid"),
+            "started_at": previous.get("started_at") or time.time(),
+            "updated_at": time.time(),
+        }
+
+
+def finish_analysis_run(observation_id: str) -> None:
+    with ANALYSIS_RUNS_LOCK:
+        ANALYSIS_RUNS.pop(observation_id, None)
+
+
+def set_analysis_process_pid(observation_id: str, pid: int) -> None:
+    with ANALYSIS_RUNS_LOCK:
+        runtime = ANALYSIS_RUNS.setdefault(
+            observation_id,
+            {"cancel_requested": False, "pid": None, "started_at": time.time(), "updated_at": time.time()},
+        )
+        runtime["pid"] = pid
+        runtime["updated_at"] = time.time()
+
+
+def request_analysis_cancel(observation_id: str) -> dict | None:
+    with ANALYSIS_RUNS_LOCK:
+        runtime = ANALYSIS_RUNS.setdefault(
+            observation_id,
+            {"cancel_requested": False, "pid": None, "started_at": time.time(), "updated_at": time.time()},
+        )
+        runtime["cancel_requested"] = True
+        runtime["updated_at"] = time.time()
+        return dict(runtime)
+
+
+def is_analysis_cancel_requested(observation_id: str) -> bool:
+    with ANALYSIS_RUNS_LOCK:
+        runtime = ANALYSIS_RUNS.get(observation_id) or {}
+        return bool(runtime.get("cancel_requested"))
+
+
+def raise_if_analysis_cancelled(observation_id: str) -> None:
+    if is_analysis_cancel_requested(observation_id):
+        raise AnalysisCancelledError(FORCE_STOPPED_ANALYSIS_MESSAGE)
+
+
 def set_analysis_progress(observation_id: str, phase: str, label: str, percent: int) -> None:
     with ANALYSIS_PROGRESS_LOCK:
         previous = ANALYSIS_PROGRESS.get(observation_id) or {}
@@ -558,6 +698,59 @@ def set_analysis_progress(observation_id: str, phase: str, label: str, percent: 
             "started_at": previous.get("started_at") or time.time(),
             "updated_at": time.time(),
         }
+
+
+def analysis_recovery_timeout_seconds() -> int:
+    settings = get_settings()
+    return max(settings.gemini_timeout_seconds * 2 + 120, 600)
+
+
+def recover_stale_observation_if_needed(observation):
+    if observation is None:
+        return None
+    status = observation["status"]
+    if status not in {"queued", "analyzing"}:
+        return observation
+    if not is_observation_stale(observation):
+        return observation
+    db.set_observation_status(observation["id"], "analysis_failed", STALE_ANALYSIS_MESSAGE)
+    set_analysis_progress(observation["id"], "failed", "失敗", 100)
+    write_log(f"analysis_stale_recovered id={observation['id']} last_activity={int(last_analysis_activity_timestamp(observation['id'], observation['updated_at'] or observation['received_at']))}")
+    refreshed = db.get_observation(observation["id"])
+    return refreshed or observation
+
+
+def is_observation_stale(observation) -> bool:
+    if observation is None or observation["status"] not in {"queued", "analyzing"}:
+        return False
+    with ANALYSIS_RUNS_LOCK:
+        runtime = dict(ANALYSIS_RUNS.get(observation["id"]) or {})
+    if runtime and not (runtime.get("cancel_requested") and not runtime.get("pid")):
+        return False
+    last_activity = last_analysis_activity_timestamp(observation["id"], observation["updated_at"] or observation["received_at"])
+    return (time.time() - last_activity) >= analysis_recovery_timeout_seconds()
+
+
+def last_analysis_activity_timestamp(observation_id: str, fallback: str | None) -> float:
+    timestamps: list[float] = []
+    with ANALYSIS_PROGRESS_LOCK:
+        progress = dict(ANALYSIS_PROGRESS.get(observation_id) or {})
+    updated_at = progress.get("updated_at")
+    if isinstance(updated_at, (int, float)):
+        timestamps.append(float(updated_at))
+    parsed = parse_datetime_timestamp(fallback)
+    if parsed is not None:
+        timestamps.append(parsed)
+    return max(timestamps) if timestamps else time.time()
+
+
+def parse_datetime_timestamp(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc).timestamp()
+    except ValueError:
+        return None
 
 
 def get_analysis_progress(observation_id: str, status: str | None) -> dict:

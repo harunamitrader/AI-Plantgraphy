@@ -333,6 +333,60 @@ def delete_observation(observation_id: str) -> sqlite3.Row | None:
     return observation
 
 
+def delete_plant(plant_id: str) -> sqlite3.Row | None:
+    plant = get_plant(plant_id)
+    if plant is None:
+        return None
+
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE observations
+            SET plant_id = NULL, updated_at = ?
+            WHERE plant_id = ?
+            """,
+            (now_iso(), plant_id),
+        )
+        conn.execute("DELETE FROM plants WHERE id = ?", (plant_id,))
+    return plant
+
+
+def restore_plant_from_observation(observation_id: str) -> str:
+    observation = get_observation(observation_id)
+    if observation is None:
+        raise ValueError(f"Observation not found: {observation_id}")
+
+    raw_result = {}
+    if observation["raw_result_json"]:
+        try:
+            parsed = json.loads(observation["raw_result_json"])
+            if isinstance(parsed, dict):
+                raw_result = parsed
+        except json.JSONDecodeError:
+            raw_result = {}
+
+    if not (clean_text(raw_result.get("common_name_ja")) or clean_text(raw_result.get("scientific_name"))):
+        raise ValueError("Observation does not have enough analysis data to restore a plant.")
+
+    plant_id = find_or_create_plant(
+        raw_result,
+        observation["image1_path"],
+        observation["captured_at"] or observation["received_at"],
+        increment_count=False,
+    )
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE observations
+            SET plant_id = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (plant_id, now_iso(), observation_id),
+        )
+    refresh_plant_summary(plant_id)
+    return plant_id
+
+
 def find_or_create_plant(
     result: dict,
     representative_image_path: str,

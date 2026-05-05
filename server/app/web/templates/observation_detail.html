@@ -233,9 +233,24 @@
     </section>
   {% endif %}
 
-  {% if observation.error_message or observation.status == 'needs_review' or observation.status == 'analyzed' %}
+  {% if observation.error_message or observation.status in ['queued', 'analyzing', 'needs_review', 'analyzed', 'analysis_failed'] %}
     <section class="actions panel">
       <h2>アクション</h2>
+      {% if observation.status in ['queued', 'analyzing'] %}
+        <div class="action-form">
+          <div class="section-title flush">
+            <div>
+              <p class="eyebrow">Running</p>
+              <h3>解析を強制停止する</h3>
+            </div>
+          </div>
+          <p>解析が長時間止まって見える場合は停止できます。停止後は必要に応じて再解析してください。</p>
+          <button id="forceStopBtn" class="btn btn-danger" type="button">解析を強制停止する</button>
+          <p id="forceStopStatus" class="action-status"></p>
+        </div>
+      {% endif %}
+
+      {% if observation.status in ['analysis_failed', 'needs_review', 'analyzed'] %}
       <div class="edit-form">
         <div class="section-title flush">
           <div>
@@ -254,12 +269,23 @@
         <button id="correctionBtn" class="btn btn-primary" type="button">修正して保存する</button>
         <p id="correctionStatus" class="action-status"></p>
       </div>
+      {% endif %}
 
+      {% if observation.status not in ['queued', 'analyzing'] %}
       <div class="action-form">
         <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
         <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
       </div>
       <p id="reanalyzeStatus" class="action-status"></p>
+      {% endif %}
+
+      {% if not observation.plant_url and (observation.analysis.common_name_ja or observation.analysis.scientific_name) and observation.status not in ['queued', 'analyzing'] %}
+      <div class="action-form">
+        <button id="restorePlantBtn" class="btn btn-secondary" type="button">この観察から図鑑を生成する</button>
+        <p class="field-help">図鑑が削除されていても、この観察に残っている解析結果から図鑑を作り直します。</p>
+      </div>
+      <p id="restorePlantStatus" class="action-status"></p>
+      {% endif %}
 
       <div class="danger-zone">
         <div>
@@ -275,14 +301,21 @@
     <script>
       document.querySelectorAll('.candidate-fill').forEach((button) => {
         button.addEventListener('click', () => {
-          document.getElementById('correctCommonName').value = button.dataset.candidateName || '';
-          document.getElementById('correctScientificName').value = button.dataset.candidateScientific || '';
-          document.getElementById('correctCommonName').focus();
+          const commonName = document.getElementById('correctCommonName');
+          const scientificName = document.getElementById('correctScientificName');
+          if (!commonName || !scientificName) {
+            return;
+          }
+          commonName.value = button.dataset.candidateName || '';
+          scientificName.value = button.dataset.candidateScientific || '';
+          commonName.focus();
           document.querySelector('.actions').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       });
 
-      document.getElementById('correctionBtn').addEventListener('click', async () => {
+      const correctionBtn = document.getElementById('correctionBtn');
+      if (correctionBtn) {
+      correctionBtn.addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const status = document.getElementById('correctionStatus');
         if (!apiKey) {
@@ -323,8 +356,11 @@
           btn.disabled = false;
         }
       });
+      }
 
-      document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
+      const reanalyzeBtn = document.getElementById('reanalyzeBtn');
+      if (reanalyzeBtn) {
+      reanalyzeBtn.addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
         const geminiModel = localStorage.getItem('plant_dex_gemini_model') || '';
         if (!apiKey) {
@@ -372,6 +408,82 @@
           btn.disabled = false;
         }
       });
+      }
+
+      const forceStopBtn = document.getElementById('forceStopBtn');
+      if (forceStopBtn) {
+        forceStopBtn.addEventListener('click', async () => {
+          const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
+          const status = document.getElementById('forceStopStatus');
+          if (!apiKey) {
+            status.textContent = '設定ページでアプリパスワードを保存してください。';
+            status.className = 'action-status is-error';
+            return;
+          }
+          if (!window.confirm('この解析を強制停止します。停止後は必要に応じて再解析してください。停止しますか？')) {
+            return;
+          }
+
+          forceStopBtn.disabled = true;
+          status.textContent = '停止リクエスト送信中...';
+          status.className = 'action-status';
+          try {
+            const response = await fetch('/api/observations/{{ observation.id }}/force-stop', {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey
+              }
+            });
+            const detail = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(detail.detail || '強制停止に失敗しました。');
+            }
+            status.textContent = '停止処理を受け付けました。ページを更新します。';
+            status.className = 'action-status is-success';
+            window.setTimeout(() => window.location.reload(), 600);
+          } catch (err) {
+            status.textContent = 'エラー: ' + err.message;
+            status.className = 'action-status is-error';
+            forceStopBtn.disabled = false;
+          }
+        });
+      }
+
+      const restorePlantBtn = document.getElementById('restorePlantBtn');
+      if (restorePlantBtn) {
+        restorePlantBtn.addEventListener('click', async () => {
+          const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
+          const status = document.getElementById('restorePlantStatus');
+          if (!apiKey) {
+            status.textContent = '設定ページでアプリパスワードを保存してください。';
+            status.className = 'action-status is-error';
+            return;
+          }
+
+          restorePlantBtn.disabled = true;
+          status.textContent = '図鑑を生成中...';
+          status.className = 'action-status';
+          try {
+            const response = await fetch('/api/observations/{{ observation.id }}/restore-plant', {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey
+              }
+            });
+            const detail = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(detail.detail || '図鑑の生成に失敗しました。');
+            }
+            status.textContent = '図鑑を生成しました。ページを更新します。';
+            status.className = 'action-status is-success';
+            window.setTimeout(() => window.location.reload(), 600);
+          } catch (err) {
+            status.textContent = 'エラー: ' + err.message;
+            status.className = 'action-status is-error';
+            restorePlantBtn.disabled = false;
+          }
+        });
+      }
 
       document.getElementById('deleteBtn').addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();

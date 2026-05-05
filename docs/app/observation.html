@@ -121,7 +121,19 @@
 
       <section class="actions panel" id="actionsSection" hidden>
         <h2>アクション</h2>
-        <div class="edit-form">
+        <div class="action-form" id="pendingActionsBlock" hidden>
+          <div class="section-title flush">
+            <div>
+              <p class="eyebrow">Running</p>
+              <h3>解析を強制停止する</h3>
+            </div>
+          </div>
+          <p>解析が長時間止まって見える場合は停止できます。停止後は必要に応じて再解析してください。</p>
+          <button id="forceStopBtn" class="btn btn-danger" type="button">解析を強制停止する</button>
+          <p id="forceStopStatus" class="action-status"></p>
+        </div>
+
+        <div class="edit-form" id="manualEditBlock">
           <div class="section-title flush">
             <div>
               <p class="eyebrow">Manual edit</p>
@@ -140,11 +152,17 @@
           <p id="correctionStatus" class="action-status"></p>
         </div>
 
-        <div class="action-form">
+        <div class="action-form" id="reanalyzeBlock">
           <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
           <p class="field-help">アプリパスワードとGeminiモデルは <a href="./settings.html">設定</a> で変更できます。</p>
         </div>
         <p id="reanalyzeStatus" class="action-status"></p>
+
+        <div class="action-form" id="restorePlantBlock" hidden>
+          <button id="restorePlantBtn" class="btn btn-secondary" type="button">この観察から図鑑を生成する</button>
+          <p class="field-help">図鑑が削除されていても、この観察に残っている解析結果から図鑑を作り直します。</p>
+        </div>
+        <p id="restorePlantStatus" class="action-status"></p>
 
         <div class="danger-zone">
           <div>
@@ -280,11 +298,15 @@
           });
           if (!enabled) {
             setActionMessage('correctionStatus', 'オフライン表示中は保存できません。', 'is-error');
+            setActionMessage('forceStopStatus', 'オフライン表示中は停止できません。', 'is-error');
             setActionMessage('reanalyzeStatus', 'オフライン表示中は再解析できません。', 'is-error');
+            setActionMessage('restorePlantStatus', 'オフライン表示中は図鑑を生成できません。', 'is-error');
             setActionMessage('deleteStatus', 'オフライン表示中は削除できません。', 'is-error');
           } else {
             setActionMessage('correctionStatus', '', '');
+            setActionMessage('forceStopStatus', '', '');
             setActionMessage('reanalyzeStatus', '', '');
+            setActionMessage('restorePlantStatus', '', '');
             setActionMessage('deleteStatus', '', '');
           }
         }
@@ -369,10 +391,17 @@
 
         function renderActions(observation) {
           const actionsSection = document.getElementById('actionsSection');
-          actionsSection.hidden = !isMutableStatus(observation);
+          const mutable = isMutableStatus(observation);
+          const pending = isPendingStatus(observation);
+          const restorablePlant = !observation.plant_id && !pending && ((observation.analysis.common_name_ja || observation.analysis.scientific_name) || '').trim();
+          actionsSection.hidden = !(mutable || pending);
           if (actionsSection.hidden) {
             return;
           }
+          document.getElementById('pendingActionsBlock').hidden = !pending;
+          document.getElementById('manualEditBlock').hidden = !mutable;
+          document.getElementById('reanalyzeBlock').hidden = pending;
+          document.getElementById('restorePlantBlock').hidden = !restorablePlant;
           document.getElementById('correctCommonName').value = (observation.analysis.common_name_ja || observation.display_name || '').trim();
           document.getElementById('correctScientificName').value = (observation.analysis.scientific_name || '').trim();
           document.getElementById('correctNote').value = observation.note || '';
@@ -568,6 +597,71 @@
           }
         }
 
+        async function forceStopObservation() {
+          const apiKey = getPassword();
+          if (!apiKey) {
+            setActionMessage('forceStopStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+          if (!window.confirm('この解析を強制停止します。停止後は必要に応じて再解析してください。停止しますか？')) {
+            return;
+          }
+
+          const button = document.getElementById('forceStopBtn');
+          button.disabled = true;
+          setActionMessage('forceStopStatus', '停止リクエストを送信中...');
+
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/observations/${encodeURIComponent(observationId)}/force-stop`), {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey,
+              },
+            });
+            const detail = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(detail.detail || '強制停止に失敗しました。');
+            }
+            setActionMessage('forceStopStatus', '停止処理を受け付けました。状態を更新します。', 'is-success');
+            await loadObservation();
+            startPolling();
+          } catch (error) {
+            setActionMessage('forceStopStatus', `エラー: ${error.message}`, 'is-error');
+          } finally {
+            button.disabled = false;
+          }
+        }
+
+        async function restorePlantFromObservation() {
+          const apiKey = getPassword();
+          if (!apiKey) {
+            setActionMessage('restorePlantStatus', '設定ページでアプリパスワードを保存してください。', 'is-error');
+            return;
+          }
+
+          const button = document.getElementById('restorePlantBtn');
+          button.disabled = true;
+          setActionMessage('restorePlantStatus', '図鑑を生成中...');
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/observations/${encodeURIComponent(observationId)}/restore-plant`), {
+              method: 'POST',
+              headers: {
+                'X-Plant-Dex-Api-Key': apiKey,
+              },
+            });
+            const detail = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(detail.detail || '図鑑の生成に失敗しました。');
+            }
+            setActionMessage('restorePlantStatus', '図鑑を生成しました。表示を更新します。', 'is-success');
+            await loadObservation();
+          } catch (error) {
+            setActionMessage('restorePlantStatus', `エラー: ${error.message}`, 'is-error');
+          } finally {
+            button.disabled = false;
+          }
+        }
+
         async function deleteObservation() {
           const apiKey = getPassword();
           if (!apiKey) {
@@ -623,7 +717,9 @@
         }
 
         document.getElementById('correctionBtn').addEventListener('click', saveCorrection);
+        document.getElementById('forceStopBtn').addEventListener('click', forceStopObservation);
         document.getElementById('reanalyzeBtn').addEventListener('click', reanalyzeObservation);
+        document.getElementById('restorePlantBtn').addEventListener('click', restorePlantFromObservation);
         document.getElementById('deleteBtn').addEventListener('click', deleteObservation);
 
         setStatus('観察記録を読み込んでいます...');
