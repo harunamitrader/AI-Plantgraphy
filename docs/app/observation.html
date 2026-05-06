@@ -340,11 +340,6 @@
             timingPanel.hidden = false;
             const entries = [
               ['全体', timing.server_total_seconds ?? timing.total_seconds ?? '?'],
-              ['Gemini CLI', timing.gemini_cli_seconds ?? timing.server_gemini_total_seconds ?? '?'],
-              ['画像準備', timing.copy_images_seconds ?? 0],
-              ['JSON整形', timing.parse_seconds ?? 0],
-              ['図鑑解説', timing.plant_profile_seconds ?? timing.profile_fill_seconds ?? 0],
-              ['DB保存', timing.db_save_seconds ?? 0],
             ];
             timingGrid.innerHTML = entries.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}秒</strong></div>`).join('');
           }

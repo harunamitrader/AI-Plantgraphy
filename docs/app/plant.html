@@ -54,6 +54,23 @@
         </div>
       </section>
 
+      <section class="panel timing-panel">
+        <p class="eyebrow">Timing</p>
+        <h2>図鑑生成時間</h2>
+        <div class="timing-grid">
+          <div><span>全体</span><strong id="plantGenerationSeconds">?秒</strong></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">JSON</p>
+        <h2>図鑑生成JSON</h2>
+        <details open>
+          <summary>生成JSONを表示</summary>
+          <pre id="plantGeneratedJson">読込中...</pre>
+        </details>
+      </section>
+
       <section class="panel">
         <p class="eyebrow">Profile</p>
         <h2>図鑑内容を再生成</h2>
@@ -106,6 +123,8 @@
         const plantProfileText = document.getElementById('plantProfileText');
         const plantAppearanceText = document.getElementById('plantAppearanceText');
         const plantCareText = document.getElementById('plantCareText');
+        const plantGenerationSeconds = document.getElementById('plantGenerationSeconds');
+        const plantGeneratedJson = document.getElementById('plantGeneratedJson');
         const plantObservationCount = document.getElementById('plantObservationCount');
         const plantObservationList = document.getElementById('plantObservationList');
         const plantPhotoStrip = document.getElementById('plantPhotoStrip');
@@ -151,11 +170,13 @@
           if (!plant) {
             return;
           }
-          plantName.textContent = plant.display_name || '名称未設定';
-          plantScientificName.textContent = plant.scientific_name || '学名未確定';
+          plantName.textContent = plant.display_name || '植物名未設定';
+          plantScientificName.textContent = plant.scientific_name || '学名未設定';
           plantProfileText.textContent = plant.basic_profile_display || '基本的な特徴はまだありません。';
           plantAppearanceText.textContent = plant.visual_appeal_display || '見た目の特徴と魅力はまだありません。';
           plantCareText.textContent = plant.care_notes_display || '手入れメモはまだありません。';
+          plantGenerationSeconds.textContent = `${typeof plant.profile_generation_seconds === 'number' ? plant.profile_generation_seconds : '?'}秒`;
+          plantGeneratedJson.textContent = plant.profile_generated_json_pretty || '生成JSONはまだありません。';
         }
 
         function escapeHtml(value) {

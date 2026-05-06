@@ -54,11 +54,6 @@
       <h2>解析時間</h2>
       <div class="timing-grid">
         <div><span>全体</span><strong>{{ timing.server_total_seconds or timing.total_seconds or "?" }}秒</strong></div>
-        <div><span>Gemini CLI</span><strong>{{ timing.gemini_cli_seconds or timing.server_gemini_total_seconds or "?" }}秒</strong></div>
-        <div><span>画像準備</span><strong>{{ timing.copy_images_seconds or 0 }}秒</strong></div>
-        <div><span>JSON整形</span><strong>{{ timing.parse_seconds or 0 }}秒</strong></div>
-        <div><span>図鑑解説</span><strong>{{ timing.plant_profile_seconds or timing.profile_fill_seconds or 0 }}秒</strong></div>
-        <div><span>DB保存</span><strong>{{ timing.db_save_seconds or 0 }}秒</strong></div>
       </div>
     </section>
   {% endif %}

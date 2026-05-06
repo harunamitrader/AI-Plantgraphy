@@ -36,6 +36,27 @@
       <p>{{ plant.care_notes_display }}</p>
     </div>
   </section>
+  <section class="panel timing-panel">
+    <p class="eyebrow">Timing</p>
+    <h2>図鑑生成時間</h2>
+    <div class="timing-grid">
+      <div><span>全体</span><strong>{{ plant.profile_generation_seconds if plant.profile_generation_seconds is not none else "?" }}秒</strong></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">JSON</p>
+    <h2>図鑑生成JSON</h2>
+    {% if plant.profile_generated_json_pretty %}
+      <details open>
+        <summary>生成JSONを表示</summary>
+        <pre>{{ plant.profile_generated_json_pretty }}</pre>
+      </details>
+    {% else %}
+      <p>生成JSONはまだありません。</p>
+    {% endif %}
+  </section>
+
 
   <section class="panel">
     <p class="eyebrow">Profile</p>

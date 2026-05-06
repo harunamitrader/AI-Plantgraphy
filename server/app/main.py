@@ -266,7 +266,11 @@ def api_regenerate_plant_profile(
         )
         raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
 
-    if not (db.clean_text(profile.get("basic_profile_text")) and db.clean_text(profile.get("visual_appeal_text"))):
+    if not (
+        db.clean_text(profile.get("basic_profile_text"))
+        and db.clean_text(profile.get("visual_appeal_text"))
+        and db.clean_text(profile.get("care_notes"))
+    ):
         write_log(
             f"plant_profile_regenerate_incomplete plant_id={plant_id} "
             f"profile={json.dumps(profile, ensure_ascii=False)[:500]}"
@@ -277,7 +281,12 @@ def api_regenerate_plant_profile(
     updated = db.get_plant(plant_id)
     elapsed = elapsed_seconds(started_at)
     write_log(f"plant_profile_regenerated plant_id={plant_id} seconds={elapsed}")
-    return {"status": "updated", "seconds": elapsed, "plant": present_plant(updated) if updated else None}
+    return {
+        "status": "updated",
+        "seconds": elapsed,
+        "generation_seconds": profile.get("profile_generation_seconds"),
+        "plant": present_plant(updated) if updated else None,
+    }
 
 
 @app.get("/api/observations")
@@ -862,6 +871,13 @@ def present_plant(row, absolute_urls: bool = False) -> dict:
     item["basic_profile_display"] = clean_display_text(item.get("basic_profile_text"), "基本的な特徴はまだありません。")
     item["visual_appeal_display"] = clean_display_text(item.get("visual_appeal_text"), "見た目の特徴と魅力はまだありません。")
     item["care_notes_display"] = clean_display_text(item.get("care_notes"), "手入れメモはまだありません。")
+    item["basic_profile_display"] = clean_display_text(item.get("basic_profile_text"), "基本的な特徴はまだありません。")
+    item["visual_appeal_display"] = clean_display_text(item.get("visual_appeal_text"), "見た目の特徴と魅力はまだありません。")
+    item["care_notes_display"] = clean_display_text(item.get("care_notes"), "手入れメモはまだありません。")
+    profile_generated_json = parse_json_text(item.get("profile_raw_json"))
+    item["profile_generated_json"] = profile_generated_json
+    item["profile_generated_json_pretty"] = json.dumps(profile_generated_json, ensure_ascii=False, indent=2) if profile_generated_json else ""
+    item["profile_generation_seconds"] = db.parse_float(item.get("profile_generation_seconds"))
     if absolute_urls:
         item["representative_image_url"] = absolute_public_url(item["representative_image_url"])
         item["detail_url"] = absolute_public_url(item["detail_url"])
@@ -901,6 +917,16 @@ def parse_analysis(raw_json: str | None) -> dict:
     except json.JSONDecodeError:
         return {}
     return normalize_result(value) if isinstance(value, dict) else {}
+
+
+def parse_json_text(raw_json: str | None) -> dict:
+    if not raw_json:
+        return {}
+    try:
+        value = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def clean_display_text(text: object, fallback: str) -> str:

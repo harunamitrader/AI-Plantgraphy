@@ -39,6 +39,8 @@ def init_db() -> None:
                 basic_profile_text TEXT,
                 visual_appeal_text TEXT,
                 care_notes TEXT,
+                profile_raw_json TEXT,
+                profile_generation_seconds REAL,
                 representative_image_path TEXT,
                 first_observed_at TEXT,
                 last_observed_at TEXT,
@@ -89,6 +91,7 @@ def init_db() -> None:
         )
         migrate_observation_optional_images(conn)
         migrate_plant_profile_columns(conn)
+        migrate_plant_profile_metadata_columns(conn)
         migrate_image_paths(conn)
         backfill_plant_profiles(conn)
         normalize_plant_profiles(conn)
@@ -183,6 +186,15 @@ def migrate_plant_profile_columns(conn: sqlite3.Connection) -> None:
     for name in ["basic_profile_text", "visual_appeal_text", "care_notes"]:
         if name not in names:
             conn.execute(f"ALTER TABLE plants ADD COLUMN {name} TEXT")
+
+
+def migrate_plant_profile_metadata_columns(conn: sqlite3.Connection) -> None:
+    columns = conn.execute("PRAGMA table_info(plants)").fetchall()
+    names = {column["name"] for column in columns}
+    if "profile_raw_json" not in names:
+        conn.execute("ALTER TABLE plants ADD COLUMN profile_raw_json TEXT")
+    if "profile_generation_seconds" not in names:
+        conn.execute("ALTER TABLE plants ADD COLUMN profile_generation_seconds REAL")
 
 
 def backfill_plant_profiles(conn: sqlite3.Connection) -> None:
@@ -399,6 +411,8 @@ def upsert_manual_plant(
                     basic_profile_text = COALESCE(?, basic_profile_text),
                     visual_appeal_text = COALESCE(?, visual_appeal_text),
                     care_notes = COALESCE(?, care_notes),
+                    profile_raw_json = COALESCE(?, profile_raw_json),
+                    profile_generation_seconds = COALESCE(?, profile_generation_seconds),
                     updated_at = ?
                 WHERE id = ?
                 """,
@@ -409,6 +423,8 @@ def upsert_manual_plant(
                     truncate_text(clean_text(profile.get("basic_profile_text")), 120),
                     truncate_text(clean_text(profile.get("visual_appeal_text")), 120),
                     truncate_text(clean_text(profile.get("care_notes")), 120),
+                    clean_text(profile.get("profile_raw_json")),
+                    parse_float(profile.get("profile_generation_seconds")),
                     timestamp,
                     plant_id,
                 ),
@@ -421,9 +437,10 @@ def upsert_manual_plant(
             INSERT INTO plants (
                 id, display_name, common_name_ja, scientific_name, aliases_json,
                 description, basic_profile_text, visual_appeal_text, care_notes,
+                profile_raw_json, profile_generation_seconds,
                 representative_image_path, first_observed_at,
                 last_observed_at, observation_count, user_corrected, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 plant_id,
@@ -435,6 +452,8 @@ def upsert_manual_plant(
                 truncate_text(clean_text(profile.get("basic_profile_text")), 120),
                 truncate_text(clean_text(profile.get("visual_appeal_text")), 120),
                 truncate_text(clean_text(profile.get("care_notes")), 120),
+                clean_text(profile.get("profile_raw_json")),
+                parse_float(profile.get("profile_generation_seconds")),
                 None,
                 None,
                 None,
@@ -551,9 +570,10 @@ def find_or_create_plant(
             INSERT INTO plants (
                 id, display_name, common_name_ja, scientific_name, aliases_json,
                 description, basic_profile_text, visual_appeal_text, care_notes,
+                profile_raw_json, profile_generation_seconds,
                 representative_image_path, first_observed_at,
                 last_observed_at, observation_count, user_corrected, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 plant_id,
@@ -565,6 +585,8 @@ def find_or_create_plant(
                 truncate_text(clean_text(result.get("basic_profile_text")), 120),
                 truncate_text(clean_text(result.get("visual_appeal_text")), 120),
                 truncate_text(clean_text(result.get("care_notes")), 120),
+                clean_text(result.get("profile_raw_json")),
+                parse_float(result.get("profile_generation_seconds")),
                 representative_image_path,
                 observed,
                 observed,
@@ -636,6 +658,8 @@ def update_plant_profile(plant_id: str, profile: dict) -> None:
             SET basic_profile_text = COALESCE(?, basic_profile_text),
                 visual_appeal_text = COALESCE(?, visual_appeal_text),
                 care_notes = COALESCE(?, care_notes),
+                profile_raw_json = COALESCE(?, profile_raw_json),
+                profile_generation_seconds = COALESCE(?, profile_generation_seconds),
                 updated_at = ?
             WHERE id = ?
             """,
@@ -643,6 +667,8 @@ def update_plant_profile(plant_id: str, profile: dict) -> None:
                 truncate_text(clean_text(profile.get("basic_profile_text")), 120),
                 truncate_text(clean_text(profile.get("visual_appeal_text")), 120),
                 truncate_text(clean_text(profile.get("care_notes")), 120),
+                clean_text(profile.get("profile_raw_json")),
+                parse_float(profile.get("profile_generation_seconds")),
                 now_iso(),
                 plant_id,
             ),

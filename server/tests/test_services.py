@@ -1,3 +1,4 @@
+import json
 import unittest
 from io import BytesIO
 from pathlib import Path
@@ -630,6 +631,27 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(profile["visual_appeal_text"], "花色が明るく花壇で目立ちます。")
         self.assertEqual(profile["care_notes"], "乾きすぎと蒸れを避け、土の表面が乾いたら水を与えます。")
 
+        self.assertIn("profile_generation_seconds", profile)
+        self.assertIn("profile_raw_json", profile)
+
+    def test_generate_plant_profile_retries_until_all_fields_are_filled(self):
+        responses = iter(
+            [
+                '{"basic_profile_text":"基本特徴です。","visual_appeal_text":"","care_notes":""}',
+                '{"visual_appeal_text":"見た目の魅力です。","care_notes":""}',
+                '{"care_notes":"水切れと蒸れを避けます。"}',
+            ]
+        )
+
+        with patch("server.app.services.gemini_cli.run_gemini_prompt", side_effect=lambda *args, **kwargs: next(responses)):
+            profile = generate_plant_profile("テスト植物", "Testus plantus")
+
+        self.assertEqual(profile["basic_profile_text"], "基本特徴です。")
+        self.assertEqual(profile["visual_appeal_text"], "見た目の魅力です。")
+        self.assertEqual(profile["care_notes"], "水切れと蒸れを避けます。")
+        self.assertGreaterEqual(profile["profile_generation_seconds"], 0.0)
+        self.assertEqual(json.loads(profile["profile_raw_json"])["care_notes"], "水切れと蒸れを避けます。")
+
     def test_resolve_plant_identity_from_name_returns_scientific_name(self):
         with patch(
             "server.app.services.gemini_cli.run_gemini_prompt",
@@ -963,6 +985,48 @@ class ServiceTests(unittest.TestCase):
             updated = db.get_plant(plant_id)
             self.assertEqual(updated["basic_profile_text"], "香りの強い柑橘です。")
             self.assertEqual(updated["visual_appeal_text"], "黄色い実とつやのある葉が魅力です。")
+
+    def test_regenerate_plant_profile_api_stores_profile_metadata(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            image_paths = self._create_fake_images("obs-plant-profile-meta")
+            db.create_observation(
+                observation_id="obs-plant-profile-meta",
+                image_paths=image_paths,
+                captured_at=None,
+                note=None,
+                location_label=None,
+                latitude=None,
+                longitude=None,
+            )
+            plant_id = db.save_analysis_result(
+                "obs-plant-profile-meta",
+                {
+                    "common_name_ja": "メタ植物",
+                    "scientific_name": "Meta plantus",
+                    "confidence": 0.9,
+                    "candidates": [],
+                },
+            )
+            client = TestClient(app)
+            with patch("server.app.main.generate_plant_profile", return_value={
+                "basic_profile_text": "基本特徴です。",
+                "visual_appeal_text": "見た目の魅力です。",
+                "care_notes": "水切れと蒸れを避けます。",
+                "profile_generation_seconds": 4.321,
+                "profile_raw_json": '{"basic_profile_text":"基本特徴です。","visual_appeal_text":"見た目の魅力です。","care_notes":"水切れと蒸れを避けます。"}',
+            }):
+                response = client.post(
+                    f"/api/plants/{plant_id}/regenerate-profile",
+                    headers={"X-Plant-Dex-Api-Key": get_settings().api_key},
+                )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["generation_seconds"], 4.321)
+            updated = db.get_plant(plant_id)
+            self.assertEqual(updated["care_notes"], "水切れと蒸れを避けます。")
+            self.assertEqual(updated["profile_generation_seconds"], 4.321)
+            self.assertTrue(updated["profile_raw_json"])
 
     def test_activity_log_writes_file(self):
         with TemporaryDirectory() as tmp:
