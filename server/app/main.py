@@ -176,7 +176,10 @@ def api_create_plant(
     started_at = time.perf_counter()
     resolved_common_name = cleaned_common_name
     resolved_scientific_name = None
-    plant_id = None
+    plant_id = db.create_pending_manual_plant(
+        common_name_ja=resolved_common_name,
+        scientific_name=None,
+    )
     try:
         identity = resolve_plant_identity_from_name(
             cleaned_common_name,
@@ -189,16 +192,19 @@ def api_create_plant(
             uncertainty = db.clean_text(identity.get("uncertainty_notes"))
             if uncertainty:
                 detail = f"{detail} ({uncertainty})"
+            db.delete_plant(plant_id)
             raise HTTPException(status_code=400, detail=detail)
         existing = db.find_existing_plant(resolved_common_name, resolved_scientific_name)
-        if existing is not None:
+        if existing is not None and existing["id"] != plant_id:
+            db.delete_plant(plant_id)
             write_log(f"plant_create_skipped_existing plant_id={existing['id']} via_identity=1")
             return {
                 "status": "exists",
                 "detail": "既存の図鑑があります。",
                 "plant": present_plant(existing),
             }
-        plant_id = db.create_pending_manual_plant(
+        db.update_plant_identity(
+            plant_id,
             common_name_ja=resolved_common_name,
             scientific_name=resolved_scientific_name,
         )
@@ -209,14 +215,17 @@ def api_create_plant(
         )
     except Exception as exc:
         if isinstance(exc, HTTPException):
+            if exc.status_code < 500:
+                db.delete_plant(plant_id)
+            else:
+                db.fail_plant_profile_generation(plant_id, format_analysis_error(exc))
             raise
         write_log(
             f"plant_create_failed name={cleaned_common_name[:120]} "
             f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
             f"error={format_analysis_error(exc)[:500]}"
         )
-        if plant_id:
-            db.fail_plant_profile_generation(plant_id, format_analysis_error(exc))
+        db.fail_plant_profile_generation(plant_id, format_analysis_error(exc))
         raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
 
     if not (
@@ -224,19 +233,11 @@ def api_create_plant(
         and db.clean_text(profile.get("visual_appeal_text"))
         and db.clean_text(profile.get("care_notes"))
     ):
-        if plant_id:
-            db.fail_plant_profile_generation(plant_id, "図鑑プロフィールを十分に生成できませんでした。")
+        db.fail_plant_profile_generation(plant_id, "図鑑プロフィールを十分に生成できませんでした。")
         raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
 
-    if plant_id is None:
-        plant_id = db.upsert_manual_plant(
-            common_name_ja=resolved_common_name,
-            scientific_name=resolved_scientific_name,
-            profile=profile,
-        )
-    else:
-        db.update_plant_profile(plant_id, profile)
-        db.finish_plant_profile_generation(plant_id)
+    db.update_plant_profile(plant_id, profile)
+    db.finish_plant_profile_generation(plant_id)
     plant = db.get_plant(plant_id)
     elapsed = elapsed_seconds(started_at)
     write_log(f"plant_created_manually plant_id={plant_id} seconds={elapsed}")

@@ -539,6 +539,30 @@ def create_pending_manual_plant(
     return plant_id
 
 
+def update_plant_identity(
+    plant_id: str,
+    *,
+    common_name_ja: str | None,
+    scientific_name: str | None,
+) -> None:
+    common_name = clean_text(common_name_ja)
+    scientific = clean_text(scientific_name)
+    display_name = common_name or scientific or "未確定の植物"
+    with connect() as conn:
+        migrate_plant_profile_generation_columns(conn)
+        conn.execute(
+            """
+            UPDATE plants
+            SET display_name = COALESCE(NULLIF(?, ''), display_name),
+                common_name_ja = COALESCE(?, common_name_ja),
+                scientific_name = COALESCE(?, scientific_name),
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (display_name, common_name, scientific, now_iso(), plant_id),
+        )
+
+
 def start_plant_profile_generation(plant_id: str) -> None:
     timestamp = now_iso()
     with connect() as conn:

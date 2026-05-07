@@ -71,13 +71,24 @@
   </section>
 
   <script>
+      const createPlantJobKey = 'ai_plantgraphy_create_plant_job';
+      const createPlantNameInput = document.getElementById('manualCommonName');
+      const createPlantStatus = document.getElementById('createPlantStatus');
       const createPlantTimer = document.getElementById('createPlantTimer');
       let createPlantInterval = null;
+      let createPlantPoll = null;
 
       function stopCreatePlantTimer() {
         if (createPlantInterval) {
           window.clearInterval(createPlantInterval);
           createPlantInterval = null;
+        }
+      }
+
+      function stopCreatePlantPolling() {
+        if (createPlantPoll) {
+          window.clearInterval(createPlantPoll);
+          createPlantPoll = null;
         }
       }
 
@@ -92,10 +103,85 @@
         }, 1000);
       }
 
+      function startCreatePlantTimerFrom(startedAtIso) {
+        stopCreatePlantTimer();
+        if (!startedAtIso) {
+          return;
+        }
+        const startedAt = Date.parse(startedAtIso);
+        if (Number.isNaN(startedAt)) {
+          return;
+        }
+        createPlantTimer.hidden = false;
+        const update = () => {
+          const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+          createPlantTimer.textContent = `経過 ${seconds}秒`;
+        };
+        update();
+        createPlantInterval = window.setInterval(update, 1000);
+      }
+
+      function saveCreatePlantJob(commonName) {
+        localStorage.setItem(createPlantJobKey, JSON.stringify({
+          commonName,
+          startedAt: new Date().toISOString(),
+        }));
+      }
+
+      function loadCreatePlantJob() {
+        try {
+          const raw = localStorage.getItem(createPlantJobKey);
+          if (!raw) {
+            return null;
+          }
+          const value = JSON.parse(raw);
+          return value && typeof value === 'object' ? value : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function clearCreatePlantJob() {
+        localStorage.removeItem(createPlantJobKey);
+      }
+
+      async function syncCreatePlantJob() {
+        const job = loadCreatePlantJob();
+        if (!job?.commonName) {
+          return;
+        }
+        try {
+          const response = await fetch('/api/plants', { cache: 'no-store' });
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json().catch(() => ({}));
+          const plant = Array.isArray(data?.plants)
+            ? data.plants.find((item) => (item.display_name || '').trim() === (job.commonName || '').trim())
+            : null;
+          if (!plant || plant.profile_generation_progress?.phase === 'queued' || plant.profile_generation_progress?.phase === 'analyzing') {
+            createPlantNameInput.value = job.commonName;
+            createPlantStatus.textContent = plant?.profile_generation_progress?.label || '図鑑を生成しています...';
+            createPlantStatus.className = 'action-status is-progress';
+            startCreatePlantTimerFrom(plant?.profile_generation_progress?.started_at || job.startedAt);
+            if (!createPlantPoll) {
+              createPlantPoll = window.setInterval(syncCreatePlantJob, 5000);
+            }
+            return;
+          }
+          clearCreatePlantJob();
+          stopCreatePlantTimer();
+          createPlantTimer.hidden = true;
+          stopCreatePlantPolling();
+        } catch (error) {
+          stopCreatePlantPolling();
+        }
+      }
+
       document.getElementById('createPlantBtn').addEventListener('click', async () => {
         const apiKey = (localStorage.getItem('ai_plantgraphy_password') || localStorage.getItem('plant_dex_api_key') || '').trim();
-        const commonName = document.getElementById('manualCommonName').value.trim();
-        const status = document.getElementById('createPlantStatus');
+        const commonName = createPlantNameInput.value.trim();
+        const status = createPlantStatus;
         if (!apiKey) {
           status.textContent = '設定ページでアプリパスワードを保存してください。';
           status.className = 'action-status is-error';
@@ -111,6 +197,7 @@
         button.disabled = true;
         status.textContent = '図鑑を生成しています...';
         status.className = 'action-status';
+        saveCreatePlantJob(commonName);
         startCreatePlantTimer();
         try {
           const formData = new FormData();
@@ -129,6 +216,7 @@
           }
           stopCreatePlantTimer();
           if (payload?.status === 'exists' && payload?.plant?.id) {
+            clearCreatePlantJob();
             status.textContent = payload.detail || '既存の図鑑があります。詳細ページへ移動します。';
             status.className = 'action-status is-success';
             createPlantTimer.hidden = true;
@@ -137,6 +225,7 @@
             }, 500);
             return;
           }
+          clearCreatePlantJob();
           status.textContent = '図鑑を生成しました。詳細ページへ移動します。';
           status.className = 'action-status is-success';
           createPlantTimer.hidden = false;
@@ -148,12 +237,14 @@
           }
         } catch (error) {
           stopCreatePlantTimer();
+          clearCreatePlantJob();
           status.textContent = `エラー: ${error.message}`;
           status.className = 'action-status is-error';
           createPlantTimer.hidden = true;
           button.disabled = false;
         }
       });
+      syncCreatePlantJob();
   {% if plants %}
       const plantSearch = document.getElementById('plantSearch');
       const plantCards = Array.from(document.querySelectorAll('.plant-card'));
