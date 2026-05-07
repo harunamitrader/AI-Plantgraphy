@@ -151,7 +151,7 @@ def api_observation(observation_id: str) -> dict:
 @app.get("/api/plants")
 def api_plants() -> dict:
     return {
-        "plants": [present_plant(row) for row in db.list_plants()],
+        "plants": [present_plant(recover_stale_plant_generation_if_needed(row)) for row in db.list_plants()],
     }
 
 
@@ -176,6 +176,7 @@ def api_create_plant(
     started_at = time.perf_counter()
     resolved_common_name = cleaned_common_name
     resolved_scientific_name = None
+    plant_id = None
     try:
         identity = resolve_plant_identity_from_name(
             cleaned_common_name,
@@ -197,6 +198,10 @@ def api_create_plant(
                 "detail": "既存の図鑑があります。",
                 "plant": present_plant(existing),
             }
+        plant_id = db.create_pending_manual_plant(
+            common_name_ja=resolved_common_name,
+            scientific_name=resolved_scientific_name,
+        )
         profile = generate_plant_profile(
             resolved_common_name,
             resolved_scientific_name,
@@ -210,6 +215,8 @@ def api_create_plant(
             f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
             f"error={format_analysis_error(exc)[:500]}"
         )
+        if plant_id:
+            db.fail_plant_profile_generation(plant_id, format_analysis_error(exc))
         raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
 
     if not (
@@ -217,13 +224,19 @@ def api_create_plant(
         and db.clean_text(profile.get("visual_appeal_text"))
         and db.clean_text(profile.get("care_notes"))
     ):
+        if plant_id:
+            db.fail_plant_profile_generation(plant_id, "図鑑プロフィールを十分に生成できませんでした。")
         raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
 
-    plant_id = db.upsert_manual_plant(
-        common_name_ja=resolved_common_name,
-        scientific_name=resolved_scientific_name,
-        profile=profile,
-    )
+    if plant_id is None:
+        plant_id = db.upsert_manual_plant(
+            common_name_ja=resolved_common_name,
+            scientific_name=resolved_scientific_name,
+            profile=profile,
+        )
+    else:
+        db.update_plant_profile(plant_id, profile)
+        db.finish_plant_profile_generation(plant_id)
     plant = db.get_plant(plant_id)
     elapsed = elapsed_seconds(started_at)
     write_log(f"plant_created_manually plant_id={plant_id} seconds={elapsed}")
@@ -235,6 +248,7 @@ def api_plant_detail(plant_id: str) -> dict:
     plant = db.get_plant(plant_id)
     if plant is None:
         raise HTTPException(status_code=404, detail="植物が見つかりません。")
+    plant = recover_stale_plant_generation_if_needed(plant)
     return {
         "plant": present_plant(plant),
         "observations": [present_observation(row) for row in db.list_observations_for_plant(plant_id)],
@@ -253,6 +267,7 @@ def api_regenerate_plant_profile(
 
     started_at = time.perf_counter()
     try:
+        db.start_plant_profile_generation(plant_id)
         profile = generate_plant_profile(
             plant["display_name"],
             plant["scientific_name"],
@@ -264,6 +279,7 @@ def api_regenerate_plant_profile(
             f"model={(gemini_model or get_settings().gemini_model or '').strip() or 'default'} "
             f"error={format_analysis_error(exc)[:500]}"
         )
+        db.fail_plant_profile_generation(plant_id, format_analysis_error(exc))
         raise HTTPException(status_code=500, detail=format_analysis_error(exc)) from exc
 
     if not (
@@ -275,9 +291,11 @@ def api_regenerate_plant_profile(
             f"plant_profile_regenerate_incomplete plant_id={plant_id} "
             f"profile={json.dumps(profile, ensure_ascii=False)[:500]}"
         )
+        db.fail_plant_profile_generation(plant_id, "図鑑プロフィールを十分に生成できませんでした。")
         raise HTTPException(status_code=500, detail="図鑑プロフィールを十分に生成できませんでした。時間をおいて再実行してください。")
 
     db.update_plant_profile(plant_id, profile)
+    db.finish_plant_profile_generation(plant_id)
     updated = db.get_plant(plant_id)
     elapsed = elapsed_seconds(started_at)
     write_log(f"plant_profile_regenerated plant_id={plant_id} seconds={elapsed}")
@@ -303,6 +321,10 @@ def api_review() -> dict:
             present_observation(recover_stale_observation_if_needed(row))
             for row in db.list_review_observations()
         ],
+        "plants": [
+            present_plant(recover_stale_plant_generation_if_needed(row))
+            for row in db.list_review_plants()
+        ],
     }
 
 
@@ -312,17 +334,21 @@ def index(request: Request) -> HTMLResponse:
         present_observation(recover_stale_observation_if_needed(row))
         for row in db.list_recent_observations()
     ]
+    review_observations = [
+        present_observation(recover_stale_observation_if_needed(row))
+        for row in db.list_review_observations()
+    ]
+    review_plants = [
+        present_plant(recover_stale_plant_generation_if_needed(row))
+        for row in db.list_review_plants()
+    ]
     return templates.TemplateResponse(
         request,
         "index.html",
         {
-            "plants": [present_plant(row) for row in db.list_plants()],
+            "plants": [present_plant(recover_stale_plant_generation_if_needed(row)) for row in db.list_plants()],
             "recent_observations": recent_observations,
-            "review_count": sum(
-                1
-                for observation in recent_observations
-                if observation.get("status") in {"needs_review", "analysis_failed", "queued", "analyzing"}
-            ),
+            "review_count": len(review_observations) + len(review_plants),
         },
     )
 
@@ -333,7 +359,7 @@ def plant_index(request: Request) -> HTMLResponse:
         request,
         "plants.html",
         {
-            "plants": [present_plant(row) for row in db.list_plants()],
+            "plants": [present_plant(recover_stale_plant_generation_if_needed(row)) for row in db.list_plants()],
         },
     )
 
@@ -451,6 +477,7 @@ def plant_detail(request: Request, plant_id: str) -> HTMLResponse:
     plant = db.get_plant(plant_id)
     if plant is None:
         raise HTTPException(status_code=404, detail="植物が見つかりません。")
+    plant = recover_stale_plant_generation_if_needed(plant)
     return templates.TemplateResponse(
         request,
         "plant_detail.html",
@@ -605,14 +632,21 @@ def delete_plant(plant_id: str) -> dict:
 
 @app.get("/review", response_class=HTMLResponse)
 def review(request: Request) -> HTMLResponse:
+    observations = [
+        present_observation(recover_stale_observation_if_needed(row))
+        for row in db.list_review_observations()
+    ]
+    plants = [
+        present_plant(recover_stale_plant_generation_if_needed(row))
+        for row in db.list_review_plants()
+    ]
     return templates.TemplateResponse(
         request,
         "review.html",
         {
-            "observations": [
-                present_observation(recover_stale_observation_if_needed(row))
-                for row in db.list_review_observations()
-            ],
+            "observations": observations,
+            "plants": plants,
+            "review_count": len(observations) + len(plants),
         },
     )
 
@@ -878,6 +912,7 @@ def present_plant(row, absolute_urls: bool = False) -> dict:
     item["profile_generated_json"] = profile_generated_json
     item["profile_generated_json_pretty"] = json.dumps(profile_generated_json, ensure_ascii=False, indent=2) if profile_generated_json else ""
     item["profile_generation_seconds"] = db.parse_float(item.get("profile_generation_seconds"))
+    item["profile_generation_progress"] = get_plant_generation_progress(item)
     if absolute_urls:
         item["representative_image_url"] = absolute_public_url(item["representative_image_url"])
         item["detail_url"] = absolute_public_url(item["detail_url"])
@@ -927,6 +962,61 @@ def parse_json_text(raw_json: str | None) -> dict:
     except json.JSONDecodeError:
         return {}
     return value if isinstance(value, dict) else {}
+
+
+def get_plant_generation_progress(plant: dict) -> dict:
+    status = plant.get("profile_generation_status")
+    started_at = parse_datetime_timestamp(plant.get("profile_generation_started_at") or plant.get("updated_at") or plant.get("created_at"))
+    elapsed_seconds = max(0, int(time.time() - started_at)) if started_at is not None and status in {"queued", "analyzing"} else None
+    if status == "queued":
+        return {
+            "phase": "queued",
+            "label": "図鑑生成待ち",
+            "percent": 0,
+            "started_at": plant.get("profile_generation_started_at"),
+            "elapsed_seconds": elapsed_seconds,
+        }
+    if status == "analyzing":
+        return {
+            "phase": "analyzing",
+            "label": "図鑑生成中",
+            "percent": 30,
+            "started_at": plant.get("profile_generation_started_at"),
+            "elapsed_seconds": elapsed_seconds,
+        }
+    if status == "analysis_failed":
+        return {
+            "phase": "failed",
+            "label": "失敗",
+            "percent": 100,
+            "started_at": plant.get("profile_generation_started_at"),
+            "error_message": plant.get("profile_generation_error_message"),
+        }
+    return {
+        "phase": "finished",
+        "label": "完了",
+        "percent": 100,
+        "started_at": plant.get("profile_generation_started_at"),
+    }
+
+
+def recover_stale_plant_generation_if_needed(plant):
+    if plant is None:
+        return None
+    status = plant["profile_generation_status"] if "profile_generation_status" in plant.keys() else None
+    if status not in {"queued", "analyzing"}:
+        return plant
+    started_at = parse_datetime_timestamp(plant["profile_generation_started_at"] or plant["updated_at"] or plant["created_at"])
+    if started_at is None:
+        return plant
+    if (time.time() - started_at) < analysis_recovery_timeout_seconds():
+        return plant
+    db.fail_plant_profile_generation(plant["id"], STALE_ANALYSIS_MESSAGE)
+    write_log(
+        f"plant_profile_stale_recovered id={plant['id']} last_activity={int(started_at)}"
+    )
+    refreshed = db.get_plant(plant["id"])
+    return refreshed or plant
 
 
 def clean_display_text(text: object, fallback: str) -> str:

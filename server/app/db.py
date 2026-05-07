@@ -41,6 +41,10 @@ def init_db() -> None:
                 care_notes TEXT,
                 profile_raw_json TEXT,
                 profile_generation_seconds REAL,
+                profile_generation_status TEXT,
+                profile_generation_started_at TEXT,
+                profile_generation_updated_at TEXT,
+                profile_generation_error_message TEXT,
                 representative_image_path TEXT,
                 first_observed_at TEXT,
                 last_observed_at TEXT,
@@ -92,6 +96,7 @@ def init_db() -> None:
         migrate_observation_optional_images(conn)
         migrate_plant_profile_columns(conn)
         migrate_plant_profile_metadata_columns(conn)
+        migrate_plant_profile_generation_columns(conn)
         migrate_image_paths(conn)
         backfill_plant_profiles(conn)
         normalize_plant_profiles(conn)
@@ -195,6 +200,19 @@ def migrate_plant_profile_metadata_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE plants ADD COLUMN profile_raw_json TEXT")
     if "profile_generation_seconds" not in names:
         conn.execute("ALTER TABLE plants ADD COLUMN profile_generation_seconds REAL")
+
+
+def migrate_plant_profile_generation_columns(conn: sqlite3.Connection) -> None:
+    columns = conn.execute("PRAGMA table_info(plants)").fetchall()
+    names = {column["name"] for column in columns}
+    if "profile_generation_status" not in names:
+        conn.execute("ALTER TABLE plants ADD COLUMN profile_generation_status TEXT")
+    if "profile_generation_started_at" not in names:
+        conn.execute("ALTER TABLE plants ADD COLUMN profile_generation_started_at TEXT")
+    if "profile_generation_updated_at" not in names:
+        conn.execute("ALTER TABLE plants ADD COLUMN profile_generation_updated_at TEXT")
+    if "profile_generation_error_message" not in names:
+        conn.execute("ALTER TABLE plants ADD COLUMN profile_generation_error_message TEXT")
 
 
 def backfill_plant_profiles(conn: sqlite3.Connection) -> None:
@@ -466,6 +484,114 @@ def upsert_manual_plant(
         return plant_id
 
 
+def create_pending_manual_plant(
+    *,
+    common_name_ja: str | None,
+    scientific_name: str | None,
+) -> str:
+    common_name = clean_text(common_name_ja)
+    scientific = clean_text(scientific_name)
+    if not (common_name or scientific):
+        raise ValueError("Plant name required")
+
+    display_name = common_name or scientific or "未確定の植物"
+    timestamp = now_iso()
+    plant_id = f"plant-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
+    with connect() as conn:
+        migrate_plant_profile_generation_columns(conn)
+        conn.execute(
+            """
+            INSERT INTO plants (
+                id, display_name, common_name_ja, scientific_name, aliases_json,
+                description, basic_profile_text, visual_appeal_text, care_notes,
+                profile_raw_json, profile_generation_seconds,
+                profile_generation_status, profile_generation_started_at,
+                profile_generation_updated_at, profile_generation_error_message,
+                representative_image_path, first_observed_at,
+                last_observed_at, observation_count, user_corrected, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                plant_id,
+                display_name,
+                common_name,
+                scientific,
+                "[]",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "analyzing",
+                timestamp,
+                timestamp,
+                None,
+                None,
+                None,
+                None,
+                0,
+                1,
+                timestamp,
+                timestamp,
+            ),
+        )
+    return plant_id
+
+
+def start_plant_profile_generation(plant_id: str) -> None:
+    timestamp = now_iso()
+    with connect() as conn:
+        migrate_plant_profile_generation_columns(conn)
+        conn.execute(
+            """
+            UPDATE plants
+            SET profile_generation_status = 'analyzing',
+                profile_generation_started_at = ?,
+                profile_generation_updated_at = ?,
+                profile_generation_error_message = NULL,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (timestamp, timestamp, timestamp, plant_id),
+        )
+
+
+def finish_plant_profile_generation(plant_id: str) -> None:
+    timestamp = now_iso()
+    with connect() as conn:
+        migrate_plant_profile_generation_columns(conn)
+        conn.execute(
+            """
+            UPDATE plants
+            SET profile_generation_status = NULL,
+                profile_generation_started_at = NULL,
+                profile_generation_updated_at = ?,
+                profile_generation_error_message = NULL,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (timestamp, timestamp, plant_id),
+        )
+
+
+def fail_plant_profile_generation(plant_id: str, error_message: str | None) -> None:
+    timestamp = now_iso()
+    with connect() as conn:
+        migrate_plant_profile_generation_columns(conn)
+        conn.execute(
+            """
+            UPDATE plants
+            SET profile_generation_status = 'analysis_failed',
+                profile_generation_updated_at = ?,
+                profile_generation_error_message = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (timestamp, truncate_text(clean_text(error_message), 500), timestamp, plant_id),
+        )
+
+
 def restore_plant_from_observation(observation_id: str) -> str:
     observation = get_observation(observation_id)
     if observation is None:
@@ -673,6 +799,19 @@ def update_plant_profile(plant_id: str, profile: dict) -> None:
                 plant_id,
             ),
         )
+
+
+def list_review_plants() -> list[sqlite3.Row]:
+    with connect() as conn:
+        migrate_plant_profile_generation_columns(conn)
+        return conn.execute(
+            """
+            SELECT *
+            FROM plants
+            WHERE profile_generation_status IN ('queued', 'analyzing', 'analysis_failed')
+            ORDER BY COALESCE(profile_generation_updated_at, profile_generation_started_at, created_at) DESC
+            """
+        ).fetchall()
 
 
 def plant_needs_profile(plant_id: str) -> bool:

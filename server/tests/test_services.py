@@ -481,6 +481,25 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(review_response.status_code, 200)
             self.assertEqual(review_response.json()["observations"], [])
 
+    def test_review_api_includes_generating_plants(self):
+        with TemporaryDirectory() as tmp:
+            self._use_temp_data_dir(tmp)
+            db.create_pending_manual_plant(
+                common_name_ja="ヒトリシズカ",
+                scientific_name="Chloranthus japonicus",
+            )
+            client = TestClient(app)
+
+            review_response = client.get("/api/review")
+            self.assertEqual(review_response.status_code, 200)
+            payload = review_response.json()
+            self.assertEqual(payload["observations"], [])
+            self.assertEqual(len(payload["plants"]), 1)
+            plant = payload["plants"][0]
+            self.assertEqual(plant["display_name"], "ヒトリシズカ")
+            self.assertEqual(plant["profile_generation_progress"]["phase"], "analyzing")
+            self.assertEqual(plant["profile_generation_progress"]["label"], "図鑑生成中")
+
     def test_timeout_error_is_user_friendly(self):
         message = format_analysis_error(RuntimeError("Command '['gemini']' timed out after 300 seconds"))
         self.assertEqual(
@@ -651,6 +670,21 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(profile["care_notes"], "水切れと蒸れを避けます。")
         self.assertGreaterEqual(profile["profile_generation_seconds"], 0.0)
         self.assertEqual(json.loads(profile["profile_raw_json"])["care_notes"], "水切れと蒸れを避けます。")
+
+    def test_generate_plant_profile_retries_when_first_profile_output_is_empty(self):
+        responses = iter(
+            [
+                "",
+                '{"basic_profile_text":"多年草です。","visual_appeal_text":"白い穂状の花が魅力です。","care_notes":"半日陰の風通しのよい場所で管理します。"}',
+            ]
+        )
+
+        with patch("server.app.services.gemini_cli.run_gemini_prompt", side_effect=lambda *args, **kwargs: next(responses)):
+            profile = generate_plant_profile("ヒトリシズカ", "Chloranthus japonicus")
+
+        self.assertEqual(profile["basic_profile_text"], "多年草です。")
+        self.assertEqual(profile["visual_appeal_text"], "白い穂状の花が魅力です。")
+        self.assertEqual(profile["care_notes"], "半日陰の風通しのよい場所で管理します。")
 
     def test_resolve_plant_identity_from_name_returns_scientific_name(self):
         with patch(

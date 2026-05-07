@@ -54,12 +54,14 @@
         </div>
       </section>
 
-      <section class="panel timing-panel">
+      <section class="panel timing-panel" id="plantGenerationPanel">
         <p class="eyebrow">Timing</p>
         <h2>図鑑生成時間</h2>
         <div class="timing-grid">
           <div><span>全体</span><strong id="plantGenerationSeconds">?秒</strong></div>
         </div>
+        <p id="plantGenerationStatus" class="action-status" hidden></p>
+        <p id="plantGenerationTimer" class="field-help" hidden>経過 0秒</p>
       </section>
 
       <section class="panel">
@@ -124,6 +126,9 @@
         const plantAppearanceText = document.getElementById('plantAppearanceText');
         const plantCareText = document.getElementById('plantCareText');
         const plantGenerationSeconds = document.getElementById('plantGenerationSeconds');
+        const plantGenerationPanel = document.getElementById('plantGenerationPanel');
+        const plantGenerationStatus = document.getElementById('plantGenerationStatus');
+        const plantGenerationTimer = document.getElementById('plantGenerationTimer');
         const plantGeneratedJson = document.getElementById('plantGeneratedJson');
         const plantObservationCount = document.getElementById('plantObservationCount');
         const plantObservationList = document.getElementById('plantObservationList');
@@ -136,6 +141,8 @@
         const offlineBanner = document.getElementById('offlineBanner');
         const viewCache = window.AIPlantgraphyViewCache;
         let regenerateTimer = null;
+        let plantGenerationInterval = null;
+        let plantGenerationPoll = null;
 
         function setStatus(message, isError = false) {
           status.textContent = message;
@@ -166,6 +173,55 @@
           }, 1000);
         }
 
+        function stopPlantGenerationTimer() {
+          if (plantGenerationInterval) {
+            window.clearInterval(plantGenerationInterval);
+            plantGenerationInterval = null;
+          }
+        }
+
+        function startPlantGenerationTimer(startedAtIso) {
+          stopPlantGenerationTimer();
+          if (!plantGenerationTimer || !startedAtIso) {
+            return;
+          }
+          const startedAt = Date.parse(startedAtIso);
+          if (Number.isNaN(startedAt)) {
+            return;
+          }
+          plantGenerationTimer.hidden = false;
+          const update = () => {
+            const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            plantGenerationTimer.textContent = `経過 ${seconds}秒`;
+          };
+          update();
+          plantGenerationInterval = window.setInterval(update, 1000);
+        }
+
+        function stopPlantGenerationPolling() {
+          if (plantGenerationPoll) {
+            window.clearInterval(plantGenerationPoll);
+            plantGenerationPoll = null;
+          }
+        }
+
+        function startPlantGenerationPolling() {
+          stopPlantGenerationPolling();
+          plantGenerationPoll = window.setInterval(async () => {
+            try {
+              const data = await appConfig.fetchJson(`/api/plants/${encodeURIComponent(plantId)}`, { cache: 'no-store' });
+              const nextStatus = data?.plant?.profile_generation_progress?.phase || 'finished';
+              if (nextStatus !== 'queued' && nextStatus !== 'analyzing') {
+                stopPlantGenerationTimer();
+                stopPlantGenerationPolling();
+                window.location.reload();
+              }
+            } catch (error) {
+              stopPlantGenerationPolling();
+            }
+          }, 5000);
+        }
+
         function applyPlantSummary(plant) {
           if (!plant) {
             return;
@@ -175,7 +231,35 @@
           plantProfileText.textContent = plant.basic_profile_display || '基本的な特徴はまだありません。';
           plantAppearanceText.textContent = plant.visual_appeal_display || '見た目の特徴と魅力はまだありません。';
           plantCareText.textContent = plant.care_notes_display || '手入れメモはまだありません。';
-          plantGenerationSeconds.textContent = `${typeof plant.profile_generation_seconds === 'number' ? plant.profile_generation_seconds : '?'}秒`;
+          const progress = plant.profile_generation_progress || {};
+          const isGenerating = progress.phase === 'queued' || progress.phase === 'analyzing';
+          if (isGenerating) {
+            plantGenerationSeconds.textContent = `${progress.label || '図鑑生成中'} / 経過 ${typeof progress.elapsed_seconds === 'number' ? progress.elapsed_seconds : 0}秒`;
+            if (plantGenerationStatus) {
+              plantGenerationStatus.hidden = false;
+              plantGenerationStatus.textContent = progress.label || '図鑑生成中';
+              plantGenerationStatus.className = 'action-status is-progress';
+            }
+            startPlantGenerationTimer(progress.started_at);
+            startPlantGenerationPolling();
+          } else {
+            plantGenerationSeconds.textContent = `${typeof plant.profile_generation_seconds === 'number' ? plant.profile_generation_seconds : '?'}秒`;
+            stopPlantGenerationTimer();
+            stopPlantGenerationPolling();
+            if (plantGenerationStatus) {
+              if (progress.phase === 'failed') {
+                plantGenerationStatus.hidden = false;
+                plantGenerationStatus.textContent = `失敗: ${progress.error_message || '図鑑生成に失敗しました。'}`;
+                plantGenerationStatus.className = 'action-status is-error';
+              } else {
+                plantGenerationStatus.hidden = true;
+                plantGenerationStatus.textContent = '';
+              }
+            }
+            if (plantGenerationTimer) {
+              plantGenerationTimer.hidden = true;
+            }
+          }
           plantGeneratedJson.textContent = plant.profile_generated_json_pretty || '生成JSONはまだありません。';
         }
 

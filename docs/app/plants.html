@@ -119,14 +119,19 @@
             const card = document.createElement('a');
             card.className = 'plant-card';
             card.href = `./plant.html?id=${encodeURIComponent(plant.id)}`;
-            card.dataset.searchText = `${plant.display_name || ''} ${plant.scientific_name || ''} ${plant.basic_profile_text || ''} ${plant.visual_appeal_text || ''} ${plant.care_notes || ''}`.toLowerCase();
+            card.dataset.searchText = `${plant.display_name || ''} ${plant.scientific_name || ''} ${plant.basic_profile_text || ''} ${plant.visual_appeal_text || ''} ${plant.care_notes || ''} ${(plant.profile_generation_progress || {}).label || ''} ${(plant.profile_generation_progress || {}).error_message || ''}`.toLowerCase();
             const imageHtml = plant.representative_image_url
               ? `<img src="${appConfig.resolveServerUrl(plant.representative_image_url)}" alt="${escapeHtml(plant.display_name || '植物')}">`
               : '';
+            const progress = plant.profile_generation_progress || {};
+            const statusClass = progress.phase === 'analysis_failed' ? 'danger' : progress.phase === 'queued' || progress.phase === 'analyzing' ? 'accent' : '';
+            const statusLabel = progress.phase === 'queued' || progress.phase === 'analyzing' || progress.phase === 'analysis_failed'
+              ? progress.label || '図鑑'
+              : '図鑑';
             card.innerHTML = `
               ${imageHtml}
               <div class="plant-card-body">
-                <span class="status-pill">図鑑</span>
+                <span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span>
                 <h3>${escapeHtml(plant.display_name || '名称未設定')}</h3>
                 <p>${escapeHtml(plant.scientific_name || '学名未確定')}</p>
               </div>

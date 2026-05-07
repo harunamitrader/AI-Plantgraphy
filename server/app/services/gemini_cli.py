@@ -779,6 +779,130 @@ def generate_plant_profile(
     }
 
 
+def parse_profile_json_with_retry(
+    prompt: str,
+    gemini_model: str | None = None,
+    *,
+    fallback_prompt: str | None = None,
+) -> dict:
+    output = run_gemini_prompt(
+        prompt,
+        gemini_model=gemini_model,
+        use_yolo=False,
+        output_format="json",
+    )
+    try:
+        return normalize_result(parse_json_output(output))
+    except JSONDecodeError:
+        pass
+
+    if fallback_prompt:
+        retry_output = run_gemini_prompt(
+            fallback_prompt,
+            gemini_model=gemini_model,
+            use_yolo=False,
+            output_format="json",
+        )
+        try:
+            return normalize_result(parse_json_output(retry_output))
+        except JSONDecodeError:
+            output = retry_output
+
+    preview = output[:1200] if output else "Gemini CLI returned empty output."
+    raise RuntimeError(f"Gemini CLI output was not valid JSON. Output: {preview}")
+
+
+def build_profile_retry_prompt(common_name_ja: str | None, scientific_name: str | None) -> str:
+    name = clean_optional_text(common_name_ja) or clean_optional_text(scientific_name) or "名称未確定の植物"
+    scientific = clean_optional_text(scientific_name) or "学名未確定"
+    return (
+        f"対象植物は {name} ({scientific}) です。"
+        "次の3項目をJSON 1個で返してください。"
+        "basic_profile_text, visual_appeal_text, care_notes。"
+        "説明文、Markdown、コードフェンスは禁止です。"
+        "各値は120文字以内の日本語にしてください。"
+        '{"basic_profile_text":"","visual_appeal_text":"","care_notes":""}'
+    )
+
+
+def build_missing_profile_retry_prompt(
+    result: dict,
+    missing_fields: list[str],
+) -> str:
+    name = clean_optional_text(result.get("common_name_ja")) or "名称未確定"
+    scientific = clean_optional_text(result.get("scientific_name")) or "学名未確定"
+    return (
+        f"対象植物は {name} ({scientific}) です。"
+        f"{', '.join(missing_fields)} だけをJSON 1個で返してください。"
+        "説明文、Markdown、コードフェンスは禁止です。"
+        "各値は120文字以内の日本語にしてください。"
+    )
+
+
+def ensure_profile_texts(result: dict, gemini_model: str | None = None) -> dict:
+    for _ in range(3):
+        missing_fields = missing_profile_fields(result)
+        if not missing_fields:
+            return result
+        previous = tuple(clean_optional_text(result.get(field)) for field in missing_fields)
+        profile = parse_profile_json_with_retry(
+            build_missing_profile_prompt(result, missing_fields),
+            gemini_model=gemini_model,
+            fallback_prompt=build_missing_profile_retry_prompt(result, missing_fields),
+        )
+        merge_profile_fields(result, profile)
+        current = tuple(clean_optional_text(result.get(field)) for field in missing_fields)
+        if current == previous:
+            return result
+    return result
+
+
+def generate_plant_profile(
+    common_name_ja: str | None,
+    scientific_name: str | None,
+    gemini_model: str | None = None,
+) -> dict:
+    started_at = time.perf_counter()
+    name = clean_optional_text(common_name_ja) or clean_optional_text(scientific_name) or "名称未確定の植物"
+    scientific = clean_optional_text(scientific_name) or "学名未確定"
+    prompt = f"""{PROFILE_PROMPT}
+
+対象植物:
+- 植物名: {name}
+- 学名: {scientific}
+"""
+    profile = parse_profile_json_with_retry(
+        prompt,
+        gemini_model=gemini_model,
+        fallback_prompt=build_profile_retry_prompt(common_name_ja, scientific_name),
+    )
+    profile = {
+        **profile,
+        "common_name_ja": common_name_ja,
+        "scientific_name": scientific_name,
+    }
+    profile = ensure_profile_texts(profile, gemini_model=gemini_model)
+    generation_seconds = round(time.perf_counter() - started_at, 3)
+    payload = {
+        "common_name_ja": common_name_ja,
+        "scientific_name": scientific_name,
+        "basic_profile_text": profile.get("basic_profile_text"),
+        "visual_appeal_text": profile.get("visual_appeal_text"),
+        "care_notes": profile.get("care_notes"),
+    }
+    return {
+        **payload,
+        "profile_generation_seconds": generation_seconds,
+        "profile_raw_json": json.dumps(
+            {
+                **payload,
+                "profile_generation_seconds": generation_seconds,
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+
 def copy_images_for_gemini(image_paths: list[Path], temp_dir: Path) -> list[Path]:
     copied_paths: list[Path] = []
     for index, source in enumerate(image_paths, start=1):

@@ -15,10 +15,10 @@
         <p class="eyebrow">Needs review</p>
         <h2>見直す記録</h2>
       </div>
-      <span id="reviewCount">{{ observations | length }} 件</span>
+      <span id="reviewCount">{{ review_count }} 件</span>
     </div>
 
-    {% if observations %}
+    {% if observations or plants %}
       <div class="inventory-tools">
         <label for="reviewSearch">確認待ちを探す</label>
         <input id="reviewSearch" class="search-input" type="search" autocomplete="off" placeholder="名前、学名、状態、エラーで検索">
@@ -39,6 +39,37 @@
               <p>{{ observation.analysis.scientific_name or "学名未確定" }}</p>
               <small>{{ observation.observed_label }} / 信頼度 {{ observation.confidence_percent }}</small>
               <small>{{ observation.error_message or observation.analysis.uncertainty_notes or "候補を確認してください。" }}</small>
+            </div>
+          </a>
+        {% endfor %}
+        {% for plant in plants %}
+          <a
+            class="record-card"
+            href="/plants/{{ plant.id }}"
+            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.profile_generation_progress.label or '') ~ ' ' ~ (plant.profile_generation_progress.error_message or '') ~ ' ' ~ (plant.basic_profile_text or '') ~ ' ' ~ (plant.visual_appeal_text or '') ~ ' ' ~ (plant.care_notes or '')) | lower }}"
+          >
+            {% if plant.representative_image_url %}
+              <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
+            {% endif %}
+            <div>
+              <span class="status-pill {% if plant.profile_generation_progress.phase == 'analysis_failed' %}danger{% else %}accent{% endif %}">
+                {% if plant.profile_generation_progress.phase in ['queued', 'analyzing', 'analysis_failed'] %}
+                  {{ plant.profile_generation_progress.label }}
+                {% else %}
+                  図鑑
+                {% endif %}
+              </span>
+              <h3>{{ plant.display_name }}</h3>
+              <p>{{ plant.scientific_name or "学名未確定" }}</p>
+              <small>
+                {% if plant.profile_generation_progress.phase in ['queued', 'analyzing'] %}
+                  経過 {{ plant.profile_generation_progress.elapsed_seconds if plant.profile_generation_progress.elapsed_seconds is not none else 0 }}秒
+                {% elif plant.profile_generation_progress.phase == 'analysis_failed' %}
+                  {{ plant.profile_generation_progress.error_message or "図鑑生成に失敗しました。" }}
+                {% else %}
+                  図鑑
+                {% endif %}
+              </small>
             </div>
           </a>
         {% endfor %}

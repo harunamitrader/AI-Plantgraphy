@@ -36,12 +36,18 @@
       <p>{{ plant.care_notes_display }}</p>
     </div>
   </section>
-  <section class="panel timing-panel">
+  <section class="panel timing-panel" id="plantGenerationPanel" data-generation-status="{{ plant.profile_generation_progress.phase }}" data-generation-started-at="{{ plant.profile_generation_progress.started_at or '' }}">
     <p class="eyebrow">Timing</p>
     <h2>図鑑生成時間</h2>
     <div class="timing-grid">
-      <div><span>全体</span><strong>{{ plant.profile_generation_seconds if plant.profile_generation_seconds is not none else "?" }}秒</strong></div>
+      <div><span>全体</span><strong id="plantGenerationSeconds">{{ plant.profile_generation_seconds if plant.profile_generation_seconds is not none else "?" }}秒</strong></div>
     </div>
+    {% if plant.profile_generation_progress.phase in ['queued', 'analyzing'] %}
+      <p id="plantGenerationStatus" class="action-status is-progress">{{ plant.profile_generation_progress.label }}</p>
+      <p id="plantGenerationTimer" class="field-help">経過 {{ plant.profile_generation_progress.elapsed_seconds if plant.profile_generation_progress.elapsed_seconds is not none else 0 }}秒</p>
+    {% elif plant.profile_generation_progress.phase == 'failed' %}
+      <p id="plantGenerationStatus" class="action-status is-error">失敗: {{ plant.profile_generation_progress.error_message or "図鑑生成に失敗しました。" }}</p>
+    {% endif %}
   </section>
 
   <section class="panel">
@@ -110,6 +116,82 @@
   <script>
     const imageModal = document.getElementById('imageModal');
     const modalImage = document.getElementById('modalImage');
+    const plantGenerationPanel = document.getElementById('plantGenerationPanel');
+    const plantGenerationTimer = document.getElementById('plantGenerationTimer');
+    const plantGenerationStatus = document.getElementById('plantGenerationStatus');
+    let plantGenerationInterval = null;
+    let plantGenerationPoll = null;
+
+    function stopPlantGenerationTimer() {
+      if (plantGenerationInterval) {
+        window.clearInterval(plantGenerationInterval);
+        plantGenerationInterval = null;
+      }
+    }
+
+    function startPlantGenerationTimer(startedAtIso) {
+      stopPlantGenerationTimer();
+      if (!plantGenerationTimer || !startedAtIso) {
+        return;
+      }
+      const startedAt = Date.parse(startedAtIso);
+      if (Number.isNaN(startedAt)) {
+        return;
+      }
+      const update = () => {
+        const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+        plantGenerationTimer.textContent = `経過 ${seconds}秒`;
+      };
+      update();
+      plantGenerationInterval = window.setInterval(update, 1000);
+    }
+
+    function stopPlantGenerationPolling() {
+      if (plantGenerationPoll) {
+        window.clearInterval(plantGenerationPoll);
+        plantGenerationPoll = null;
+      }
+    }
+
+    async function pollPlantGenerationStatus() {
+      if (!plantGenerationPanel) {
+        return;
+      }
+      const status = plantGenerationPanel.dataset.generationStatus || '';
+      if (status !== 'queued' && status !== 'analyzing') {
+        return;
+      }
+      plantGenerationPoll = window.setInterval(async () => {
+        try {
+          const response = await fetch('/api/plants/{{ plant.id }}', { cache: 'no-store' });
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json();
+          const nextStatus = data?.plant?.profile_generation_progress?.phase || 'finished';
+          if (nextStatus !== 'queued' && nextStatus !== 'analyzing') {
+            stopPlantGenerationTimer();
+            stopPlantGenerationPolling();
+            window.location.reload();
+            return;
+          }
+        } catch (error) {
+          stopPlantGenerationPolling();
+        }
+      }, 5000);
+    }
+
+    if (plantGenerationPanel) {
+      const status = plantGenerationPanel.dataset.generationStatus || '';
+      const startedAt = plantGenerationPanel.dataset.generationStartedAt || '';
+      if (status === 'queued' || status === 'analyzing') {
+        startPlantGenerationTimer(startedAt);
+        pollPlantGenerationStatus();
+      }
+      if (status === 'analysis_failed' && plantGenerationStatus && !plantGenerationStatus.textContent) {
+        plantGenerationStatus.textContent = '失敗: 図鑑生成に失敗しました。';
+      }
+    }
 
     document.querySelectorAll('[data-full-image]').forEach((button) => {
       button.addEventListener('click', () => {

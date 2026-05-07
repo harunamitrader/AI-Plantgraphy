@@ -68,9 +68,9 @@
           status.className = isError ? 'action-status is-error' : 'action-status';
         }
 
-        function renderReviews(observations) {
+        function renderReviews(observations, plants) {
           reviewList.innerHTML = '';
-          const totalReviews = observations.length;
+          const totalReviews = observations.length + plants.length;
           reviewCount.textContent = `${totalReviews} 件`;
           if (!totalReviews) {
             reviewList.innerHTML = '<p class="empty">確認待ちはありません。</p>';
@@ -93,6 +93,36 @@
                 <p>${escapeHtml(observation.analysis?.scientific_name || '学名未確定')}</p>
                 <small>${escapeHtml(observation.observed_label || '未入力')} / 信頼度 ${escapeHtml(observation.confidence_percent || '不明')}</small>
                 <small>${escapeHtml(observation.error_message || observation.analysis?.uncertainty_notes || '候補を確認してください。')}</small>
+              </div>
+            `;
+            reviewList.appendChild(card);
+          });
+          plants.forEach((plant) => {
+            const card = document.createElement('a');
+            card.className = 'record-card';
+            card.href = `./plant.html?id=${encodeURIComponent(plant.id)}`;
+            card.dataset.searchText = `${plant.display_name || ''} ${plant.scientific_name || ''} ${plant.profile_generation_progress?.label || ''} ${plant.profile_generation_progress?.error_message || ''} ${plant.basic_profile_text || ''} ${plant.visual_appeal_text || ''} ${plant.care_notes || ''}`.toLowerCase();
+            const firstImage = plant.representative_image_url || '';
+            const imageHtml = firstImage
+              ? `<img src="${appConfig.resolveServerUrl(firstImage)}" alt="${escapeHtml(plant.display_name || '図鑑')}">`
+              : '';
+            const progress = plant.profile_generation_progress || {};
+            const statusClass = progress.phase === 'analysis_failed' ? 'danger' : progress.phase === 'queued' || progress.phase === 'analyzing' ? 'accent' : '';
+            const statusLabel = progress.phase === 'queued' || progress.phase === 'analyzing' || progress.phase === 'analysis_failed'
+              ? progress.label || '図鑑'
+              : '図鑑';
+            const detailText = progress.phase === 'queued' || progress.phase === 'analyzing'
+              ? `経過 ${typeof progress.elapsed_seconds === 'number' ? progress.elapsed_seconds : 0}秒`
+              : progress.phase === 'analysis_failed'
+                ? (progress.error_message || '図鑑生成に失敗しました。')
+                : '図鑑';
+            card.innerHTML = `
+              ${imageHtml}
+              <div>
+                <span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span>
+                <h3>${escapeHtml(plant.display_name || '名称未設定')}</h3>
+                <p>${escapeHtml(plant.scientific_name || '学名未確定')}</p>
+                <small>${escapeHtml(detailText)}</small>
               </div>
             `;
             reviewList.appendChild(card);
@@ -134,12 +164,12 @@
           const data = await appConfig.fetchJson('/api/review', { cache: 'no-store' });
           viewCache && await viewCache.saveIndex('review', data).catch(() => null);
           appConfig.hideOfflineBanner(offlineBanner);
-          renderReviews(data.observations || []);
+          renderReviews(data.observations || [], data.plants || []);
           setStatus('');
         } catch (error) {
           const cached = viewCache ? await viewCache.loadIndex('review').catch(() => null) : null;
-          if (cached?.payload?.observations) {
-            renderReviews(cached.payload.observations || []);
+          if (cached?.payload?.observations || cached?.payload?.plants) {
+            renderReviews(cached.payload.observations || [], cached.payload.plants || []);
             appConfig.showOfflineBanner(offlineBanner, viewCache.offlineMessage('保存済みの確認待ち一覧を表示しています。', cached.savedAt));
             setStatus('保存済みの確認待ち一覧を表示しています。');
             return;

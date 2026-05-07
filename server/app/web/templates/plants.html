@@ -45,13 +45,19 @@
           <a
             class="plant-card"
             href="/plants/{{ plant.id }}"
-            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.basic_profile_text or '') ~ ' ' ~ (plant.visual_appeal_text or '') ~ ' ' ~ (plant.care_notes or '')) | lower }}"
+            data-search-text="{{ (plant.display_name ~ ' ' ~ (plant.scientific_name or '') ~ ' ' ~ (plant.basic_profile_text or '') ~ ' ' ~ (plant.visual_appeal_text or '') ~ ' ' ~ (plant.care_notes or '') ~ ' ' ~ (plant.profile_generation_progress.label or '') ~ ' ' ~ (plant.profile_generation_progress.error_message or '')) | lower }}"
           >
             {% if plant.representative_image_url %}
               <img src="{{ plant.representative_image_url }}" alt="{{ plant.display_name }}">
             {% endif %}
             <div class="plant-card-body">
-              <span class="status-pill">図鑑</span>
+              <span class="status-pill {% if plant.profile_generation_progress.phase in ['queued', 'analyzing'] %}accent{% elif plant.profile_generation_progress.phase == 'analysis_failed' %}danger{% endif %}">
+                {% if plant.profile_generation_progress.phase in ['queued', 'analyzing', 'analysis_failed'] %}
+                  {{ plant.profile_generation_progress.label }}
+                {% else %}
+                  図鑑
+                {% endif %}
+              </span>
               <h3>{{ plant.display_name }}</h3>
               <p>{{ plant.scientific_name or "学名未確定" }}</p>
             </div>
