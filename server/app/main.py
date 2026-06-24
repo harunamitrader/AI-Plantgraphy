@@ -684,7 +684,7 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
         profile_seconds = 0.0
         if (
             get_settings().gemini_enabled
-            and normalize_confidence(result.get("confidence")) >= 0.65
+            and normalize_confidence(result.get("confidence")) >= 0.50
             and db.plant_needs_profile(plant_id)
         ):
             set_analysis_progress(observation_id, "writing_profile", "図鑑解説作成中", 95)
