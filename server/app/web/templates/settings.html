@@ -44,7 +44,7 @@
         <label for="settingsApiKey">アプリパスワード</label>
         <input id="settingsApiKey" type="password" autocomplete="off" placeholder="change-me">
         <p class="field-help">場所ラベルの変更、バックアップ、解析送信で使います。この端末にだけ保存されます。</p>
-        <label for="settingsGeminiModel">Geminiモデル</label>
+        <label for="settingsGeminiModel">Antigravityモデル</label>
         <select id="settingsGeminiModel">
           <option value="">PC側の既定{% if gemini_model %}: {{ gemini_model }}{% endif %}</option>
           {% for model in gemini_model_choices %}
@@ -151,7 +151,7 @@
       </div>
     </div>
     <div class="check-grid">
-      <div><span>Gemini CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
+      <div><span>Antigravity CLI</span><strong>{{ connectivity.checks.gemini_cli }}</strong></div>
       <div><span>アプリパスワード</span><strong>{{ connectivity.checks.api_key }}</strong></div>
       <div><span>Tailscale Serve</span><strong>{{ connectivity.checks.tailscale_serve }}</strong></div>
       <div><span>Tailscale HTTPS</span><strong>{{ connectivity.checks.tailscale_https }}</strong></div>
@@ -185,9 +185,9 @@
     </div>
     <div class="check-grid">
       <div><span>Base URL</span><strong>{{ diagnostics.settings.base_url }}</strong></div>
-      <div><span>Gemini解析</span><strong>{{ diagnostics.settings.gemini_enabled }}</strong></div>
-      <div><span>Gemini既定モデル</span><strong>{{ diagnostics.settings.gemini_model }}</strong></div>
-      <div><span>Gemini待ち時間</span><strong>{{ diagnostics.settings.gemini_timeout_seconds }}秒</strong></div>
+      <div><span>Antigravity解析</span><strong>{{ diagnostics.settings.gemini_enabled }}</strong></div>
+      <div><span>Antigravity既定モデル</span><strong>{{ diagnostics.settings.gemini_model }}</strong></div>
+      <div><span>Antigravity待ち時間</span><strong>{{ diagnostics.settings.gemini_timeout_seconds }}秒</strong></div>
       <div><span>Discord通知</span><strong>{{ diagnostics.settings.discord_enabled }}</strong></div>
     </div>
   </section>

@@ -19,6 +19,7 @@ from server.app.services.connectivity import is_private_lan_ip, is_tailscale_ip,
 from server.app.services.gemini_cli import (
     analyze_images,
     build_identifier_prompt,
+    build_prompt,
     build_identifier_retry_prompt,
     extract_forbidden_top_level_keys,
     extract_gemini_response,
@@ -504,7 +505,7 @@ class ServiceTests(unittest.TestCase):
         message = format_analysis_error(RuntimeError("Command '['gemini']' timed out after 300 seconds"))
         self.assertEqual(
             message,
-            "Gemini CLIがタイムアウトしました。Gemini CLIのログイン状態、Gemini側のAPIキー、通信状態を確認してから再解析してください。",
+            "Antigravity CLI がタイムアウトしました。`agy` のログイン状態と通信状態を確認してから再解析してください。",
         )
 
     def test_gemini_auth_prompt_is_detected(self):
@@ -570,11 +571,27 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("plant_identification", prompt)
         self.assertIn("common_name_ja, scientific_name, confidence, candidates, visible_features, uncertainty_notes", prompt)
 
-    def test_gemini_model_choices_include_cli_models(self):
-        values = [item["value"] for item in gemini_model_choices()]
-        self.assertIn("gemini-3-flash-preview", values)
-        self.assertIn("gemini-3.1-pro-preview", values)
-        self.assertIn("gemini-2.5-flash-lite", values)
+    def test_build_prompt_includes_attachment_paths(self):
+        with TemporaryDirectory() as tmp:
+            paths = []
+            for index in range(2):
+                path = Path(tmp) / f"{index + 1}.jpg"
+                path.write_bytes(b"test")
+                paths.append(path)
+            prompt = build_prompt(paths)
+            self.assertIn(f"@{paths[0].absolute()}", prompt)
+            self.assertIn(f"@{paths[1].absolute()}", prompt)
+
+    def test_gemini_model_choices_include_configured_default(self):
+        settings = SimpleNamespace(
+            gemini_model="ag-fast",
+            gemini_model_options="ag-balanced,ag-quality",
+        )
+        with patch("server.app.config.get_settings", return_value=settings):
+            values = [item["value"] for item in gemini_model_choices()]
+        self.assertEqual(values[0], "ag-fast")
+        self.assertIn("ag-balanced", values)
+        self.assertIn("ag-quality", values)
 
     def test_strip_model_args_allows_request_override(self):
         self.assertEqual(

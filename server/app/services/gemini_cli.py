@@ -5,12 +5,18 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Callable
 
 from ..config import PROJECT_DIR, get_settings
+
+try:
+    from winpty import PtyProcess
+except ImportError:
+    PtyProcess = None
 
 
 PLANT_IDENTIFIER_SKILL_DIR = PROJECT_DIR / "skills" / "plant-json-identifier"
@@ -20,6 +26,18 @@ DEFAULT_IDENTIFIER_SCHEMA = '{"common_name_ja":null,"scientific_name":null,"conf
 
 class GeminiCliCancelled(RuntimeError):
     pass
+
+
+ANTIGRAVITY_EXECUTABLE_NAMES = {
+    "agy",
+    "agy.exe",
+    "antigravity",
+    "antigravity.exe",
+    "antigravity-ide",
+    "antigravity-ide.exe",
+    "antigravity-ide.cmd",
+}
+PTY_DIMENSIONS = (120, 400)
 
 
 PROFILE_PROMPT = """植物名から図鑑用の短い解説をJSON 1個だけで返してください。
@@ -141,26 +159,21 @@ def analyze_images(
         }
         return result
 
-    with tempfile.TemporaryDirectory(prefix="ai-plantgraphy-gemini-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="ai-plantgraphy-antigravity-") as temp_dir:
         copy_started_at = time.perf_counter()
         readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
         copy_seconds = elapsed_seconds(copy_started_at)
         prompt = build_prompt(readable_paths)
-        image_args = [f"@{path.absolute()}" for path in readable_paths]
         if progress_callback:
             progress_callback("identifying")
         cli_started_at = time.perf_counter()
         output = run_gemini_prompt(
             prompt,
             gemini_model=model,
-            extra_args=[
-                "--include-directories",
-                str(Path(temp_dir)),
-            ],
-            trailing_args=image_args,
             output_format="json",
             process_started_callback=process_started_callback,
             cancel_requested=cancel_requested,
+            is_complete=identifier_output_is_complete,
         )
         cli_seconds = elapsed_seconds(cli_started_at)
         parse_started_at = time.perf_counter()
@@ -171,14 +184,10 @@ def analyze_images(
                 retry_output = run_gemini_prompt(
                     build_identifier_retry_prompt(violations),
                     gemini_model=model,
-                    extra_args=[
-                        "--include-directories",
-                        str(Path(temp_dir)),
-                    ],
-                    trailing_args=image_args,
                     output_format="json",
                     process_started_callback=process_started_callback,
                     cancel_requested=cancel_requested,
+                    is_complete=identifier_output_is_complete,
                 )
                 retry_parsed = parse_json_output(retry_output)
                 retry_violations = validate_identifier_payload(retry_parsed)
@@ -199,8 +208,8 @@ def analyze_images(
                     result = heuristic
                     parse_seconds = elapsed_seconds(parse_started_at)
                 else:
-                    preview = output[:1200] if output else "Gemini CLI returned empty output."
-                    raise RuntimeError(f"Gemini CLI output was not valid JSON: {exc}. Output: {preview}") from exc
+                    preview = output[:1200] if output else "Antigravity CLI returned empty output."
+                    raise RuntimeError(f"Antigravity CLI output was not valid JSON: {exc}. Output: {preview}") from exc
 
     if model:
         result["gemini_model"] = model
@@ -231,81 +240,176 @@ def run_gemini_prompt(
     output_format: str = "text",
     process_started_callback: Callable[[int], None] | None = None,
     cancel_requested: Callable[[], bool] | None = None,
+    is_complete: Callable[[str], bool] | None = None,
 ) -> str:
     settings = get_settings()
     command_parts = shlex.split(settings.gemini_command, posix=os.name != "nt")
-    if not use_yolo:
-        command_parts = [part for part in command_parts if part not in {"--yolo", "-y"}]
+    if not command_parts:
+        raise RuntimeError("Antigravity CLI のコマンドが設定されていません。")
     model = clean_model_name(gemini_model) or clean_model_name(settings.gemini_model)
     if model:
         command_parts = strip_model_args(command_parts)
     executable = shutil.which(command_parts[0]) or command_parts[0]
+
+    prompt_text = prompt
+    if trailing_args:
+        prompt_text = "\n".join(trailing_args) + "\n\n" + prompt_text
     command = [
         executable,
         *command_parts[1:],
         *(["--model", model] if model else []),
-        *(extra_args or []),
-        "--output-format",
-        output_format,
+        "--dangerously-skip-permissions",
         "-p",
-        prompt,
-        *(trailing_args or []),
+        prompt_text,
     ]
-    if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
-        command = ["cmd", "/c", *command]
-
-    process = subprocess.Popen(
+    if is_complete is None and output_format == "json":
+        is_complete = json_output_is_complete
+    output = run_antigravity_prompt(
         command,
-        cwd=PROJECT_DIR,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        timeout_seconds=settings.gemini_timeout_seconds,
+        process_started_callback=process_started_callback,
+        cancel_requested=cancel_requested,
+        is_complete=is_complete,
+    )
+    return extract_gemini_response(output, output_format=output_format)
+
+
+def json_output_is_complete(cleaned_output: str) -> bool:
+    if "}" not in cleaned_output:
+        return False
+    candidate = extract_first_json_object(cleaned_output)
+    if not candidate:
+        return False
+    try:
+        json.loads(candidate)
+    except JSONDecodeError:
+        return False
+    return True
+
+
+def identifier_output_is_complete(cleaned_output: str) -> bool:
+    if "}" not in cleaned_output:
+        return False
+    candidate = extract_first_json_object(cleaned_output)
+    if not candidate:
+        return False
+    try:
+        parsed = json.loads(candidate)
+    except JSONDecodeError:
+        return False
+    return not validate_identifier_payload(parsed)
+
+
+def should_use_antigravity_pty(executable: str) -> bool:
+    return (
+        os.name == "nt"
+        and PtyProcess is not None
+        and Path(executable).name.lower() in ANTIGRAVITY_EXECUTABLE_NAMES
+    )
+
+
+def run_antigravity_prompt(
+    command: list[str],
+    timeout_seconds: int,
+    process_started_callback: Callable[[int], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
+    is_complete: Callable[[str], bool] | None = None,
+    idle_timeout: float = 20.0,
+) -> str:
+    if PtyProcess is None:
+        raise RuntimeError("Antigravity CLI の PTY 実行に必要な winpty が見つかりません。")
+
+    process = PtyProcess.spawn(
+        command,
+        cwd=str(PROJECT_DIR),
+        env={
+            **os.environ,
+            "TERM": "xterm-256color",
+            "COLORTERM": "truecolor",
+            "TERM_PROGRAM": "ai-plantgraphy",
+        },
+        dimensions=PTY_DIMENSIONS,
     )
     if process_started_callback:
         process_started_callback(process.pid)
-    try:
-        wait_started_at = time.perf_counter()
-        stdout = ""
-        stderr = ""
-        while True:
-            if cancel_requested and cancel_requested():
-                terminate_process_tree(process.pid)
-                try:
-                    stdout, stderr = process.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    stdout, stderr = "", ""
-                raise GeminiCliCancelled("Gemini CLI was cancelled.")
-            remaining = settings.gemini_timeout_seconds - (time.perf_counter() - wait_started_at)
-            if remaining <= 0:
-                raise subprocess.TimeoutExpired(command, settings.gemini_timeout_seconds)
-            try:
-                stdout, stderr = process.communicate(timeout=min(1, remaining))
-                break
-            except subprocess.TimeoutExpired:
-                continue
-    except subprocess.TimeoutExpired as exc:
-        terminate_process_tree(process.pid)
-        try:
-            stdout, stderr = process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            stdout, stderr = "", ""
-        raise RuntimeError(
-            f"Gemini CLI timed out after {settings.gemini_timeout_seconds} seconds."
-        ) from exc
 
-    if process.returncode != 0:
-        stdout = (stdout or "").strip()
-        stderr = (stderr or "").strip()
-        detail = stderr or stdout or "Gemini CLIの実行に失敗しました。"
-        raise RuntimeError(f"Gemini CLI failed with code {process.returncode}: {detail}")
-    if needs_gemini_auth(stdout, stderr):
-        raise RuntimeError(
-            "Gemini CLIがログイン確認で停止しました。PCのPowerShellで `gemini` を直接実行し、ブラウザ認証を完了してから再解析してください。"
-        )
-    return extract_gemini_response(stdout or "", output_format=output_format)
+    output_chunks: list[str] = []
+    read_errors: list[Exception] = []
+    reader_done = threading.Event()
+    accepted = threading.Event()
+    state = {"last_data": time.perf_counter()}
+
+    def reader() -> None:
+        try:
+            while True:
+                try:
+                    chunk = process.read(1024)
+                except EOFError:
+                    break
+                if not chunk:
+                    if not process.isalive():
+                        break
+                    continue
+                output_chunks.append(chunk)
+                state["last_data"] = time.perf_counter()
+                if is_complete is not None and is_complete(
+                    sanitize_terminal_output("".join(output_chunks))
+                ):
+                    accepted.set()
+                    break
+        except Exception as exc:
+            read_errors.append(exc)
+        finally:
+            reader_done.set()
+
+    def stop() -> None:
+        try:
+            if process.isalive():
+                process.terminate(force=True)
+        except Exception:
+            pass
+
+    reader_thread = threading.Thread(target=reader, daemon=True)
+    reader_thread.start()
+    started_at = time.perf_counter()
+
+    # Antigravity print mode keeps the process alive after answering, so we stop it
+    # ourselves once the answer is captured (is_complete) or the output goes idle,
+    # instead of waiting for an exit that never comes.
+    try:
+        while not reader_done.wait(timeout=0.1):
+            if accepted.is_set():
+                break
+            if cancel_requested and cancel_requested():
+                stop()
+                reader_done.wait(timeout=5)
+                raise GeminiCliCancelled("Antigravity CLI was cancelled.")
+            now = time.perf_counter()
+            # Antigravity print mode stays silent during multi-step agentic
+            # processing and only prints the final answer, so an idle gap does not
+            # mean it is finished. Fall back on idle only when we have no explicit
+            # completion signal; otherwise wait for is_complete or the hard timeout.
+            if (
+                is_complete is None
+                and output_chunks
+                and (now - state["last_data"]) >= idle_timeout
+            ):
+                break
+            if (now - started_at) >= timeout_seconds:
+                stop()
+                reader_done.wait(timeout=5)
+                raise RuntimeError(f"Antigravity CLI timed out after {timeout_seconds} seconds.")
+    finally:
+        stop()
+        reader_thread.join(timeout=2)
+
+    if read_errors:
+        raise RuntimeError(f"Antigravity CLI output could not be read: {read_errors[0]}")
+
+    cleaned_output = sanitize_terminal_output("".join(output_chunks))
+    if not cleaned_output:
+        raise RuntimeError("Antigravity CLI returned empty output.")
+    return cleaned_output
 
 
 def clean_model_name(value: str | None) -> str:
@@ -356,8 +460,20 @@ def needs_gemini_auth(stdout: str | None, stderr: str | None) -> bool:
     return any(marker in text for marker in markers)
 
 
+def sanitize_terminal_output(output: str) -> str:
+    cleaned = re.sub(r"\x1B\][^\x07]*(?:\x07|\x1B\\)", "", str(output or ""))
+    cleaned = re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", cleaned)
+    cleaned = cleaned.replace("\x08", "").replace("\r", "")
+    cleaned = re.sub(r"[^\S\r\n]+\n", "\n", cleaned)
+    cleaned = "".join(char for char in cleaned if char in "\n\t" or ord(char) >= 32)
+    return cleaned.strip()
+
+
 def build_prompt(image_paths: list[Path]) -> str:
-    return f"""{PROMPT}
+    attachments = "\n".join(f"@{path.absolute()}" for path in image_paths)
+    return f"""{attachments}
+
+{PROMPT}
 
 上記添付された{len(image_paths)}枚の画像ファイルを読み取り、同一植物の観察として解析してください。
 """
@@ -444,8 +560,8 @@ def parse_plaintext_analysis_output(output: str) -> dict:
     common_name, scientific_name = extract_names_from_plaintext(text)
     visible_features = extract_visible_features_from_plaintext(text)
     confidence = infer_confidence_from_plaintext(text, common_name, scientific_name)
-    uncertainty = "Gemini CLIが自由文で返答したため本文から抽出しました。"
-    reason = "Gemini CLIの自由文応答に最有力候補として記載されていました。"
+    uncertainty = "Antigravity CLIが自由文で返答したため本文から抽出しました。"
+    reason = "Antigravity CLIの自由文応答に最有力候補として記載されていました。"
 
     candidates = []
     if common_name or scientific_name:
@@ -808,8 +924,8 @@ def parse_profile_json_with_retry(
         except JSONDecodeError:
             output = retry_output
 
-    preview = output[:1200] if output else "Gemini CLI returned empty output."
-    raise RuntimeError(f"Gemini CLI output was not valid JSON. Output: {preview}")
+    preview = output[:1200] if output else "Antigravity CLI returned empty output."
+    raise RuntimeError(f"Antigravity CLI output was not valid JSON. Output: {preview}")
 
 
 def build_profile_retry_prompt(common_name_ja: str | None, scientific_name: str | None) -> str:

@@ -2,9 +2,9 @@
 
 ## 1. 概要
 
-AI Plantgraphy は、スマホで庭木・草花の写真を基本3枚、必要に応じて1〜2枚でも撮影し、自宅PC上の Gemini CLI で植物を解析して、植物図鑑として後からスマホで見返せるようにする個人用アプリケーションである。
+AI Plantgraphy は、スマホで庭木・草花の写真を基本3枚、必要に応じて1〜2枚でも撮影し、自宅PC上の Antigravity CLI で植物を解析して、植物図鑑として後からスマホで見返せるようにする個人用アプリケーションである。
 
-ユーザーが普段使う画面は GitHub Pages 上の共用フロントとし、自宅PCは Tailscale HTTPS 経由の API、画像配信、Gemini CLI、データ保存を担当する。将来的に、同じAPIを使ってネイティブアプリを追加できる構成にする。
+ユーザーが普段使う画面は GitHub Pages 上の共用フロントとし、自宅PCは Tailscale HTTPS 経由の API、画像配信、Antigravity CLI、データ保存を担当する。将来的に、同じAPIを使ってネイティブアプリを追加できる構成にする。
 
 ## 2. 対象環境
 
@@ -24,7 +24,7 @@ AI Plantgraphy は、スマホで庭木・草花の写真を基本3枚、必要�
 - 主な役割:
   - スマホから画像を受信する
   - 画像ファイルを保存する
-  - Gemini CLI に画像1〜3枚を渡して解析する
+  - Antigravity CLI に画像1〜3枚を渡して解析する
   - 解析結果をSQLiteへ保存する
   - GitHub Pages 側が読む API と画像配信を提供する
   - 必要に応じてDiscordへ解析完了通知を送る
@@ -60,9 +60,9 @@ flowchart LR
   A["GitHub Pages Web/PWA<br/>1〜3枚選択"] --> B["Tailscale HTTPS<br/>プライベート接続"]
   B --> C["Windows 11 Pro<br/>FastAPI"]
   C --> D["画像軽量化・保存<br/>data/images"]
-  C --> E["Gemini CLI<br/>種類同定"]
+  C --> E["Antigravity CLI<br/>種類同定"]
   E --> F["SQLite<br/>observations / plants"]
-  C --> I["Gemini CLI<br/>図鑑解説生成<br/>新規植物のみ"]
+  C --> I["Antigravity CLI<br/>図鑑解説生成<br/>新規植物のみ"]
   I --> F
   F --> G["Web図鑑<br/>スマホで閲覧"]
   C --> H["Discord通知<br/>任意"]
@@ -74,7 +74,7 @@ flowchart LR
 
 1. PCでリポジトリを取得する。
 2. `scripts/install_windows.ps1` を実行し、Python仮想環境、依存ライブラリ、`.env`、デスクトップショートカットを作成する。
-3. Gemini CLIをPCで使える状態にする。
+3. Antigravity CLIをPCで使える状態にする。
 4. PCとスマホの両方でTailscaleにログインする。
 5. PCの `AI Plantgraphy を起動` ショートカットを開く。
 6. ブラウザで PC 管理画面の設定ページを開き、GitHub Pages を開くための QR コードと、スマホ側の `接続先URL` に入力する Tailscale HTTPS URL を確認する。
@@ -82,14 +82,14 @@ flowchart LR
 
 #### 日常利用
 
-1. スマホで GitHub Pages 側の `追加` ページを開く。
+1. スマホで GitHub Pages 側の `追加` ページを開く。どの画面にいても、画面右下のフローティング「📷 追加」ボタンから開始できる（タップで `追加` ページが開き、連続カメラが自動起動する）。
 2. `連続カメラ`、`通常カメラ`、`写真から選ぶ` のいずれかで写真候補を作る。
 3. 写真候補から1〜3枚を選ぶ。候補が3枚以上ある場合、初期状態では後から追加した3枚が選択される。
 4. 任意でメモと場所ラベルを入力する。
 5. `送信して解析する` を押す。
-6. スマホ側で `画像送信中`、`種類特定中`、`図鑑解説作成中` などの状態と経過時間を確認する。
-7. 解析が終わると観察詳細へ移動する。
-8. 判定が怪しい場合は候補から手動修正する、またはGeminiで再解析する。
+6. 追加ページに留まったまま、画面下の `解析キュー` に送信した写真がカードとして並び、解析状況をリアルタイムに表示する。完了すると推定した植物の種類（和名・学名・信頼度）をその場に表示する。
+7. 続けて次の3枚を撮影・送信でき、複数の解析を並行してキューで確認できる。`詳細を見る` から観察詳細へ移動する。
+8. 判定が怪しい場合は候補から手動修正する、またはAntigravity CLIで再解析する。
 9. 図鑑ページで、同じ植物ごとに写真、基本的な特徴、見た目の特徴と魅力、手入れメモ、観察履歴を見返す。
 
 #### PC停止中の利用
@@ -132,14 +132,14 @@ flowchart LR
 3. FastAPIはアプリパスワードを検証し、画像枚数、形式、ファイルサイズを確認する。
 4. サーバー側でも画像をJPEGへ変換し、長辺1280px以内、JPEG品質78で保存する。
 5. 観察記録をSQLiteの `observations` に `queued` として登録する。
-6. バックグラウンドタスクでGemini CLIを起動し、保存画像のパスを渡して種類同定を行う。
+6. バックグラウンドタスクでAntigravity CLIを起動し、保存画像のパスを渡して種類同定を行う。
 7. Geminiの返答は、リポジトリ同梱の `skills/plant-json-identifier/references/output-contract.md` に定義したトップレベルJSON契約で検証する。
 8. 入れ子JSONや別キーJSONなどのスキーマ違反があれば、同じ画像に対して1回だけ厳格な再生成を試みる。
 9. それでも契約どおりにならない場合のみ、自由文や別スキーマからの救済正規化を適用する。
 10. GeminiのJSON出力を正規化し、候補信頼度の合計が1.0を超える場合は比率を保って正規化する。
 11. `scientific_name` または `common_name_ja` で既存の `plants` と照合し、同じ植物なら紐づける。
 12. 同じ植物がない場合は `plants` に新規作成する。
-13. その植物に図鑑解説が未生成で、かつ同定信頼度が閾値以上の場合だけ、追加でGemini CLIへ植物名と学名を渡し、基本的な特徴、見た目の特徴と魅力、手入れメモを生成する。
+13. その植物に図鑑解説が未生成で、かつ同定信頼度が閾値以上の場合だけ、追加でAntigravity CLIへ植物名と学名を渡し、基本的な特徴、見た目の特徴と魅力、手入れメモを生成する。
 14. 観察の同定結果は `observations.raw_result_json` と `candidate_names` に保存し、植物そのものの解説は `plants` に保存する。
 15. GitHub Pages 側の静的HTMLとJavaScriptが、図鑑、観察記録、確認待ち、設定ページを API から描画する。
 16. PWA manifestとService Workerにより、スマホではホーム画面追加と基本的な静的アセットキャッシュに対応する。
@@ -153,7 +153,7 @@ flowchart LR
 | FastAPIアプリ | `server/app/main.py` | ルーティング、バックグラウンド解析、画面表示 |
 | DB操作 | `server/app/db.py` | SQLite初期化、移行、観察・植物・候補の保存 |
 | 画像保存 | `server/app/services/image_store.py` | 入力画像の検証、JPEG変換、軽量化、保存 |
-| Gemini連携 | `server/app/services/gemini_cli.py` | Gemini CLI実行、JSON抽出、正規化、図鑑解説生成 |
+| Gemini連携 | `server/app/services/gemini_cli.py` | Antigravity CLI実行、JSON抽出、正規化、図鑑解説生成 |
 | 接続診断 | `server/app/services/connectivity.py`, `diagnostics.py` | Tailscale、LAN URL、Gemini、アプリパスワード状態の確認 |
 | バックアップ | `server/app/services/export_store.py` | SQLiteと画像のzip化 |
 | GitHub Pages フロント | `docs/app` | 静的HTML、CSS、PWA、アップロード画面のJavaScript |
@@ -180,7 +180,7 @@ flowchart LR
 - Uvicorn
 - SQLite
 - Jinja2、PC側の保守用画面をサーバー描画する場合
-- Gemini CLI
+- Antigravity CLI
 - Tailscale、外出先接続
 - Discord Webhook、任意
 
@@ -193,6 +193,7 @@ flowchart LR
 - ユーザーは1回の観察記録につき写真候補から1〜3枚を選択できる。
 - 写真は送信前にプレビューできる。
 - 既存写真を選ぶ導線と、その場でカメラを起動する導線を分ける。
+- すべての画面の右下に、撮影を開始するためのフローティング「📷 追加」ボタンを常時表示する（`追加` ページ自身では非表示）。タップすると `追加` ページを開き、連続カメラを自動起動する。端末がカメラ権限を要求して自動起動できない場合は、`連続カメラ` ボタンの手動タップで起動できる。
 
 #### F-APP-002 メモ入力
 
@@ -209,10 +210,14 @@ flowchart LR
 - 同じWi-Fi内での動作確認用にローカルIP URLも表示する。
 - ブラウザからアップロードできるWeb画面を提供する。
 
-#### F-APP-004 送信状態表示
+#### F-APP-004 送信状態表示・解析キュー
 
 - 送信中、送信成功、送信失敗を表示する。
 - 失敗時は再送できる。
+- 送信後は `追加` ページに留まり、画面下の解析キューに送信ごとのカードを追加する。
+- 各カードは観察IDをポーリングして解析状況（待機・解析中・完了・失敗）をリアルタイムに更新する。
+- 完了したカードには推定した植物の種類（和名・学名・信頼度）を表示し、観察詳細への導線（`詳細を見る`）を提供する。
+- 複数の送信を並行してキューに保持でき、連続したバッチ解析を妨げない。
 
 #### F-APP-005 図鑑表示
 
@@ -263,13 +268,13 @@ AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
   result.json
 ```
 
-#### F-SRV-004 Gemini CLI解析
+#### F-SRV-004 Antigravity CLI解析
 
-- 保存した1〜3枚の画像をGemini CLIに渡して植物解析を行う。
+- 保存した1〜3枚の画像をAntigravity CLIに渡して植物解析を行う。
 - 画像解析段階では、植物の種類、候補、見えている特徴、不確実な点を取得する。
 - 基本的な特徴、見た目の特徴と魅力、手入れメモは観察記録ではなく図鑑側の植物情報として扱う。
 - 同じ植物が既に存在し、図鑑解説が保存済みの場合は、図鑑解説生成を再実行しない。
-- 同じ植物がない場合、または図鑑解説が未生成の場合のみ、植物名と学名をもとに追加でGemini CLIへ図鑑解説生成を依頼する。
+- 同じ植物がない場合、または図鑑解説が未生成の場合のみ、植物名と学名をもとに追加でAntigravity CLIへ図鑑解説生成を依頼する。
 - PC側の既定モデルは `PLANT_DEX_GEMINI_MODEL` で指定する。
 - 初期の既定モデルは `gemini-3-flash-preview` とする。
 - アップロード時と再解析時に、スマホ画面から使用モデルを選択できる。
@@ -307,7 +312,7 @@ AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
 
 - `/settings` で接続ガイド、診断、バックアップ、場所ラベル管理を提供する。
 - `/api/connectivity` で接続候補URLと診断情報を返す。
-- Tailscale IP、ローカルIP、Gemini CLI状態、アプリパスワード状態を確認できる。
+- Tailscale IP、ローカルIP、Antigravity CLI状態、アプリパスワード状態を確認できる。
 - GitHub Pages 側を開くQRコードと、設定入力用の Tailscale HTTPS URL を表示する。
 
 #### F-SRV-010 バックアップ
@@ -333,9 +338,12 @@ AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
 - 自宅PCのAPIはTailscale経由でアクセスすることを標準とする。
 - 初期版でも簡易パスワードを必須にする。
 - アプリパスワードはスマホブラウザのlocalStorageとPCサーバー環境変数に保持する。
-- Gemini CLIはGoogleアカウントまたはGemini APIキーで認証済みである必要がある。
-- AI PlantgraphyがGemini CLIに求めるファイル権限は、解析対象画像の読み取りである。
-- Gemini CLIに管理者権限やリポジトリ全体の編集権限を与えることは必須ではない。
+- Antigravity CLIはGoogleアカウントで認証済みである必要がある（Gemini API キーは不要）。
+- AI PlantgraphyがAntigravity CLIに求めるファイル権限は、解析対象画像の読み取りである。
+- Antigravity CLIに管理者権限やリポジトリ全体の編集権限を与えることは必須ではない。
+- Antigravity CLI（`agy`）はターミナル前提のため、Windows では擬似端末（`pywinpty`）経由で `agy -p` を起動する。標準パイプ実行では出力を取得できないため。
+- 画像読み取りツールを自動承認するため `--dangerously-skip-permissions` を付与する。付与する権限は画像読み取りに限られる。
+- `agy` は応答後もプロセスが終了し続けないことがあるため、出力契約どおりのJSONが揃った時点で結果を確定し、プロセスを停止する（完了検知）。ハードタイムアウトも併用する。
 - Discordのユーザートークンは使用しない。
 - Discord連携はWebhookまたはBotトークンのみ使用する。
 - アプリパスワード初期値 `change-me` のままなら設定ページで警告する。
@@ -353,7 +361,7 @@ AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
 
 - 送信失敗時はスマホ側で再送できる。
 - 解析失敗時はPC側に未解析データとして残す。
-- Gemini CLIのエラー内容をログに記録する。
+- Antigravity CLIのエラー内容をログに記録する。
 - DBと画像フォルダは定期バックアップ可能な構造にする。
 - 自宅PCがスリープ中またはAI Plantgraphy未起動の場合は利用できないことを接続ガイドに表示する。
 
@@ -367,7 +375,7 @@ AI-Plantgraphy\data\images\20260411-114500-a1b2c3\
 ### 8.5 保守性
 
 - 画像保存、DB操作、Gemini呼び出し、Web表示を分離する。
-- Gemini CLIからGemini APIへ差し替えやすい設計にする。
+- 解析バックエンド（Antigravity CLI）を他の方式（Gemini API など）へ差し替えやすい設計にする。
 - スマホWeb/PWAとPCサーバーはAPI契約で疎結合にする。
 - 将来のネイティブアプリ追加に備え、APIはWeb画面専用に閉じない。
 
@@ -449,7 +457,7 @@ Content-Type: `multipart/form-data`
 | captured_at | 任意 | 撮影日時 |
 | note | 任意 | メモ |
 | location_label | 任意 | 場所ラベル |
-| gemini_model | 任意 | この解析で使うGemini CLIモデル |
+| gemini_model | 任意 | この解析で使うAntigravity CLIモデル |
 | latitude | 任意 | 緯度 |
 | longitude | 任意 | 経度 |
 
@@ -496,7 +504,7 @@ X-Plant-Dex-Api-Key: <app-password>
 
 ### 10.8 GET `/api/diagnostics`
 
-Gemini CLI、画像フォルダ、DB、ログ、Tailscaleなどの診断結果を取得する。
+Antigravity CLI、画像フォルダ、DB、ログ、Tailscaleなどの診断結果を取得する。
 
 ### 10.9 GET `/api/settings/location-labels`
 
@@ -679,8 +687,8 @@ PCサーバーは以下をログに残す。
 
 - 画像受信
 - 入力検証エラー
-- Gemini CLI開始・終了
-- Gemini CLIエラー
+- Antigravity CLI開始・終了
+- Antigravity CLIエラー
 - DB保存結果
 - 図鑑解説生成の失敗
 - Discord通知結果
@@ -698,7 +706,7 @@ AI-Plantgraphy\data\logs\server.log
 | ステータス | 意味 |
 | --- | --- |
 | queued | 受信済みで解析待ち |
-| analyzing | Gemini CLIで解析中 |
+| analyzing | Antigravity CLIで解析中 |
 | analyzed | 解析済み |
 | needs_review | 信頼度が低く確認待ち |
 | analysis_failed | 解析失敗 |
@@ -787,7 +795,7 @@ AI-Plantgraphy\
 - Windows 11 Pro上でFastAPIサーバーが起動する
 - スマホまたはテストクライアントから画像1〜3枚を送信できる
 - 画像が観察記録フォルダに保存される
-- Gemini CLIで画像1〜3枚の解析が実行される
+- Antigravity CLIで画像1〜3枚の解析が実行される
 - 解析結果がSQLiteに保存される
 - 同じ学名または標準和名の植物が自動でまとめられる
 - Web図鑑の一覧・詳細ページで結果を確認できる

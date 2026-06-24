@@ -6,7 +6,7 @@ AI PlantgraphyをWindows PCで動かし、スマホからTailscale経由で使�
 
 - Windows 11
 - Python 3.12以上
-- Gemini CLI
+- Antigravity CLI
 - Tailscaleアカウント
 - AndroidまたはiPhoneのスマホ
 
@@ -65,27 +65,27 @@ PCの設定ページに表示されるQRコードをスマホで読みます。
 
 写真を送る場合は `写真を送る` のQRコードを使います。
 
-## 8. Gemini CLIを有効にする
+## 8. Antigravity CLIを有効にする
 
 PowerShellで以下が動くことを確認します。
 
 ```powershell
-gemini --version
+agy --version
 ```
 
-Gemini CLIは、GoogleアカウントまたはGemini APIキーで一度認証しておく必要があります。
-AI PlantgraphyはGemini CLIを非対話モードで呼び出すだけなので、管理者権限やリポジトリ編集権限は不要です。
+Antigravity CLI は一度認証しておく必要があります。
+AI Plantgraphy は Antigravity CLI を非対話モードで呼び出すだけなので、管理者権限やリポジトリ編集権限は不要です。
 フォルダ信頼やサンドボックス設定を求められた場合は、AI Plantgraphyのリポジトリ、または `data\images` フォルダの読み取りを許可してください。
 
 `.env` を開いて以下に変更します。
 
 ```text
 PLANT_DEX_GEMINI_ENABLED=true
-PLANT_DEX_GEMINI_COMMAND=gemini
-PLANT_DEX_GEMINI_MODEL=gemini-3-flash-preview
+PLANT_DEX_GEMINI_COMMAND=agy
+PLANT_DEX_GEMINI_MODEL=
 ```
 
-`PLANT_DEX_GEMINI_MODEL` を空欄にするとGemini CLIの既定モデルを使います。スマホ画面ではアップロード時と再解析時にモデルを選べます。
+`PLANT_DEX_GEMINI_MODEL` を空欄にすると Antigravity CLI の既定モデルを使います。スマホ画面ではアップロード時と再解析時にモデルを選べます。
 
 AI Plantgraphyを再起動します。
 
@@ -97,7 +97,7 @@ AI Plantgraphyを再起動します。
 http://127.0.0.1:8000/settings
 ```
 
-接続、保存先、Gemini CLI、アプリパスワードの状態を確認できます。
+接続、保存先、Antigravity CLI、アプリパスワードの状態を確認できます。
 
 ## 10. テスト
 

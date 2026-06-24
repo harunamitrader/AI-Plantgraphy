@@ -32,7 +32,7 @@
     <div><span>撮影日</span><strong>{{ observation.observed_label }}</strong></div>
     <div><span>場所</span><strong>{{ observation.location_label or "未入力" }}</strong></div>
     <div><span>メモ</span><strong>{{ observation.note or "なし" }}</strong></div>
-    <div><span>Geminiモデル</span><strong>{{ observation.analysis.gemini_model or "記録なし" }}</strong></div>
+    <div><span>Antigravityモデル</span><strong>{{ observation.analysis.gemini_model or "記録なし" }}</strong></div>
   </section>
 
   {% if observation.status in ["queued", "analyzing"] %}
@@ -268,8 +268,8 @@
 
       {% if observation.status not in ['queued', 'analyzing'] %}
       <div class="action-form">
-        <button id="reanalyzeBtn" class="btn btn-primary" type="button">Gemini で再解析する</button>
-        <p class="field-help">アプリパスワードとGeminiモデルは <a href="/settings">設定</a> で変更できます。</p>
+        <button id="reanalyzeBtn" class="btn btn-primary" type="button">Antigravity で再解析する</button>
+        <p class="field-help">アプリパスワードとAntigravityモデルは <a href="/settings">設定</a> で変更できます。</p>
       </div>
       <p id="reanalyzeStatus" class="action-status"></p>
       {% endif %}

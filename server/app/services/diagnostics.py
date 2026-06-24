@@ -17,11 +17,11 @@ def build_diagnostics() -> dict:
         ),
         check_item(
             "gemini_cli",
-            "Gemini CLI",
+            "Antigravity CLI",
             connectivity["checks"]["gemini_cli"] == "ok",
-            "Gemini CLIが見つかりません。`gemini --version` が動く状態にしてください。",
+            "Antigravity CLI が見つかりません。`agy --version` が動く状態にしてください。",
             skipped=not settings.gemini_enabled,
-            skipped_message="Gemini解析は無効です。仮解析で使う場合はこのままで大丈夫です。",
+            skipped_message="Antigravity 解析は無効です。仮解析で使う場合はこのままで大丈夫です。",
         ),
         check_item(
             "tailscale",

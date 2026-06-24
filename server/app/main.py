@@ -892,7 +892,7 @@ def get_analysis_progress(observation_id: str, status: str | None) -> dict:
 def format_analysis_error(exc: Exception) -> str:
     message = str(exc)
     if "timed out after" in message:
-        return "Gemini CLIがタイムアウトしました。Gemini CLIのログイン状態、Gemini側のAPIキー、通信状態を確認してから再解析してください。"
+        return "Antigravity CLI がタイムアウトしました。`agy` のログイン状態と通信状態を確認してから再解析してください。"
     if len(message) > 600:
         return message[:597].rstrip() + "..."
     return message

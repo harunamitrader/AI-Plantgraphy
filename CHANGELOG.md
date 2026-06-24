@@ -7,10 +7,17 @@
 - アプリ名を AI Plantgraphy に変更
 - README、仕様書、セットアップ手順をOSS公開向けに整理
 - ブランド画像、ヘッダー画像、PWAアイコンを追加
-- Gemini CLI の植物同定スキル `skills/plant-json-identifier` を追加
+- 植物解析の実行を Gemini CLI から Antigravity CLI（`agy`）へ移行
+- Antigravity CLI の植物同定スキル `skills/plant-json-identifier` を追加
 - 植物同定プロンプトとスキルのJSON出力契約を共通化
-- Gemini CLI が自由文、別キーJSON、入れ子JSONを返した場合の再試行と正規化を強化
+- Antigravity CLI が自由文、別キーJSON、入れ子JSONを返した場合の再試行と正規化を強化
 - 低信頼結果での図鑑プロフィール自動生成を抑止し、誤った図鑑文の混入を減らした
+- Antigravity CLI を擬似端末（`pywinpty`）経由で起動し、Windows の非対話実行で出力が取得できない問題を解消
+- 画像読み取りツールを `--dangerously-skip-permissions` で自動承認し、契約JSONが揃った時点で結果を確定する完了検知を実装（応答後に終了しない `agy` プロセスのタイムアウトを防止）
+- 認証は Google アカウントのみで動作（Gemini API キー不要）
+- 共用フロント（PWA）のUIをスマホ前提で全面刷新（大きめのタップ領域・読みやすい文字と配色）
+- どの画面からでも撮影を始められるフローティング「📷 追加」ボタンを追加し、タップで連続カメラを自動起動
+- 追加画面に解析キューを追加し、送信した写真の解析状況と推定した植物の種類をその場で表示（連続したバッチ解析が可能）
 
 ## 0.1.0
 

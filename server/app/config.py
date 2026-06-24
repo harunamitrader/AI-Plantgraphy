@@ -12,23 +12,16 @@ LOG_DIR = DATA_DIR / "logs"
 EXPORT_DIR = DATA_DIR / "exports"
 DB_PATH = DATA_DIR / "plants.sqlite"
 DEFAULT_GEMINI_MODEL_OPTIONS = (
-    "auto-gemini-3",
-    "auto-gemini-2.5",
-    "gemini-3.1-pro-preview",
-    "gemini-3-flash-preview",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
+    "Gemini 3.5 Flash (Medium)",
+    "Gemini 3.5 Flash (High)",
+    "Gemini 3.5 Flash (Low)",
+    "Gemini 3.1 Pro (Low)",
+    "Gemini 3.1 Pro (High)",
+    "Claude Sonnet 4.6 (Thinking)",
+    "Claude Opus 4.6 (Thinking)",
+    "GPT-OSS 120B (Medium)",
 )
-GEMINI_MODEL_LABELS = {
-    "auto-gemini-3": "Auto (Gemini 3)",
-    "auto-gemini-2.5": "Auto (Gemini 2.5)",
-    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
-    "gemini-3-flash-preview": "gemini-3-flash-preview",
-    "gemini-2.5-pro": "gemini-2.5-pro",
-    "gemini-2.5-flash": "gemini-2.5-flash",
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
-}
+GEMINI_MODEL_LABELS = {}
 
 
 class Settings(BaseSettings):
@@ -37,8 +30,8 @@ class Settings(BaseSettings):
     server_name: str = socket.gethostname()
     shared_frontend_url: str = "https://harunamitrader.github.io/AI-Plantgraphy/app/"
     gemini_enabled: bool = False
-    gemini_command: str = "gemini"
-    gemini_model: str = "gemini-3-flash-preview"
+    gemini_command: str = "agy"
+    gemini_model: str = ""
     gemini_model_options: str = ",".join(DEFAULT_GEMINI_MODEL_OPTIONS)
     gemini_timeout_seconds: int = 180
     discord_webhook_url: str = ""

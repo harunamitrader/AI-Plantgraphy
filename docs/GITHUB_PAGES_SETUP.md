@@ -12,7 +12,7 @@ AI Plantgraphy は、**画面は GitHub Pages 側、解析と保存は自宅 PC 
 - `https://harunamitrader.github.io/AI-Plantgraphy/app/`
 
 この URL をスマホで開いてホーム画面に追加し、普段はそこから使います。  
-自宅 PC 側は、写真の受信、Gemini CLI 解析、画像保存、図鑑データ保存のためのバックエンドとして動きます。
+自宅 PC 側は、写真の受信、Antigravity CLI 解析、画像保存、図鑑データ保存のためのバックエンドとして動きます。
 
 ## なぜ Tailscale HTTPS が必要か
 
@@ -32,7 +32,7 @@ AI Plantgraphy の正面 UI は GitHub Pages の HTTPS ページです。
 - スマホ
 - Tailscale アカウント
 - PC とスマホの両方に Tailscale をインストールしてログイン
-- PC 側に Gemini CLI と AI Plantgraphy サーバー
+- PC 側に Antigravity CLI と AI Plantgraphy サーバー
 
 ## 安全仕様
 
@@ -58,7 +58,7 @@ AI Plantgraphy の正面 UI は GitHub Pages の HTTPS ページです。
 1. Windows PC で AI Plantgraphy サーバーを起動する  
    - `C:\Users\sgmxk\Desktop\AI Plantgraphy を起動.lnk`
 2. PC で Tailscale にログインしておく
-3. Gemini CLI が使える状態にしておく
+3. Antigravity CLI が使える状態にしておく
 
 ### [検証]
 
@@ -97,7 +97,7 @@ AI Plantgraphy の正面 UI は GitHub Pages の HTTPS ページです。
 
 1. `接続先URL` に、自分の PC の Tailscale HTTPS URL を入れる
 2. `アプリパスワード` を入れる
-3. `Geminiモデル` を選ぶ
+3. `Antigravityモデル` を選ぶ
 4. `この端末に保存` を押す
 5. `接続先を確認` を押す
 
