@@ -220,11 +220,34 @@
     });
   }
 
+  function mountQuickAddButton() {
+    if (!document.body || document.querySelector('.fab-add')) {
+      return;
+    }
+    const path = (window.location.pathname || '').toLowerCase();
+    const isUploadPage = path.endsWith('/upload') || path.endsWith('upload.html');
+    if (isUploadPage) {
+      return;
+    }
+    const fab = document.createElement('a');
+    fab.className = 'fab-add';
+    fab.setAttribute('aria-label', '植物を追加（連続カメラ）');
+    fab.href = `${pageUrl('upload')}#capture`;
+    fab.innerHTML = '<span class="fab-add-icon" aria-hidden="true">📷</span><span class="fab-add-label">追加</span>';
+    document.body.appendChild(fab);
+    document.body.classList.add('has-fab');
+  }
+
+  function initChrome() {
+    bindOnlineLinks();
+    mountQuickAddButton();
+  }
+
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => bindOnlineLinks());
+      document.addEventListener('DOMContentLoaded', initChrome);
     } else {
-      bindOnlineLinks();
+      initChrome();
     }
   }
 
