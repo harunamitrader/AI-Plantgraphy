@@ -1567,8 +1567,7 @@ body::before {
 }
 
 .site-header,
-.page,
-.image-modal {
+.page {
   position: relative;
   z-index: 1;
 }
