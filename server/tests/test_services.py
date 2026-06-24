@@ -133,9 +133,11 @@ class ServiceTests(unittest.TestCase):
                 "visible_features": ["one"],
             }
         )
-        self.assertEqual(result["confidence"], 0.95)
         total = sum(candidate["confidence"] for candidate in result["candidates"])
         self.assertAlmostEqual(total, 1.0)
+        # 候補が複数あるときは、見出しの総合信頼度を正規化後の最有力候補に合わせる
+        self.assertAlmostEqual(result["confidence"], result["candidates"][0]["confidence"])
+        self.assertAlmostEqual(result["confidence"], 0.36, places=2)
 
     def test_manual_correction_preserves_ai_candidates(self):
         with TemporaryDirectory() as tmp:

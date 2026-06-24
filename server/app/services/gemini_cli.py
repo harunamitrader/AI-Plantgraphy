@@ -1128,6 +1128,9 @@ def normalize_result(result: dict) -> dict:
     result["visible_features"] = normalize_visible_features(result.get("visible_features"))
     result["confidence"] = normalize_confidence(result.get("confidence"))
     result["candidates"] = normalize_candidates(result.get("candidates"))
+    result["confidence"] = align_confidence_with_top_candidate(
+        result["confidence"], result["candidates"]
+    )
     result["uncertainty_notes"] = truncate_text(
         build_uncertainty_notes(result, str(result.get("uncertainty_notes") or "").strip()),
         120,
@@ -1413,6 +1416,25 @@ def normalize_candidates(value: object) -> list[dict]:
         normalized.append(item)
     normalize_candidate_confidence_sum(normalized)
     return normalized
+
+
+def align_confidence_with_top_candidate(confidence: float, candidates: list[dict]) -> float:
+    """Keep the headline confidence equal to the leading candidate's confidence.
+
+    候補の信頼度は合計が1.0を超えると比率を保って正規化される。見出しの総合信頼度を
+    その正規化後の最有力候補の値に合わせ、観察ヘッダーと候補リスト先頭が常に一致する
+    ようにする。候補が2件以上ある画像解析の結果にのみ適用し、名前解決などで合成された
+    単一候補の場合は元の総合信頼度を保つ。最有力候補が信頼度を持たない場合も元の値を保つ。
+    """
+    if len(candidates) < 2:
+        return confidence
+    top = candidates[0]
+    if not isinstance(top, dict):
+        return confidence
+    top_confidence = top.get("confidence")
+    if isinstance(top_confidence, int | float) and not isinstance(top_confidence, bool) and top_confidence > 0:
+        return normalize_confidence(top_confidence)
+    return confidence
 
 
 def normalize_candidate_confidence_sum(candidates: list[dict]) -> None:
