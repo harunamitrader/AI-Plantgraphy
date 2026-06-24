@@ -665,7 +665,7 @@ Antigravity CLI、画像フォルダ、DB、ログ、Tailscaleなどの診断結
 
 - `scientific_name` が既存植物と完全一致する場合は同じ植物とする。
 - `scientific_name` が空で、`common_name_ja` が既存植物と一致する場合は同じ植物とする。
-- `confidence` が0.65未満の場合は `needs_review` とする。
+- `confidence` が0.50未満の場合は `needs_review`（確認待ち）とする。
 
 ### 13.2 手動修正
 

@@ -755,7 +755,7 @@ def save_analysis_result(observation_id: str, result: dict) -> str:
         raise ValueError(f"Observation not found: {observation_id}")
 
     confidence = parse_float(result.get("confidence"))
-    status = "analyzed" if confidence is None or confidence >= 0.65 else "needs_review"
+    status = "analyzed" if confidence is None or confidence >= 0.50 else "needs_review"
     plant_id = find_or_create_plant(
         result,
         observation["image1_path"],
