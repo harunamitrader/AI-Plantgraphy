@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>植物を追加 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v14">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v15">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v14">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v15">
   </head>
   <body>
     <header class="site-header">
@@ -81,15 +81,27 @@
             <div><span>送信先URL</span><strong id="uploadApiBaseLabel">未設定</strong></div>
             <div><span>接続先PC</span><strong id="uploadServerNameLabel">未確認</strong></div>
           </div>
-          <p class="field-help">アプリパスワードとGeminiモデルは <a href="./settings.html">設定</a> で変更できます。</p>
+          <p class="field-help">アプリパスワードとAntigravityモデルは <a href="./settings.html">設定</a> で変更できます。</p>
           <p class="field-help">共用フロントなので、必ず自分のPCの接続先URLを設定してから送信してください。</p>
           <p id="uploadStatus" class="action-status"></p>
         </form>
       </section>
+
+      <section class="panel" id="queuePanel" hidden>
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Live results</p>
+            <h2>解析キュー</h2>
+          </div>
+          <button class="btn" id="clearQueueBtn" type="button">完了を消す</button>
+        </div>
+        <p class="field-help">送信した写真の解析状況と結果がここに並びます。続けて撮影して、どんどん送れます。</p>
+        <div class="analyze-queue" id="analyzeQueue"></div>
+      </section>
     </main>
 
-    <script src="./static/offline-drafts.js?v=pages-v14" defer></script>
-    <script src="./static/app.js?v=pages-v14" defer></script>
+    <script src="./static/offline-drafts.js?v=pages-v15" defer></script>
+    <script src="./static/app.js?v=pages-v15" defer></script>
     <script>
       window.addEventListener('load', async () => {
         const form = document.getElementById('uploadForm');
@@ -109,7 +121,11 @@
         const uploadApiBaseLabel = document.getElementById('uploadApiBaseLabel');
         const uploadServerNameLabel = document.getElementById('uploadServerNameLabel');
         const locationLabelSelect = document.getElementById('locationLabel');
+        const queuePanel = document.getElementById('queuePanel');
+        const analyzeQueue = document.getElementById('analyzeQueue');
+        const clearQueueBtn = document.getElementById('clearQueueBtn');
         const appConfig = window.AIPlantgraphyApp;
+        const queueItems = new Map();
         let uploadStartedAt = 0;
         let elapsedTimer = null;
         let candidates = [];
@@ -462,8 +478,10 @@
             }
             stopElapsedTimer();
             saveLastLocationLabel(locationLabel);
+            const thumbUrl = URL.createObjectURL(files[0]);
+            addQueueItem(data.observation_id, thumbUrl, document.getElementById('note').value);
             resetUploadState();
-            setStatus(`解析を開始しました。次の植物を続けて追加できます。観察ID: ${data.observation_id}`, false);
+            setStatus('解析を開始しました。続けて撮影して送れます。結果は下の「解析キュー」に表示されます。', false);
           } catch (error) {
             stopElapsedTimer();
             uploadButton.disabled = false;
@@ -500,34 +518,97 @@
           }
         }
 
-        function pollObservation(observationId) {
-          let attempts = 0;
-          const timer = window.setInterval(async () => {
-            attempts += 1;
-            try {
-              const response = await fetch(appConfig.apiUrl(`/api/observations/${observationId}`));
-              const data = await response.json();
-              const seconds = Math.max(0, Math.floor((Date.now() - uploadStartedAt) / 1000));
-              statusText.textContent = `${progressLabel(data)}${identityLabel(data)} / 経過 ${seconds}秒`;
-              if (data.status !== 'queued' && data.status !== 'analyzing') {
-                window.clearInterval(timer);
-                stopElapsedTimer();
-                window.location.href = appConfig ? appConfig.observationUrl(observationId) : observationId;
-              }
-              if (attempts >= 72) {
-                window.clearInterval(timer);
-                stopElapsedTimer();
-                window.location.href = appConfig ? appConfig.observationUrl(observationId) : observationId;
-              }
-            } catch (error) {
-              window.clearInterval(timer);
-              stopElapsedTimer();
-              uploadButton.disabled = false;
-              saveDraftButton.disabled = false;
-              setStatus(`状態確認に失敗しました: ${error.message} 接続が戻るまで未送信保存を優先してください。`, true);
-            }
-          }, 5000);
+        function addQueueItem(observationId, thumbUrl, note) {
+          if (!observationId) {
+            return;
+          }
+          queuePanel.hidden = false;
+          const item = {
+            id: observationId,
+            thumbUrl,
+            note: note || '',
+            status: 'queued',
+            startedAt: Date.now(),
+            attempts: 0,
+            timer: null,
+            el: null
+          };
+          queueItems.set(observationId, item);
+          const card = document.createElement('article');
+          card.className = 'queue-card';
+          card.dataset.status = 'analyzing';
+          item.el = card;
+          analyzeQueue.prepend(card);
+          renderQueueItem(item, { label: '送信完了。解析待ち', name: '', detail: '', done: false });
+          item.timer = window.setInterval(() => pollQueueItem(observationId), 4000);
+          pollQueueItem(observationId);
         }
+
+        function renderQueueItem(item, view) {
+          const seconds = Math.max(0, Math.floor((Date.now() - item.startedAt) / 1000));
+          const link = appConfig ? appConfig.observationUrl(item.id) : item.id;
+          item.el.dataset.status = view.done ? (view.failed ? 'failed' : 'done') : 'analyzing';
+          item.el.innerHTML = `
+            <img class="queue-thumb" src="${item.thumbUrl}" alt="解析中の写真">
+            <div class="queue-body">
+              <span class="queue-state">${view.done ? (view.failed ? '解析できませんでした' : '解析完了') : `${view.label} ・ ${seconds}秒`}</span>
+              ${view.name ? `<strong class="queue-name">${view.name}</strong>` : '<strong class="queue-name queue-name-pending">解析中…</strong>'}
+              ${view.detail ? `<span class="queue-sub">${view.detail}</span>` : ''}
+              ${item.note ? `<span class="queue-note">📝 ${item.note}</span>` : ''}
+              <a class="queue-link" href="${link}">詳細を見る →</a>
+            </div>`;
+        }
+
+        async function pollQueueItem(observationId) {
+          const item = queueItems.get(observationId);
+          if (!item) {
+            return;
+          }
+          item.attempts += 1;
+          try {
+            const response = await fetch(appConfig.apiUrl(`/api/observations/${observationId}`));
+            const data = await response.json();
+            const analysis = parseAnalysis(data.raw_result_json);
+            const name = analysis.common_name_ja || analysis.scientific_name || '';
+            const sci = analysis.scientific_name && analysis.scientific_name !== name ? analysis.scientific_name : '';
+            const conf = typeof analysis.confidence === 'number' ? `信頼度 ${Math.round(analysis.confidence * 100)}%` : '';
+            const detail = [sci, conf].filter(Boolean).join(' ・ ');
+            const finished = data.status !== 'queued' && data.status !== 'analyzing';
+            const failed = data.status === 'failed' || data.status === 'error';
+            renderQueueItem(item, {
+              label: progressLabel(data),
+              name: name || (finished && !failed ? '名称を取得できませんでした' : ''),
+              detail,
+              done: finished,
+              failed
+            });
+            if (finished || item.attempts >= 90) {
+              window.clearInterval(item.timer);
+              item.timer = null;
+            }
+          } catch (error) {
+            window.clearInterval(item.timer);
+            item.timer = null;
+            renderQueueItem(item, { label: '状態確認に失敗', name: '', detail: error.message, done: true, failed: true });
+          }
+        }
+
+        clearQueueBtn.addEventListener('click', () => {
+          queueItems.forEach((item, id) => {
+            if (!item.timer) {
+              if (item.thumbUrl) {
+                URL.revokeObjectURL(item.thumbUrl);
+              }
+              if (item.el) {
+                item.el.remove();
+              }
+              queueItems.delete(id);
+            }
+          });
+          if (queueItems.size === 0) {
+            queuePanel.hidden = true;
+          }
+        });
 
         renderLocationLabels([]);
         await refreshUploadTarget();
