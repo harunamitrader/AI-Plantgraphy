@@ -140,6 +140,7 @@ PROMPT = build_identifier_prompt()
 def analyze_images(
     image_paths: list[Path],
     gemini_model: str | None = None,
+    analysis_comment: str | None = None,
     progress_callback: Callable[[str], None] | None = None,
     identity_callback: Callable[[dict], None] | None = None,
     process_started_callback: Callable[[int], None] | None = None,
@@ -163,7 +164,7 @@ def analyze_images(
         copy_started_at = time.perf_counter()
         readable_paths = copy_images_for_gemini(image_paths, Path(temp_dir))
         copy_seconds = elapsed_seconds(copy_started_at)
-        prompt = build_prompt(readable_paths)
+        prompt = build_prompt(readable_paths, analysis_comment=analysis_comment)
         if progress_callback:
             progress_callback("identifying")
         cli_started_at = time.perf_counter()
@@ -415,7 +416,12 @@ def run_antigravity_prompt(
 def clean_model_name(value: str | None) -> str:
     if value is None:
         return ""
-    return value.strip()
+    model = value.strip()
+    # Older PWA settings can still send the retired Flash 3.5 model names.
+    for effort in ("Low", "Medium", "High"):
+        if model == f"Gemini 3.5 Flash ({effort})":
+            return f"Gemini 3.8 Flash ({effort})"
+    return model
 
 
 def strip_model_args(command_parts: list[str]) -> list[str]:
@@ -469,9 +475,18 @@ def sanitize_terminal_output(output: str) -> str:
     return cleaned.strip()
 
 
-def build_prompt(image_paths: list[Path]) -> str:
+def build_prompt(image_paths: list[Path], analysis_comment: str | None = None) -> str:
     attachments = "\n".join(f"@{path.absolute()}" for path in image_paths)
-    return f"""{attachments}
+    comment = str(analysis_comment or "").strip()
+    comment_section = (
+        "\n\n利用者からの補足コメント:\n"
+        "以下は画像の観察を補助する情報です。画像と矛盾する場合は画像を優先し、"
+        "コメントだけで断定しないでください。\n"
+        f"{comment}"
+        if comment
+        else ""
+    )
+    return f"""{attachments}{comment_section}
 
 {PROMPT}
 

@@ -21,6 +21,7 @@ from server.app.services.gemini_cli import (
     build_identifier_prompt,
     build_prompt,
     build_identifier_retry_prompt,
+    clean_model_name,
     extract_forbidden_top_level_keys,
     extract_gemini_response,
     generate_plant_profile,
@@ -35,6 +36,16 @@ from server.app.services.image_store import MAX_IMAGE_EDGE, save_observation_ima
 
 
 class ServiceTests(unittest.TestCase):
+    def test_retired_flash_model_names_are_migrated(self):
+        for effort in ("Low", "Medium", "High"):
+            with self.subTest(effort=effort):
+                self.assertEqual(
+                    clean_model_name(f" Gemini 3.5 Flash ({effort}) "),
+                    f"Gemini 3.8 Flash ({effort})",
+                )
+        self.assertEqual(clean_model_name("Gemini 3.1 Pro (High)"), "Gemini 3.1 Pro (High)")
+        self.assertEqual(clean_model_name(None), "")
+
     def setUp(self):
         main.ANALYSIS_PROGRESS.clear()
         main.ANALYSIS_RUNS.clear()
@@ -94,6 +105,18 @@ class ServiceTests(unittest.TestCase):
                 self.assertEqual(len(paths), count)
                 self.assertTrue(all(path.exists() for path in paths))
                 self.assertTrue(all(path.suffix == ".jpg" for path in paths))
+
+    def test_build_prompt_includes_optional_analysis_comment(self):
+        with TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "plant.jpg"
+            image_path.write_bytes(b"image")
+            prompt = build_prompt([image_path], analysis_comment="葉に細かい鋸歯があると思う")
+            self.assertIn("利用者からの補足コメント", prompt)
+            self.assertIn("葉に細かい鋸歯があると思う", prompt)
+            self.assertIn("画像と矛盾する場合は画像を優先", prompt)
+
+            without_comment = build_prompt([image_path])
+            self.assertNotIn("利用者からの補足コメント", without_comment)
 
     def test_save_observation_optimizes_large_images(self):
         with TemporaryDirectory() as tmp:

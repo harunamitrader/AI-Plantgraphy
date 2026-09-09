@@ -1129,6 +1129,7 @@ pre {
 
 .action-form input,
 .action-form select,
+.action-form textarea,
 .export-box input,
 .edit-form input,
 .edit-form textarea {
@@ -1148,6 +1149,7 @@ pre {
 
 .action-form input:focus,
 .action-form select:focus,
+.action-form textarea:focus,
 .export-box input:focus,
 .edit-form input:focus,
 .edit-form textarea:focus {

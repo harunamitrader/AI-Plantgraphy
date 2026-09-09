@@ -526,6 +526,7 @@ def reanalyze(
     observation_id: str,
     background_tasks: BackgroundTasks,
     gemini_model: str | None = Form(default=None),
+    analysis_comment: str | None = Form(default=None),
 ) -> dict:
     observation = db.get_observation(observation_id)
     if observation is None:
@@ -542,7 +543,8 @@ def reanalyze(
     ]
     db.set_observation_status(observation_id, "queued")
     set_analysis_progress(observation_id, "queued", "解析待ち", 0)
-    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model)
+    comment = str(analysis_comment or "").strip()[:1000]
+    background_tasks.add_task(run_analysis, observation_id, image_paths, gemini_model, comment)
     return {"status": "queued", "observation_id": observation_id}
 
 
@@ -652,7 +654,12 @@ def review(request: Request) -> HTMLResponse:
     )
 
 
-def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str | None = None) -> None:
+def run_analysis(
+    observation_id: str,
+    image_paths: list[Path],
+    gemini_model: str | None = None,
+    analysis_comment: str | None = None,
+) -> None:
     analysis_started_at = time.perf_counter()
     begin_analysis_run(observation_id)
     try:
@@ -665,6 +672,7 @@ def run_analysis(observation_id: str, image_paths: list[Path], gemini_model: str
         result = analyze_images(
             image_paths,
             gemini_model=gemini_model,
+            analysis_comment=analysis_comment,
             progress_callback=lambda phase: set_analysis_phase(observation_id, phase),
             identity_callback=lambda identity: save_identity_preview(observation_id, identity),
             process_started_callback=lambda pid: set_analysis_process_pid(observation_id, pid),

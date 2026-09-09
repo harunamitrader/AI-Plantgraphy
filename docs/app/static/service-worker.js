@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-plantgraphy-pages-v17';
+const CACHE_NAME = 'ai-plantgraphy-pages-v18';
 const CORE_ASSET_PATHS = [
   '',
   'index.html',
@@ -143,4 +143,3 @@ async function refreshPageCache(url) {
     // keep current cache
   }
 }
-

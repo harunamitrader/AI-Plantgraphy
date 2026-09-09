@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#2e7a55">
     <title>観察詳細 | AI Plantgraphy</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=pages-v17">
+    <link rel="manifest" href="./manifest.webmanifest?v=pages-v18">
     <link rel="icon" href="./static/icons/icon-192.png">
     <link rel="apple-touch-icon" href="./static/icons/icon-192.png">
-    <link rel="stylesheet" href="./static/style.css?v=pages-v17">
+    <link rel="stylesheet" href="./static/style.css?v=pages-v18">
   </head>
   <body>
     <header class="site-header">
@@ -153,6 +153,9 @@
         </div>
 
         <div class="action-form" id="reanalyzeBlock">
+          <label for="reanalyzeComment">AIへの補足コメント（任意）</label>
+          <textarea id="reanalyzeComment" rows="3" maxlength="1000" placeholder="例：○○の樹種だと思う。葉っぱに○○の特徴がある。"></textarea>
+          <p class="field-help">画像と矛盾する場合は画像を優先して判断します。</p>
           <button id="reanalyzeBtn" class="btn btn-primary" type="button">Antigravity で再解析する</button>
           <p class="field-help">アプリパスワードとAntigravityモデルは <a href="./settings.html">設定</a> で変更できます。</p>
         </div>
@@ -568,6 +571,7 @@
           try {
             const formData = new FormData();
             formData.append('gemini_model', getGeminiModel());
+            formData.append('analysis_comment', (document.getElementById('reanalyzeComment')?.value || '').trim());
             const response = await fetch(appConfig.apiUrl(`/api/observations/${encodeURIComponent(observationId)}/reanalyze`), {
               method: 'POST',
               headers: {
@@ -740,5 +744,3 @@
     </script>
   </body>
 </html>
-
-

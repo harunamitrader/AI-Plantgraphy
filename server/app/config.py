@@ -12,9 +12,9 @@ LOG_DIR = DATA_DIR / "logs"
 EXPORT_DIR = DATA_DIR / "exports"
 DB_PATH = DATA_DIR / "plants.sqlite"
 DEFAULT_GEMINI_MODEL_OPTIONS = (
-    "Gemini 3.5 Flash (Medium)",
-    "Gemini 3.5 Flash (High)",
-    "Gemini 3.5 Flash (Low)",
+    "Gemini 3.8 Flash (Medium)",
+    "Gemini 3.8 Flash (High)",
+    "Gemini 3.8 Flash (Low)",
     "Gemini 3.1 Pro (Low)",
     "Gemini 3.1 Pro (High)",
     "Claude Sonnet 4.6 (Thinking)",
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     shared_frontend_url: str = "https://harunamitrader.github.io/AI-Plantgraphy/app/"
     gemini_enabled: bool = False
     gemini_command: str = "agy"
-    gemini_model: str = ""
+    gemini_model: str = "Gemini 3.8 Flash (Medium)"
     gemini_model_options: str = ",".join(DEFAULT_GEMINI_MODEL_OPTIONS)
     gemini_timeout_seconds: int = 180
     discord_webhook_url: str = ""
